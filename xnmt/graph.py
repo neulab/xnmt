@@ -114,11 +114,17 @@ class HyperGraph(object):
     # The results are seen from the reversed list
     return list(reversed(stack))
 
-  def predecessors(self, node_id):
-    return self._pred_list.get(node_id, [])
+  def predecessors(self, node_id, with_edge=False):
+    return self._with_edge(self._pred_list.get(node_id, []), with_edge)
     
-  def sucessors(self, node_id):
-    return self._succ_list.get(node_id, [])
+  def sucessors(self, node_id, with_edge=False):
+    return self._with_edge(self._succ_list.get(node_id, []), with_edge)
+    
+  def _with_edge(self, lst, with_edge):
+    if with_edge:
+      return lst
+    else:
+      return [node_id for node_id, _ in lst]
 
   # Leaves are nodes who have predecessors but no sucessors
   @functools.lru_cache(maxsize=1)
@@ -138,8 +144,8 @@ class HyperGraph(object):
       assert from_id in self._node_list
       for to_id in edge.node_to:
         assert to_id in self._node_list
-        succ_list[from_id].append(to_id)
-        pred_list[to_id].append(from_id)
+        succ_list[from_id].append((to_id, edge))
+        pred_list[to_id].append((from_id, edge))
     return dict(succ_list), dict(pred_list)
 
   @property

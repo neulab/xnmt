@@ -19,19 +19,19 @@ from xnmt.input_readers import CharFromWordTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.models.translators.default import DefaultTranslator
 from xnmt.loss_calculators import MLELoss, FeedbackLoss, GlobalFertilityLoss, CompositeLoss
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import SegmentingSeqTransducer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SumComposer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SumMultipleComposer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import AverageComposer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import ConvolutionComposer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import CharNGramComposer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import MaxComposer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import LookupComposer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import ConcatMultipleComposer
-from xnmt.specialized_encoders.segmenting_encoder.reporter import SegmentPLLogger
-from xnmt.specialized_encoders.segmenting_encoder.length_prior import PoissonLengthPrior
-from xnmt.specialized_encoders.segmenting_encoder.priors import PoissonPrior, GoldInputPrior
+from xnmt.transducers.char_compose.segmenting_encoder import SegmentingSeqTransducer
+from xnmt.transducers.char_compose.segmenting_composer import SumComposer
+from xnmt.transducers.char_compose.segmenting_composer import SumMultipleComposer
+from xnmt.transducers.char_compose.segmenting_composer import AverageComposer
+from xnmt.transducers.char_compose.segmenting_composer import ConvolutionComposer
+from xnmt.transducers.char_compose.segmenting_composer import CharNGramComposer
+from xnmt.transducers.char_compose.segmenting_composer import SeqTransducerComposer
+from xnmt.transducers.char_compose.segmenting_composer import MaxComposer
+from xnmt.transducers.char_compose.segmenting_composer import LookupComposer
+from xnmt.transducers.char_compose.segmenting_composer import ConcatMultipleComposer
+from xnmt.transducers.char_compose.reporter import SegmentPLLogger
+from xnmt.transducers.char_compose.length_prior import PoissonLengthPrior
+from xnmt.transducers.char_compose.priors import PoissonPrior, GoldInputPrior
 from xnmt.param_collections import ParamManager
 from xnmt.modelparts.transforms import AuxNonLinear, Linear
 from xnmt.modelparts.scorers import Softmax

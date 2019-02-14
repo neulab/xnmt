@@ -60,7 +60,7 @@ class GreedySearch(Serializable, SearchStrategy):
 
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      initial_state: decoders.AutoRegressiveDecoderState,
+                      initial_state: decoders.DecoderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     # Output variables
     score = []
@@ -78,17 +78,16 @@ class GreedySearch(Serializable, SearchStrategy):
       word_id = word_id[0]
       word_score = word_score[0]
       current_state = current_output.state
-
-      if len(word_id.shape) == 0:
+      
+      if not type(word_id) == np.ndarray or len(word_id.shape) == 0:
         word_id = np.array([word_id])
         word_score = np.array([word_score])
-
       if done is not None:
-        word_id = [word_id[i] if not done[i] else Vocab.ES for i in range(len(done))]
+        word_id = [word_id[i] if not done[i] else translator.eog_symbol() for i in range(len(done))]
         mask = [1 if not done[i] else 0 for i in range(len(done))]
         word_score = [s * m for (s, m) in zip(word_score, mask)]
         masks.append(mask)
-
+      
       # Packing outputs
       score.append(word_score)
       word_ids.append(word_id)
@@ -96,7 +95,7 @@ class GreedySearch(Serializable, SearchStrategy):
       states.append(current_state)
 
       # Check if we are done.
-      done = [x == Vocab.ES for x in word_id]
+      done = translator.finish_generating(word_id, current_state)
       if all(done):
         break
 
@@ -154,7 +153,7 @@ class BeamSearch(Serializable, SearchStrategy):
           prev_state = initial_state
 
         # We have a complete hyp ending with </s>
-        if prev_word == Vocab.ES:
+        if translator.finish_generating(prev_word, prev_state):
           completed_hyp.append(hyp)
           continue
 
@@ -252,7 +251,7 @@ class SamplingSearch(Serializable, SearchStrategy):
         word_score = np.array([word_score])
 
       if done is not None:
-        word_id = [word_id[i] if not done[i] else Vocab.ES for i in range(len(done))]
+        word_id = [word_id[i] if not done[i] else translator.eog_symbol() for i in range(len(done))]
         # masking for logsoftmax
         mask = [1 if not done[i] else 0 for i in range(len(done))]
         word_score = [s * m for (s, m) in zip(word_score, mask)]
@@ -269,7 +268,7 @@ class SamplingSearch(Serializable, SearchStrategy):
       current_state = current_output.state
 
       # Check done
-      done = [x == Vocab.ES for x in word_id]
+      done = translator.finish_generating(current_words, current_state)
       # Check if we are done.
       if all(done):
         break

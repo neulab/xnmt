@@ -12,6 +12,7 @@ import xnmt.input_readers as input_readers
 import xnmt.search_strategies as search_strategies
 import xnmt.sent as sent
 import xnmt.vocabs as vocabs
+import xnmt.losses as losses
 
 from xnmt.settings import settings
 from xnmt.modelparts import attenders, decoders, embedders
@@ -67,9 +68,16 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     encoding = self.encoder.transduce(embeddings)
     final_state = self.encoder.get_final_states()
     self.attender.init_sent(encoding)
+    self.decoder.init_sent(encoding)
     ss = batchers.mark_as_batch([vocabs.Vocab.SS] * src.batch_size()) if batchers.is_batched(src) else vocabs.Vocab.SS
     initial_state = self.decoder.initial_state(final_state, ss)
     return initial_state
+  
+  def eog_symbol(self):
+    return self.decoder.eog_symbol()
+  
+  def finish_generating(self, output, dec_state):
+    return self.decoder.finish_generating(output, dec_state)
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
     event_trigger.start_sent(src)
@@ -79,7 +87,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
     dec_state = initial_state
     trg_mask = trg.mask if batchers.is_batched(trg) else None
-    cur_losses = []
+    cur_losses = losses.FactoredLossExpr()
     seq_len = trg.sent_len()
 
     # Sanity check if requested
@@ -93,8 +101,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
     input_word = None
     for i in range(seq_len):
-      ref_word = DefaultTranslator._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
-
+      ref_word = self._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
+      
       if input_word is not None:
         dec_state = self.decoder.add_input(dec_state, input_word)
       rnn_output = dec_state.as_vector()
@@ -103,17 +111,17 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
       if not self.truncate_dec_batches and batchers.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
-      cur_losses.append(word_loss)
+      cur_losses += word_loss
       input_word = ref_word
 
-    if self.truncate_dec_batches:
-      loss_expr = dy.esum([dy.sum_batches(wl) for wl in cur_losses])
-    else:
-      loss_expr = dy.esum(cur_losses)
-    return loss_expr
+#   TODO(philip30): truncate_dec_batches is not needed? Remove?
+#    if self.truncate_dec_batches:
+#      loss_expr = dy.esum([dy.sum_batches(wl) for wl in cur_losses])
+#    else:
+#      loss_expr = dy.esum(cur_losses)
+    return cur_losses
 
-  @staticmethod
-  def _select_ref_words(sentence, index, truncate_masked = False):
+  def _select_ref_words(self, sentence, index, truncate_masked = False):
     if truncate_masked:
       mask = sentence.mask if batchers.is_batched(sentence) else None
       if not batchers.is_batched(sentence):
@@ -199,7 +207,6 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
         word = [word]
       if type(word) == list or type(word) == np.ndarray:
         word = batchers.mark_as_batch(word)
-
     next_state = self.decoder.add_input(state, word) if word is not None else state
     attention = self.attender.calc_attention(next_state.as_vector())
     next_state.context = self.attender.calc_context(next_state.as_vector(), attention=attention)

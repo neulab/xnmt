@@ -123,6 +123,7 @@ class Embedder(object):
                        f"but path was not src_embedder, decoder.embedder, or output_projector, so it could not determine what part of the model to use. "
                        f"Please set vocab_size or vocab explicitly.")
 
+
 class DenseWordEmbedder(Embedder, transforms.Linear, Serializable):
   """
   Word embeddings via full matrix.
@@ -450,3 +451,31 @@ class PositionEmbedder(Embedder, Serializable):
   def embed_sent(self, sent_len: numbers.Integral) -> expression_seqs.ExpressionSequence:
     embeddings = dy.strided_select(dy.parameter(self.embeddings), [1,1], [0,0], [self.emb_dim, sent_len])
     return expression_seqs.ExpressionSequence(expr_tensor=embeddings, mask=None)
+
+
+class GraphEmbedder(Embedder, Serializable):
+  yaml_tag = '!GraphEmbedder'
+  
+  @serializable_init
+  def __init__(self,
+               emb_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               value_embedder: SimpleWordEmbedder = None,
+               node_embedder: SimpleWordEmbedder = None,
+               edge_embedder: SimpleWordEmbedder = None,
+               graph_reader: Optional[input_readers.GraphReader]= Ref("model.src_reader", default=None)) -> None:
+    fields = ["value", "node", "edge"]
+    for field, field_init in zip(fields, [value_embedder, node_embedder, edge_embedder]):
+      vocab = getattr(graph_reader, "{}_vocab".format(field))
+      if vocab is not None:
+        field_name = "{}_embedder".format(field)
+        setattr(self, field_name, self.add_serializable_component(field_name,
+                                                                  field_init,
+                                                                  lambda: SimpleWordEmbedder(emb_dim=emb_dim,
+                                                                                             vocab=vocab)))
+ 
+  def embed_sent(self, graph_sent: sent.GraphSentence) -> expression_seqs.ExpressionSequence:
+    raise NotImplementedError("Complete the graph embedder!")
+
+  def embed(self, graph):
+    raise NotImplementedError("Complete the graph embedder!")
+  

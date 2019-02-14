@@ -49,7 +49,7 @@ class TestSanityHyperParameter(unittest.TestCase):
 #    self.src_reader = PlainTextReader()
 #    self.trg_reader = PlainTextReader()
 #    self.loss_calculator = MLELoss()
-#    self.segmenting_encoder = SegmentingSeqTransducer(
+#    self.char_compose = SegmentingSeqTransducer(
 #      embed_encoder = self.segment_embed_encoder_bilstm,
 #      segment_composer =  self.segment_composer,
 #      final_transducer = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
@@ -63,7 +63,7 @@ class TestSanityHyperParameter(unittest.TestCase):
 #      src_reader=self.src_reader,
 #      trg_reader=self.trg_reader,
 #      src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
-#      encoder=self.segmenting_encoder,
+#      encoder=self.char_compose,
 #      attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim, hidden_dim=layer_dim),
 #      trg_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
 #      decoder=AutoRegressiveDecoder(input_dim=layer_dim,

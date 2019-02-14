@@ -8,7 +8,8 @@ import numbers
 import numpy as np
 
 from xnmt.persistence import Serializable, serializable_init, bare
-from xnmt.specialized_encoders.segmenting_encoder import priors
+from xnmt.transducers.char_compose import priors
+
 
 class EpsilonGreedy(Serializable):
   """

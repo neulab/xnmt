@@ -392,14 +392,30 @@ class GraphSentence(ReadableSentence):
     unpadded_sent: reference to original, unpadded sentence if available
   """
 
-  def __init__(self, idx: Optional[numbers.Integral], graph: HyperGraph, vocab: Vocab,
-               num_padded: numbers.Integral = 0, unpadded_sent: 'GraphSentence' = None) -> None:
+  def __init__(self,
+               idx: Optional[numbers.Integral],
+               score: Optional[numbers.Real],
+               graph: HyperGraph,
+               value_vocab: Vocab,
+               node_vocab: Optional[Vocab] = None,
+               edge_vocab: Optional[Vocab] = None,
+               num_padded: numbers.Integral = 0,
+               unpadded_sent: 'GraphSentence' = None) -> None:
+    super().__init__(idx=idx, score=score)
     self.idx = idx
     self.graph = graph
-    self.vocab = vocab
+    self.edge_vocab = edge_vocab
+    self.node_vocab = node_vocab
+    self.value_vocab = value_vocab
     self.num_padded = num_padded
     self.unpadded_sent = unpadded_sent
-    self.nodes = self.graph.topo_sort()
+    
+  @functools.lru_cache(maxsize=1)
+  def topo_sort(self):
+    """
+    Return list of nodes in topological sorting ordering.
+    """
+    return self.graph.topo_sort()
 
   def sent_len(self) -> int:
     """Return number of nodes in the graph, including padded words.
@@ -407,7 +423,7 @@ class GraphSentence(ReadableSentence):
     Return:
       Number of nodes in graph.
     """
-    return len(self.nodes) + self.num_padded
+    return self.graph.len_nodes + self.num_padded
 
   def len_unpadded(self) -> int:
     """Return number of nodes in the graph, without counting padded words.
@@ -415,7 +431,7 @@ class GraphSentence(ReadableSentence):
     Returns:
       Number of nodes in graph.
     """
-    return len(self.nodes)
+    return self.graph.len_nodes
 
   def __getitem__(self, key: numbers.Integral) -> Optional[int]:
     """
@@ -428,7 +444,7 @@ class GraphSentence(ReadableSentence):
       Value of graph node with given index, or ES if accessing a padded lattice node.
     """
     if self.len_unpadded() <= key < self.sent_len():
-      return self.vocab.ES
+      return self.value_vocab.ES
     node = self.graph[key]
     if isinstance(node, list):
       # no guarantee that slice is still a consistent graph
@@ -448,7 +464,13 @@ class GraphSentence(ReadableSentence):
     if pad_len == 0:
       return self
     copied_graph = copy.deepcopy(self.graph)
-    return GraphSentence(idx=self.idx, graph=copied_graph, vocab=self.vocab, num_padded=pad_len,
+    return GraphSentence(idx=self.idx,
+                         score=self.score,
+                         graph=copied_graph,
+                         value_vocab=self.value_vocab,
+                         edge_vocab=self.edge_vocab,
+                         node_vocab=self.node_vocab,
+                         num_padded=pad_len,
                          unpadded_sent=self.unpadded_sent or super().get_unpadded_sent())
 
   def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'GraphSentence':
@@ -477,7 +499,13 @@ class GraphSentence(ReadableSentence):
     Returns:
       Reversed graph.
     """
-    return GraphSentence(idx=self.idx, graph=self.graph.reverse(), vocab=self.vocab, num_padded=self.num_padded)
+    return GraphSentence(idx=self.idx,
+                         score=self.score,
+                         graph=self.graph.reverse(),
+                         value_vocab=self.value_vocab,
+                         node_vocab=self.node_vocab,
+                         edge_vocab=self.edge_vocab,
+                         num_padded=self.num_padded)
 
   def str_tokens(self, **kwargs) -> List[str]:
     """
@@ -488,7 +516,7 @@ class GraphSentence(ReadableSentence):
 
     Returns: list of tokens of linearized graph.
     """
-    return [self.vocab.i2w[self.graph[node_id].value] for node_id in self.nodes]
+    return [self.value_vocab.i2w[self.graph[node_id].value] for node_id in self.nodes]
 
   def sent_str(self, custom_output_procs=None, **kwargs) -> str:
     """
@@ -511,7 +539,7 @@ class GraphSentence(ReadableSentence):
     dot = Digraph(comment='Graph')
     for node_id in self.nodes:
       node = self.graph[node_id]
-      node_label = "{} {}".format(self.vocab.i2w[node.value], node.feature_str())
+      node_label = "{} {}".format(self.value_vocab.i2w[node.value], node.feature_str())
       dot.node(str(node_id), "{} : {}".format(node_id, node_label))
     for edge in self.graph.iter_edges():
       for node_next in edge.node_to:
@@ -520,7 +548,7 @@ class GraphSentence(ReadableSentence):
       dot.render(out_file)
     except RuntimeError:
       pass
-    
+
 
 class LatticeNode(HyperNode):
   """
@@ -578,10 +606,12 @@ class SyntaxTreeNode(HyperNode):
   
 class RNNGAction(object):
   class Type(enum.Enum):
-    GEN=0
-    REDUCE=1
-    NT=2
-    NONE=3
+    SHIFT=0
+    NT=1
+    REDUCE_LEFT=2
+    REDUCE_RIGHT=3
+    REDUCE_NT=4
+    NONE=5
     
   def __init__(self, action_type, action_content=None):
     self._action_type = action_type
@@ -600,36 +630,43 @@ class RNNGAction(object):
     return self.action_type.value
   
   def str_token(self, surface_vocab, nt_vocab):
-    if self.action_type == self.Type.GEN:
+    if self.action_type == self.Type.SHIFT:
       return "GEN('{}')".format(surface_vocab[self.action_content])
     elif self.action_type == self.Type.NT:
       return "NT('{}')".format(nt_vocab[self.action_content])
-    elif self.action_type == self.Type.REDUCE:
-      return "RL()" if self.action_content else "RR()"
+    elif self.action_type == self.Type.REDUCE_LEFT:
+      return "RL()"
+    elif self.action_type == self.Type.REDUCE_RIGHT:
+      return "RR()"
     else:
       return "NONE()"
     
   def __eq__(self, other):
-    return self.action_type == other.action_type and self.action_content == other.action_content
+    if type(other) == type(self):
+      return self.action_type == other.action_type and self.action_content == other.action_content
+    else:
+      return False
   
-  
-class RNNGSequenceSentence(ReadableSentence):
+class RNNGSequenceSentence(GraphSentence):
   def __init__(self,
                idx: Optional[numbers.Integral],
+               score: Optional[numbers.Real],
                graph: HyperGraph,
                surface_vocab: Vocab,
                nt_vocab: Vocab,
+               edge_vocab: Optional[Vocab] = None,
                all_surfaces: bool = False,
                num_padded: numbers.Integral = 0,
                unpadded_sent: 'RNNGSequenceSentence' = None) -> None:
-    self.idx = idx
-    self.surface_vocab = surface_vocab
-    self.nt_vocab = nt_vocab
-    self.graph = graph
-    self.all_surfaces = all_surfaces
-    self.actions = self._actions_from_graph()
-    self.num_padded = num_padded
-    self.unpadded_sent = unpadded_sent
+    super().__init__(idx=idx,
+                     score=score,
+                     graph=graph,
+                     value_vocab=surface_vocab,
+                     node_vocab=nt_vocab,
+                     edge_vocab=edge_vocab,
+                     num_padded=num_padded,
+                     unpadded_sent=unpadded_sent)
+    self.actions = self._actions_from_graph(all_surfaces)
 
   def sent_len(self) -> int:
     return len(self.actions)
@@ -637,42 +674,49 @@ class RNNGSequenceSentence(ReadableSentence):
   def len_unpadded(self) -> int:
     return len(self.actions)
   
-  def create_padded_sent(self, pad_len: numbers.Integral) -> 'ScalarSentence':
-    if pad_len != 0:
-      raise ValueError("RNNGSequenceSentence cannot be padded")
-    return self
-  
-  def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'ScalarSentence':
-    if trunc_len != 0:
-      raise ValueError("RNNGSeqeunceSentence cannot be truncated")
-    return self
-
-  def get_unpadded_sent(self):
-    return self
-
   def str_tokens(self, **kwargs) -> List[str]:
-    return [action.str_token(self.surface_vocab, self.nt_vocab) for action in self.actions]
+    return [action.str_token(self.value_vocab, self.node_vocab) for action in self.actions]
 
-  def sent_str(self):
+  def sent_str(self, custom_output_procs=None, **kwargs):
     return " ".join(self.str_tokens())
 
-  def _actions_from_graph(self):
+  def __getitem__(self, key: numbers.Integral) -> Optional[int]:
+    return self.actions[key]
+
+  def create_padded_sent(self, pad_len: numbers.Integral) -> 'GraphSentence':
+    """
+    Return padded graph.
+
+    Args:
+      pad_len: Number of tokens to pad.
+
+    Returns:
+      New padded graph, or self if pad_len==0.
+    """
+    padded_sent = copy.deepcopy(self)
+    padded_sent.actions[-pad_len:] = [RNNGAction.Type.NONE for _ in range(pad_len)]
+    return padded_sent
+    
+  def _actions_from_graph(self, all_surfaces):
     roots = self.graph.roots()
     # Only 1 Head
     assert len(roots) == 1
     # Helper function
     def actions_from_graph(current_id, results):
-      successors = self.graph.sucessors(current_id)
+      successors = self.graph.sucessors(current_id, with_edge=True)
       for i in range(results[1], current_id+1):
-        if len(successors) == 0 or self.all_surfaces: # Leaf
-          results[0].append(RNNGAction(RNNGAction.Type.GEN, self.surface_vocab.convert(self.graph[i].value)))
+        if len(successors) == 0 or all_surfaces: # Leaf
+          results[0].append(RNNGAction(RNNGAction.Type.SHIFT, self.value_vocab.convert(self.graph[i].value)))
         else: # Non Terminal
-          results[0].append(RNNGAction(RNNGAction.Type.NT, self.nt_vocab.convert(self.graph[i].value)))
+          results[0].append(RNNGAction(RNNGAction.Type.NT, self.node_vocab.convert(self.graph[i].value)))
       results[1] = max(results[1], current_id+1)
       
-      for child in sorted(successors):
+      for child, edge in sorted(successors):
         actions_from_graph(child, results)
-        results[0].append(RNNGAction(RNNGAction.Type.REDUCE, child < current_id))
+        if child < current_id:
+          results[0].append(RNNGAction(RNNGAction.Type.REDUCE_LEFT, self.edge_vocab.convert(edge.label)))
+        else:
+          results[0].append(RNNGAction(RNNGAction.Type.REDUCE_RIGHT, self.edge_vocab.convert(edge.label)))
       return results[0]
     # Driver function
     return actions_from_graph(roots[0], [[], 1])

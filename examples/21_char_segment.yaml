@@ -1,5 +1,5 @@
 # Examples of using SegmentingSeqTransducer
-# Look available composition functions at xnmt/specialized_encoders/segmenting_encoder/segmenting_composer.py
+# Look available composition functions at xnmt/specialized_encoders/char_compose/segmenting_composer.py
 
 # Looking up characters from word vocabulary
 # Basically this is the same as 01_standard.yaml
@@ -117,7 +117,7 @@ seg_lookup_charagram: !Experiment
     encoder: !SegmentingSeqTransducer
       ### Pay attention to this part
       segment_composer: !SumMultipleComposer
-        composers: 
+        composers:
         - !LookupComposer
           word_vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
         - !CharNGramComposer

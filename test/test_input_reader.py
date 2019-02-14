@@ -31,23 +31,23 @@ class TestCoNLLInputReader(unittest.TestCase):
   
   def test_read_tree(self):
     vocab = vocabs.Vocab(vocab_file="examples/data/dep_tree.vocab")
-    reader = input_readers.CoNLLToRNNGActionsReader(vocab, vocab)
+    reader = input_readers.CoNLLToRNNGActionsReader(vocab, vocab, None)
     tree = list(reader.read_sents(filename="examples/data/dep_tree.conll"))
-    expected = [sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("David")),
-                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("Gallo")),
-                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, True),
-                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert(":")),
-                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, False),
-                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("This")),
-                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("is")),
-                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("Bill")),
-                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert("Lange")),
-                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, True),
-                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, True),
-                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, True),
-                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, False),
-                sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert(".")),
-                sent.RNNGAction(sent.RNNGAction.Type.REDUCE, False)]
+    expected = [sent.RNNGAction(sent.RNNGAction.Type.SHIFT, vocab.convert("David")),
+                sent.RNNGAction(sent.RNNGAction.Type.SHIFT, vocab.convert("Gallo")),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE_LEFT),
+                sent.RNNGAction(sent.RNNGAction.Type.SHIFT, vocab.convert(":")),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE_RIGHT),
+                sent.RNNGAction(sent.RNNGAction.Type.SHIFT, vocab.convert("This")),
+                sent.RNNGAction(sent.RNNGAction.Type.SHIFT, vocab.convert("is")),
+                sent.RNNGAction(sent.RNNGAction.Type.SHIFT, vocab.convert("Bill")),
+                sent.RNNGAction(sent.RNNGAction.Type.SHIFT, vocab.convert("Lange")),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE_LEFT),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE_LEFT),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE_LEFT),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE_RIGHT),
+                sent.RNNGAction(sent.RNNGAction.Type.SHIFT, vocab.convert(".")),
+                sent.RNNGAction(sent.RNNGAction.Type.REDUCE_RIGHT)]
     self.assertListEqual(tree[0].actions, expected)
   
 

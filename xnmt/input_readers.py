@@ -50,6 +50,7 @@ class InputReader(object):
     """
     return False
 
+
 class BaseTextReader(InputReader):
 
   def read_sent(self, line: str, idx: numbers.Integral) -> sent.Sentence:
@@ -474,9 +475,28 @@ class IDReader(BaseTextReader, Serializable):
 
   def read_sents(self, filename: str, filter_ids: Optional[Sequence[numbers.Integral]] = None) -> list:
     return [l for l in self.iterate_filtered(filename, filter_ids)]
+
+
+class GraphReader(BaseTextReader):
+  def __init__(self, node_vocab, edge_vocab, value_vocab):
+    self._node_vocab = node_vocab
+    self._edge_vocab = edge_vocab
+    self._value_vocab = value_vocab
+  
+  @property
+  def node_vocab(self):
+    return self._node_vocab
+  
+  @property
+  def edge_vocab(self):
+    return self._edge_vocab
+  
+  @property
+  def value_vocab(self):
+    return self._value_vocab
  
  
-class CoNLLToRNNGActionsReader(BaseTextReader, Serializable):
+class CoNLLToRNNGActionsReader(GraphReader, Serializable):
   """
   Handles the reading of CoNLL File Format:
 
@@ -486,10 +506,9 @@ class CoNLLToRNNGActionsReader(BaseTextReader, Serializable):
   """
   yaml_tag = "!CoNLLToRNNGActionsReader"
   @serializable_init
-  def __init__(self, surface_vocab: vocabs.Vocab, nt_vocab:vocabs.Vocab):
-    self.surface_vocab = surface_vocab
-    self.nt_vocab = nt_vocab
-    pass
+  def __init__(self, surface_vocab: vocabs.Vocab, nt_vocab: vocabs.Vocab, edge_vocab: vocabs.Vocab, output_procs=[]):
+    super().__init__(nt_vocab, edge_vocab, surface_vocab)
+    self.output_procs = output_procs
 
   def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None):
     # Routine to add tree
@@ -502,9 +521,11 @@ class CoNLLToRNNGActionsReader(BaseTextReader, Serializable):
         if head != 0 and deprel != "ROOT":
           edge_list.append(HyperEdge(head, [node_id], None, deprel))
       return sent.RNNGSequenceSentence(idx,
-                                       HyperGraph(edge_list, nodes),
-                                       self.surface_vocab,
-                                       self.nt_vocab,
+                                       score=None,
+                                       graph=HyperGraph(edge_list, nodes),
+                                       surface_vocab=self.value_vocab,
+                                       nt_vocab=self.node_vocab,
+                                       edge_vocab=self.edge_vocab,
                                        all_surfaces=True)
     idx = 0
     lines = []
@@ -526,7 +547,7 @@ class CoNLLToRNNGActionsReader(BaseTextReader, Serializable):
         yield emit_tree(idx, lines)
 
 
-class LatticeReader(BaseTextReader, Serializable):
+class LatticeReader(GraphReader, Serializable):
   """
   Reads lattices from a text file.
 
@@ -553,7 +574,7 @@ class LatticeReader(BaseTextReader, Serializable):
 
   @serializable_init
   def __init__(self, vocab:vocabs.Vocab, text_input: bool = False, flatten = False):
-    self.vocab = vocab
+    super().__init__(None, None, vocab)
     self.text_input = text_input
     self.flatten = flatten
 
@@ -563,7 +584,7 @@ class LatticeReader(BaseTextReader, Serializable):
       # Node List
       nodes = [sent.LatticeNode(node_id=0, value=vocabs.Vocab.SS)]
       for i, word in enumerate(line.strip().split()):
-        nodes.append(sent.LatticeNode(node_id=i+1, value=self.vocab.convert(word)))
+        nodes.append(sent.LatticeNode(node_id=i+1, value=self.value_vocab.convert(word)))
       nodes.append(sent.LatticeNode(node_id=len(nodes), value=vocabs.Vocab.ES))
       # Flat edge list
       for i in range(len(nodes)-1):
@@ -571,7 +592,7 @@ class LatticeReader(BaseTextReader, Serializable):
     else:
       node_list, arc_list = ast.literal_eval(line)
       nodes = [sent.LatticeNode(node_id=i,
-                                value=self.vocab.convert(item[0]),
+                                value=self.value_vocab.convert(item[0]),
                                 fwd_log_prob=item[1], marginal_log_prob=item[2], bwd_log_prob=item[3])
                for i, item in enumerate(node_list)]
       if self.flatten:
@@ -583,16 +604,16 @@ class LatticeReader(BaseTextReader, Serializable):
         for from_index, to_index in arc_list:
           edge_list.append(HyperEdge(from_index, [to_index]))
 
-      assert nodes[0].value == self.vocab.SS and nodes[-1].value == self.vocab.ES
+      assert nodes[0].value == self.value_vocab.SS and nodes[-1].value == self.value_vocab.ES
     # Construct graph
     graph = HyperGraph(edge_list, {node.node_id: node for node in nodes})
     assert len(graph.roots()) == 1 # <SOS>
     assert len(graph.leaves()) == 1 # <EOS>
     # Construct LatticeSentence
-    return sent.GraphSentence(idx=idx, graph=graph, vocab=self.vocab)
+    return sent.GraphSentence(idx=idx, graph=graph, vocab=self.value_vocab)
 
   def vocab_size(self):
-    return len(self.vocab)
+    return len(self.value_vocab)
 
 
 ###### A utility function to read a parallel corpus

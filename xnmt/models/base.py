@@ -1,8 +1,9 @@
 from typing import Optional, Sequence, Union
 
+import numpy as np
 import dynet as dy
 
-from xnmt import batchers, input_readers, sent
+from xnmt import batchers, input_readers, sent, vocabs
 from xnmt.persistence import Serializable, serializable_init
 
 class TrainableModel(object):
@@ -98,6 +99,19 @@ class GeneratorModel(object):
       output objects
     """
     raise NotImplementedError("must be implemented by subclasses")
+
+  def eog_symbol(self):
+    """
+    Specify the end of generation symbol.
+    """
+    return vocabs.Vocab.ES
+
+  def finish_generating(self, output, dec_state):
+    eog_symbol = self.eog_symbol()
+    if type(output) == np.ndarray or type(output) == list:
+      return [out_i == eog_symbol for out_i in output]
+    else:
+      return output == self.eog_symbol()
 
 
 class CascadeGenerator(GeneratorModel, Serializable):

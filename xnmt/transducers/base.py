@@ -104,7 +104,11 @@ class IdentitySeqTransducer(SeqTransducer, Serializable):
     pass
 
   def transduce(self, seq: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
+    self._final_states = seq[-1]
     return seq
+  
+  def get_final_states(self) -> List[FinalTransducerState]:
+    return [FinalTransducerState(self._final_states)]
 
 
 class TransformSeqTransducer(SeqTransducer, Serializable):

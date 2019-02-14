@@ -5,15 +5,15 @@ from collections import Counter
 from functools import lru_cache
 
 from xnmt.expression_seqs import ExpressionSequence
-from xnmt.modelparts.transforms import Linear
+from xnmt.modelparts.transforms import Linear, AuxNonLinear
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable, Ref, Path, bare
 from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.transducers.recurrent import BiLSTMSeqTransducer
+from xnmt.transducers.recurrent import BiLSTMSeqTransducer, UniLSTMSeqTransducer
 
 
-class SingleComposer(object):
+class SequenceComposer(object):
   @register_xnmt_handler
   def __init__(self):
     self.src_sent = None
@@ -41,7 +41,7 @@ class SingleComposer(object):
   def transduce(self, embeds):
     raise NotImplementedError()
 
-class SumComposer(SingleComposer, Serializable):
+class SumComposer(SequenceComposer, Serializable):
   yaml_tag = "!SumComposer"
   
   @serializable_init
@@ -52,7 +52,7 @@ class SumComposer(SingleComposer, Serializable):
     return dy.sum_dim(embeds, [1])
 
 
-class AverageComposer(SingleComposer, Serializable):
+class AverageComposer(SequenceComposer, Serializable):
   yaml_tag = "!AverageComposer"
   
   @serializable_init
@@ -63,7 +63,7 @@ class AverageComposer(SingleComposer, Serializable):
     return dy.mean_dim(embeds, [1], False)
 
 
-class MaxComposer(SingleComposer, Serializable):
+class MaxComposer(SequenceComposer, Serializable):
   yaml_tag = "!MaxComposer"
   
   @serializable_init
@@ -74,7 +74,7 @@ class MaxComposer(SingleComposer, Serializable):
     return dy.max_dim(embeds, d=1)
 
 
-class SeqTransducerComposer(SingleComposer, Serializable):
+class SeqTransducerComposer(SequenceComposer, Serializable):
   yaml_tag = "!SeqTransducerComposer"
   
   @serializable_init
@@ -87,7 +87,7 @@ class SeqTransducerComposer(SingleComposer, Serializable):
     return self.seq_transducer.get_final_states()[-1].main_expr()
 
 
-class ConvolutionComposer(SingleComposer, Serializable):
+class ConvolutionComposer(SequenceComposer, Serializable):
   yaml_tag = "!ConvolutionComposer"
   
   @register_xnmt_handler
@@ -121,7 +121,7 @@ class ConvolutionComposer(SingleComposer, Serializable):
     return dy.max_dim(dy.max_dim(encodings, d=1), d=0)
 
 
-class VocabBasedComposer(SingleComposer):
+class VocabBasedComposer(SequenceComposer):
   
   @register_xnmt_handler
   def __init__(self,
@@ -307,7 +307,7 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
     #b.set_value(b_np)
 
 
-class SumMultipleComposer(SingleComposer, Serializable):
+class SumMultipleComposer(SequenceComposer, Serializable):
   yaml_tag = "!SumMultipleComposer"
 
   @serializable_init
@@ -323,7 +323,7 @@ class SumMultipleComposer(SingleComposer, Serializable):
     return sum([composer.transduce(embeds) for composer in self.composers])
 
 
-class ConcatMultipleComposer(SingleComposer, Serializable):
+class ConcatMultipleComposer(SequenceComposer, Serializable):
   yaml_tag = "!ConcatMultipleComposer"
 
   @serializable_init
@@ -350,3 +350,34 @@ class ConcatMultipleComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     results = dy.concatenate([composer.transduce(embeds) for composer in self.composers])
     return self.embedding.transform(results)
+
+
+class DyerHeadComposer(SequenceComposer, Serializable):
+  yaml_tag = '!DyerHeadComposer'
+  @serializable_init
+  def __init__(self,
+               fwd_combinator: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
+               bwd_combinator: UniLSTMSeqTransducer = bare(UniLSTMSeqTransducer),
+               transform: AuxNonLinear = bare(AuxNonLinear)):
+    self.fwd_combinator = fwd_combinator
+    self.bwd_combinator = bwd_combinator
+    self.transform = transform
+  
+  def set_word(self, word):
+    pass
+  
+  def transduce(self, embeds):
+    fwd_state = self.fwd_combinator.initial_state()
+    bwd_state = self.fwd_combinator.initial_state()
+    # The embedding of the Head should be in the first element of the list
+    fwd_state = fwd_state.add_input(embeds[-1])
+    bwd_state = bwd_state.add_input(embeds[-1])
+    
+    for i in range(len(embeds)-1):
+      fwd_state = fwd_state.add_input(embeds[i])
+      bwd_state = bwd_state.add_input(embeds[-(i+1)])
+      
+    return self.transform.transform(dy.concatenate([fwd_state.output(), bwd_state.output()]))
+    
+  
+  

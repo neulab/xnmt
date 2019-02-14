@@ -8,13 +8,13 @@ from xnmt import logger
 from xnmt.batchers import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_seqs import ExpressionSequence
-from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.transducers.base import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
 from xnmt.losses import FactoredLossExpr
-from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
+from xnmt.transducers.char_compose.priors import GoldInputPrior
 from xnmt.reports import Reportable
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer, VocabBasedComposer
+from xnmt.transducers.char_compose.segmenting_composer import SeqTransducerComposer, VocabBasedComposer
 
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   """
@@ -49,14 +49,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
 
   @register_xnmt_handler
   @serializable_init
-  def __init__(self, embed_encoder=bare(IdentitySeqTransducer),
-                     segment_composer=bare(SeqTransducerComposer),
-                     final_transducer=bare(BiLSTMSeqTransducer),
-                     policy_learning=None,
-                     length_prior=None,
-                     eps_greedy=None,
-                     sample_during_search=False,
-                     reporter=None):
+  def __init__(self,
+               embed_encoder=bare(IdentitySeqTransducer),
+               segment_composer=bare(SeqTransducerComposer),
+               final_transducer=bare(BiLSTMSeqTransducer),
+               policy_learning=None,
+               length_prior=None,
+               eps_greedy=None,
+               sample_during_search=False,
+               reporter=None):
     self.embed_encoder = self.add_serializable_component("embed_encoder", embed_encoder, lambda: embed_encoder)
     self.segment_composer = self.add_serializable_component("segment_composer", segment_composer, lambda: segment_composer)
     self.final_transducer = self.add_serializable_component("final_transducer", final_transducer, lambda: final_transducer)
@@ -165,7 +166,7 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
         self.segmenting_action = self.SegmentingAction.POLICY
       embed_encode = self.embed_encoder.transduce(embed_sent)
       actions = self.sample_from_policy(embed_encode, batch_size, predefined_actions)
-    return actions 
+    return actions
 
   def sample_from_policy(self, encodings, batch_size, predefined_actions=None):
     from_argmax = not self.train and not self.sample_during_search

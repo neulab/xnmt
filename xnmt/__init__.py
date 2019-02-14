@@ -43,7 +43,7 @@ import xnmt.reports
 import xnmt.rl
 import xnmt.simultaneous.simult_translators
 import xnmt.simultaneous.simult_search_strategies
-import xnmt.specialized_encoders.segmenting_encoder
+import xnmt.transducers.char_compose
 import xnmt.specialized_encoders.self_attentional_am
 import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.train.regimens

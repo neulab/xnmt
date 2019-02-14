@@ -1,9 +1,10 @@
 from typing import Any
 import numbers
 
+import numpy as np
 import dynet as dy
 
-from xnmt import batchers, param_collections
+from xnmt import batchers, param_collections, vocabs
 from xnmt.modelparts import bridges, transforms, scorers, embedders
 from xnmt.transducers import recurrent
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
@@ -15,15 +16,19 @@ class Decoder(object):
   """
   def initial_state(self, enc_final_states, ss_expr):
     raise NotImplementedError('must be implemented by subclasses')
-  def add_input(self, dec_state, trg_embedding):
+  def add_input(self, dec_state, trg_word):
     raise NotImplementedError('must be implemented by subclasses')
   def calc_loss(self, dec_state, ref_action):
-    raise NotImplementedError('must be implemented by subclasses')
-  def calc_score(self, dec_state, action, normalize=False):
     raise NotImplementedError('must be implemented by subclasses')
   def best_k(self, dec_state, k, normalize_scores=False):
     raise NotImplementedError('must be implemented by subclasses')
   def sample(self, dec_state, n, temperature=1.0):
+    raise NotImplementedError('must be implemented by subclasses')
+  def init_sent(self, sent_enc):
+    pass
+  def eog_symbol(self):
+    raise NotImplementedError('must be implemented by subclasses')
+  def finish_generating(self, dec_output, dec_state):
     raise NotImplementedError('must be implemented by subclasses')
 
 class DecoderState(object):
@@ -163,4 +168,14 @@ class AutoRegressiveDecoder(Decoder, Serializable):
 
   def calc_loss(self, mlp_dec_state, ref_action):
     return self.scorer.calc_loss(self._calc_transform(mlp_dec_state), ref_action)
+
+  def eog_symbol(self):
+    return vocabs.Vocab.ES
+  
+  def finish_generating(self, output, dec_state):
+    eog_symbol = self.eog_symbol()
+    if type(output) == np.ndarray or type(output) == list:
+      return [out_i == eog_symbol for out_i in output]
+    else:
+      return output == self.eog_symbol()
 

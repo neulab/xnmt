@@ -6,7 +6,7 @@ import math
 from xnmt import utils
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.persistence import serializable_init, Serializable, Ref, Path
-from xnmt.specialized_encoders.segmenting_encoder.segmenting_encoder import SegmentingSeqTransducer
+from xnmt.transducers.char_compose.segmenting_encoder import SegmentingSeqTransducer
 
 class SegmentPLLogger(Serializable):
   yaml_tag = "!SegmentPLLogger"
