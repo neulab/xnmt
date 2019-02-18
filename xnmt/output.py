@@ -7,7 +7,8 @@ strings.
 
 from typing import List, Union
 
-from xnmt.persistence import Serializable, serializable_init
+import xnmt.sent as sent
+from xnmt.persistence import Serializable, serializable_init, Ref, Path
 
 class OutputProcessor(object):
   def process(self, s: str) -> str:
@@ -90,3 +91,16 @@ class JoinPieceTextOutputProcessor(OutputProcessor, Serializable):
   def process(self, s: str) -> str:
     return s.replace(" ", "").replace(self.space_token, " ").strip()
 
+class RNNGActionOutputProcessor(OutputProcessor, Serializable):
+  yaml_tag = "!RNNGActionOutputProcessor"
+  @serializable_init
+  def __init__(self,
+               build_tree=False,
+               surface_vocab=Ref(Path("model.trg_reader.surface_vocab")),
+               nt_vocab=Ref(Path("model.trg_reader.nt_vocab"))):
+    self.build_tree = build_tree
+    self.surface_vocab = surface_vocab
+    self.nt_vocab = nt_vocab
+    
+  def process(self, s):
+    print(s)

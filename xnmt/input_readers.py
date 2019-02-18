@@ -506,8 +506,8 @@ class CoNLLToRNNGActionsReader(GraphReader, Serializable):
   """
   yaml_tag = "!CoNLLToRNNGActionsReader"
   @serializable_init
-  def __init__(self, surface_vocab: vocabs.Vocab, nt_vocab: vocabs.Vocab, edge_vocab: vocabs.Vocab, output_procs=[]):
-    super().__init__(nt_vocab, edge_vocab, surface_vocab)
+  def __init__(self, surface_vocab: vocabs.Vocab, nt_vocab: vocabs.Vocab, edg_vocab: vocabs.Vocab, output_procs=[]):
+    super().__init__(nt_vocab, edg_vocab, surface_vocab)
     self.output_procs = output_procs
 
   def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None):

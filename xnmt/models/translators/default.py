@@ -87,7 +87,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
     dec_state = initial_state
     trg_mask = trg.mask if batchers.is_batched(trg) else None
-    cur_losses = losses.FactoredLossExpr()
+    cur_losses = []
     seq_len = trg.sent_len()
 
     # Sanity check if requested
@@ -111,15 +111,14 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
       if not self.truncate_dec_batches and batchers.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
-      cur_losses += word_loss
+      cur_losses.append(word_loss)
       input_word = ref_word
-
 #   TODO(philip30): truncate_dec_batches is not needed? Remove?
 #    if self.truncate_dec_batches:
 #      loss_expr = dy.esum([dy.sum_batches(wl) for wl in cur_losses])
 #    else:
 #      loss_expr = dy.esum(cur_losses)
-    return cur_losses
+    return dy.esum(cur_losses)
 
   def _select_ref_words(self, sentence, index, truncate_masked = False):
     if truncate_masked:
@@ -183,11 +182,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
       output_actions = [x for x in curr_output.word_ids[0]]
       attentions = [x for x in curr_output.attentions[0]]
       score = curr_output.score[0]
-      out_sent = sent.SimpleSentence(idx=src[0].idx,
-                                     words=output_actions,
-                                     vocab=getattr(self.trg_reader, "vocab", None),
-                                     output_procs=self.trg_reader.output_procs,
-                                     score=score)
+      out_sent = self._emit_translation(src, output_actions, score)
       if len(sorted_outputs) == 1:
         outputs.append(out_sent)
       else:
@@ -200,6 +195,13 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
                              "output": outputs[0]})
 
     return outputs
+  
+  def _emit_translation(self, src, output_actions, score):
+    return sent.SimpleSentence(idx=src[0].idx,
+                               words=output_actions,
+                               vocab=getattr(self.trg_reader, "vocab", None),
+                               output_procs=self.trg_reader.output_procs,
+                               score=score)
 
   def add_input(self, word: Any, state: decoders.AutoRegressiveDecoderState) -> AutoRegressiveTranslator.Output:
     if word is not None:
@@ -218,3 +220,17 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
   def sample(self, state: decoders.AutoRegressiveDecoderState, n: numbers.Integral, temperature: float = 1.0):
     return self.decoder.sample(state, n, temperature)
+  
+
+class TreeTranslator(DefaultTranslator, Serializable):
+  yaml_tag = "!TreeTranslator"
+  
+  def _emit_translation(self, src, output_actions, score):
+    return sent.RNNGSequenceSentence(idx=src[0].idx,
+                                     score=score,
+                                     actions=output_actions,
+                                     surface_vocab=getattr(self.trg_reader, "surface_vocab", None),
+                                     nt_vocab=getattr(self.trg_reader, "nt_vocab", None),
+                                     edge_vocab=getattr(self.trg_reader, "edge_vocab", None))
+  
+  

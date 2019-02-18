@@ -5,7 +5,7 @@ import dynet as dy
 from typing import List
 
 import xnmt.persistence as persistence
-import xnmt.modelparts.decoders as decoders
+import xnmt.modelparts.decoders.base as decoders
 import xnmt.modelparts.embedders as embedders
 import xnmt.modelparts.scorers as scorers
 import xnmt.modelparts.bridges as bridges
@@ -68,22 +68,24 @@ class RNNGStackState(object):
 
 class RNNGDecoder(decoders.Decoder, persistence.Serializable):
   yaml_tag = "!RNNGDecoder"
-  RNNG_ACTION_SIZE = 5
+  RNNG_ACTION_SIZE = 6
   
   @persistence.serializable_init
   def __init__(self,
-               input_dim,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                head_composer: segment_composer.SequenceComposer = bare(segment_composer.DyerHeadComposer),
                rnn: rec.UniLSTMSeqTransducer = None,
                bridge: bridges.Bridge = bare(bridges.NoBridge),
                nt_embedder: embedders.SimpleWordEmbedder = None,
                edge_embedder: embedders.SimpleWordEmbedder = None,
+               term_embedder: embedders.SimpleWordEmbedder = None,
                action_scorer: scorers.Softmax = None,
                nt_scorer: scorers.Softmax = None,
                term_scorer: scorers.Softmax = None,
                edge_scorer: scorers.Softmax = None,
                transform: transforms.Transform = bare(transforms.AuxNonLinear),
                ban_actions: List[numbers.Integral] = [1, 4],
+               shift_from_enc: bool = True,
                max_open_nt: numbers.Integral = 100,
                graph_reader: input_readers.GraphReader = Ref(Path("model.trg_reader"))):
     self.input_dim = input_dim
@@ -96,9 +98,14 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
                                                          vocab_size=len(graph_reader.node_vocab)
                                                        ))
     self.edge_embedder = self.add_serializable_component("edge_embedder", edge_embedder,
-                                                         lambda:embedders.SimpleWordEmbedder(
+                                                         lambda: embedders.SimpleWordEmbedder(
                                                            emb_dim=self.input_dim,
                                                            vocab_size=len(graph_reader.edge_vocab)
+                                                         ))
+    self.term_embedder = self.add_serializable_component("term_embedder", term_embedder,
+                                                         lambda: embedders.SimpleWordEmbedder(
+                                                           emb_dim=self.input_dim,
+                                                           vocab_size=len(graph_reader.value_vocab)
                                                          ))
     self.transform = self.add_serializable_component("transform", transform, lambda: transform)
     self.action_scorer = self.add_serializable_component("action_scorer", action_scorer,
@@ -122,6 +129,7 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
                                                        ))
     self.ban_actions = ban_actions
     self.max_open_nt = max_open_nt
+    self.shift_from_enc = shift_from_enc
   
   ### Decoder Interface
   def initial_state(self, enc_final_states, ss_expr):
@@ -134,14 +142,16 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
     return RNNGDecoderState(stack=[RNNGStackState(rnn_state)], context=None)
  
   def add_input(self, dec_state: RNNGDecoderState, actions: List[sent.RNNGAction]):
-    if type(actions) == list or type(actions) == np.ndarray:
-      action = actions[0]
-    else:
-      action = actions
+    action = actions[0] if batchers.is_batched(actions) else actions
     action_type = action.action_type
-    if action_type == sent.RNNGAction.Type.SHIFT:
+    if action_type == sent.RNNGAction.Type.GEN:
       # Shifting the embedding of a word
-      return self._perform_shift(dec_state, self.sent_enc[dec_state.word_read])
+      if self.shift_from_enc:
+        # Feed in the decoder based on input string
+        return self._perform_gen(dec_state, self.sent_enc[dec_state.word_read])
+      else:
+        # Feed in the decoder based on the previously generated output / oracle output
+        return self._perform_gen(dec_state, self.term_embedder.embed(action.action_content))
     elif action_type == sent.RNNGAction.Type.REDUCE_LEFT or \
          action_type == sent.RNNGAction.Type.REDUCE_RIGHT:
       # Perform Reduce on Left direction or right direction
@@ -159,17 +169,16 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
       raise  NotImplementedError("Unimplemented for action word:", action)
   
   def calc_loss(self, dec_state, ref_action):
-    loss = losses.FactoredLossExpr()
     state = self._calc_transform(dec_state)
     action_batch = batchers.mark_as_batch([x.action_type.value for x in ref_action])
-    loss.add_loss("MLE_RNNG_ACTION", self.action_scorer.calc_loss(state, action_batch))
+    loss = self.action_scorer.calc_loss(state, action_batch)
     # Aux Losses based on action content
     if ref_action == sent.RNNGAction.Type.NT:
       nt_batch = batchers.mark_as_batch([x.action_content for x in ref_action])
-      loss.add_loss("MLE_RNNG_NT", self.nt_scorer(state, nt_batch))
-    elif ref_action == sent.RNNGAction.Type.SHIFT:
+      loss += self.nt_scorer(state, nt_batch)
+    elif ref_action == sent.RNNGAction.Type.GEN:
       term_batch = batchers.mark_as_batch([x.action_content for x in ref_action])
-      loss.add_loss("MLE_RNNG_TERM", self.term_scorer(state, term_batch))
+      loss += self.term_scorer(state, term_batch)
     # Total Loss
     return loss
   
@@ -180,24 +189,30 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
     # p(nt|a == 'NT')
     action_logprob = np.array([action_logprob[i] for i in range(self.RNNG_ACTION_SIZE)])
     # RULING OUT INVALID ACTIONS
-    for action in self.ban_actions:
-      action_logprob[action] = -np.inf
+    rule_out = set(self.ban_actions)
+    rule_out.add(sent.RNNGAction.Type.NONE.value)
     if len(dec_state.stack) <= 2:
-      action_logprob[sent.RNNGAction.Type.REDUCE_LEFT.value] = -np.inf
-      action_logprob[sent.RNNGAction.Type.REDUCE_RIGHT.value] = -np.inf
-    if dec_state.word_read >= len(self.sent_enc):
-      action_logprob[sent.RNNGAction.Type.SHIFT.value] = -np.inf
+      rule_out.add(sent.RNNGAction.Type.REDUCE_LEFT.value)
+      rule_out.add(sent.RNNGAction.Type.REDUCE_RIGHT.value)
+    if self.shift_from_enc:
+      if dec_state.word_read >= len(self.sent_enc) :
+        rule_out.add(sent.RNNGAction.Type.GEN.value)
     if dec_state.num_open_nt == 0:
-      action_logprob[sent.RNNGAction.Type.REDUCE_NT.value] = -np.inf
+      rule_out.add(sent.RNNGAction.Type.REDUCE_NT.value)
     if dec_state.num_open_nt > self.max_open_nt:
-      action_logprob[sent.RNNGAction.Type.NT.value] = -np.inf
+      rule_out.add(sent.RNNGAction.Type.NT.value)
+    if len(rule_out) == len(action_logprob):
+      rule_out.remove(sent.RNNGAction.Type.NONE.value)
+    # Nulling out probability
+    for action_value in rule_out:
+      action_logprob[action_value] = -np.inf
     # Take out best action
     action_type = sent.RNNGAction.Type(np.argmax(action_logprob))
     best_score = action_logprob[action_type.value]
     if action_type == sent.RNNGAction.Type.NT:
       nt_logprob = self.nt_scorer.calc_log_probs(final_state).npvalue()
       return self._find_best_k(action_type, nt_logprob, k, best_score)
-    elif action_type == sent.RNNGAction.Type.SHIFT:
+    elif action_type == sent.RNNGAction.Type.GEN:
       term_logprob = self.term_scorer.calc_log_probs(final_state).npvalue()
       return self._find_best_k(action_type, term_logprob, k, best_score)
     elif action_type == sent.RNNGAction.Type.REDUCE_LEFT or \
@@ -241,7 +256,7 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
   def _calc_transform(self, dec_state):
     return self.transform.transform(dy.concatenate([dec_state.as_vector(), dec_state.context]))
 
-  def _perform_shift(self, dec_state, word_encoding):
+  def _perform_gen(self, dec_state, word_encoding):
     h_i = dec_state.stack[-1].add_input(word_encoding)
     stack_i = [x for x in dec_state.stack] + [RNNGStackState(h_i)]
     return RNNGDecoderState(stack=stack_i,

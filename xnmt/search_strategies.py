@@ -1,13 +1,11 @@
 from collections import namedtuple
 import math
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, List, Optional
 import numbers
 
-import dynet as dy
 import numpy as np
 
-from xnmt import batchers, logger
-from xnmt.modelparts import decoders
+from xnmt.modelparts.decoders import base as decoders
 from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.vocabs import Vocab
@@ -31,8 +29,8 @@ class SearchStrategy(object):
   A template class to generate translation from the output probability model. (Non-batched operation)
   """
   def generate_output(self,
-                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      initial_state: decoders.AutoRegressiveDecoderState,
+                      generator: 'xnmt.models.base.GeneratorModel',
+                      initial_state: decoders.DecoderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     """
     Args:
@@ -59,7 +57,7 @@ class GreedySearch(Serializable, SearchStrategy):
     self.max_len = max_len
 
   def generate_output(self,
-                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
+                      generator: 'xnmt.models.base.GeneratorModel',
                       initial_state: decoders.DecoderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     # Output variables
@@ -73,8 +71,8 @@ class GreedySearch(Serializable, SearchStrategy):
     current_state = initial_state
     for length in range(self.max_len):
       prev_word = word_ids[length-1] if length > 0 else None
-      current_output = translator.add_input(prev_word, current_state)
-      word_id, word_score = translator.best_k(current_output.state, 1, normalize_scores=True)
+      current_output = generator.add_input(prev_word, current_state)
+      word_id, word_score = generator.best_k(current_output.state, 1, normalize_scores=True)
       word_id = word_id[0]
       word_score = word_score[0]
       current_state = current_output.state
@@ -83,7 +81,7 @@ class GreedySearch(Serializable, SearchStrategy):
         word_id = np.array([word_id])
         word_score = np.array([word_score])
       if done is not None:
-        word_id = [word_id[i] if not done[i] else translator.eog_symbol() for i in range(len(done))]
+        word_id = [word_id[i] if not done[i] else generator.eog_symbol() for i in range(len(done))]
         mask = [1 if not done[i] else 0 for i in range(len(done))]
         word_score = [s * m for (s, m) in zip(word_score, mask)]
         masks.append(mask)
@@ -95,7 +93,7 @@ class GreedySearch(Serializable, SearchStrategy):
       states.append(current_state)
 
       # Check if we are done.
-      done = translator.finish_generating(word_id, current_state)
+      done = generator.finish_generating(word_id, current_state)
       if all(done):
         break
 
@@ -134,8 +132,8 @@ class BeamSearch(Serializable, SearchStrategy):
     self.scores_proc = scores_proc
 
   def generate_output(self,
-                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      initial_state: decoders.AutoRegressiveDecoderState,
+                      generator: 'xnmt.models.base.GeneratorModel',
+                      initial_state: decoders.DecoderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     active_hyp = [self.Hypothesis(0, None, None, None)]
     completed_hyp = []
@@ -151,25 +149,20 @@ class BeamSearch(Serializable, SearchStrategy):
         else:
           prev_word = None
           prev_state = initial_state
-
         # We have a complete hyp ending with </s>
-        if translator.finish_generating(prev_word, prev_state):
+        if generator.finish_generating(prev_word, prev_state):
           completed_hyp.append(hyp)
           continue
-
         # Find the k best words at the next time step
-        current_output = translator.add_input(prev_word, prev_state)
-        top_words, top_scores = translator.best_k(current_output.state, self.beam_size, normalize_scores=True)
-
+        current_output = generator.add_input(prev_word, prev_state)
+        top_words, top_scores = generator.best_k(current_output.state, self.beam_size, normalize_scores=True)
         # Queue next states
         for cur_word, score in zip(top_words, top_scores):
           assert len(score.shape) == 0
           new_score = self.len_norm.normalize_partial_topk(hyp.score, score, length + 1)
           new_set.append(self.Hypothesis(new_score, current_output, hyp, cur_word))
-
       # Next top hypothesis
       active_hyp = sorted(new_set, key=lambda x: x.score, reverse=True)[:self.beam_size]
-
     # There is no hyp that reached </s>
     if len(completed_hyp) == 0:
       completed_hyp = active_hyp
@@ -198,6 +191,7 @@ class BeamSearch(Serializable, SearchStrategy):
                                   [score], list(reversed(states)), [1 for _ in word_ids]))
     return results
 
+
 class SamplingSearch(Serializable, SearchStrategy):
   """
   Performs search based on the softmax probability distribution.
@@ -216,8 +210,8 @@ class SamplingSearch(Serializable, SearchStrategy):
     self.sample_size = sample_size
 
   def generate_output(self,
-                      translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      initial_state: decoders.AutoRegressiveDecoderState,
+                      translator: 'xnmt.models.base.GeneratorModel',
+                      initial_state: decoders.DecoderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     outputs = []
     for k in range(self.sample_size):
@@ -226,8 +220,8 @@ class SamplingSearch(Serializable, SearchStrategy):
 
   # Words ids, attentions, score, logsoftmax, state
   def sample_one(self,
-                 translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                 initial_state: decoders.AutoRegressiveDecoderState) -> SearchOutput:
+                 generator: 'xnmt.models.base.GeneratorModel',
+                 initial_state: decoders.DecoderState) -> SearchOutput:
     # Search variables
     current_words = None
     current_state = initial_state
@@ -240,8 +234,8 @@ class SamplingSearch(Serializable, SearchStrategy):
     masks = []
     # Sample to the max length
     for length in range(self.max_len):
-      current_output = translator.add_input(current_words, current_state)
-      word_id, word_score = translator.sample(current_output.state, 1)[0]
+      current_output = generator.add_input(current_words, current_state)
+      word_id, word_score = generator.sample(current_output.state, 1)[0]
       word_score = word_score.npvalue()
       assert word_score.shape == (1,)
       word_score = word_score[0]
@@ -251,7 +245,7 @@ class SamplingSearch(Serializable, SearchStrategy):
         word_score = np.array([word_score])
 
       if done is not None:
-        word_id = [word_id[i] if not done[i] else translator.eog_symbol() for i in range(len(done))]
+        word_id = [word_id[i] if not done[i] else generator.eog_symbol() for i in range(len(done))]
         # masking for logsoftmax
         mask = [1 if not done[i] else 0 for i in range(len(done))]
         word_score = [s * m for (s, m) in zip(word_score, mask)]
@@ -268,7 +262,7 @@ class SamplingSearch(Serializable, SearchStrategy):
       current_state = current_output.state
 
       # Check done
-      done = translator.finish_generating(current_words, current_state)
+      done = generator.finish_generating(current_words, current_state)
       # Check if we are done.
       if all(done):
         break
@@ -286,8 +280,8 @@ class MctsNode(object):
                prior_dist: np.ndarray,
                word: Optional[numbers.Integral],
                attention: Optional[List[np.ndarray]],
-               translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-               dec_state: decoders.AutoRegressiveDecoderState) -> None:
+               translator: 'xnmt.models.base.GeneratorModel',
+               dec_state: decoders.DecoderState) -> None:
     self.parent = parent
     self.prior_dist = prior_dist  # log of softmax
     self.word = word
@@ -415,7 +409,7 @@ class MctsSearch(Serializable, SearchStrategy):
 
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      dec_state: decoders.AutoRegressiveDecoderState,
+                      dec_state: decoders.DecoderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     orig_dec_state = dec_state
 

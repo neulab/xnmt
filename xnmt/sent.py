@@ -606,7 +606,7 @@ class SyntaxTreeNode(HyperNode):
   
 class RNNGAction(object):
   class Type(enum.Enum):
-    SHIFT=0
+    GEN=0
     NT=1
     REDUCE_LEFT=2
     REDUCE_RIGHT=3
@@ -630,7 +630,7 @@ class RNNGAction(object):
     return self.action_type.value
   
   def str_token(self, surface_vocab, nt_vocab):
-    if self.action_type == self.Type.SHIFT:
+    if self.action_type == self.Type.GEN:
       return "GEN('{}')".format(surface_vocab[self.action_content])
     elif self.action_type == self.Type.NT:
       return "NT('{}')".format(nt_vocab[self.action_content])
@@ -641,6 +641,10 @@ class RNNGAction(object):
     else:
       return "NONE()"
     
+#  def __hash__(self):
+#    content = [self.action_type] if self.action_content is None else [self.action_content, self.action_type]
+#    return hash(tuple(content))
+  
   def __eq__(self, other):
     if type(other) == type(self):
       return self.action_type == other.action_type and self.action_content == other.action_content
@@ -651,12 +655,13 @@ class RNNGSequenceSentence(GraphSentence):
   def __init__(self,
                idx: Optional[numbers.Integral],
                score: Optional[numbers.Real],
-               graph: HyperGraph,
-               surface_vocab: Vocab,
-               nt_vocab: Vocab,
+               graph: HyperGraph = None,
+               surface_vocab: Optional[Vocab] = None,
+               nt_vocab: Optional[Vocab] = None,
                edge_vocab: Optional[Vocab] = None,
                all_surfaces: bool = False,
                num_padded: numbers.Integral = 0,
+               actions: List[RNNGAction] = None,
                unpadded_sent: 'RNNGSequenceSentence' = None) -> None:
     super().__init__(idx=idx,
                      score=score,
@@ -666,7 +671,15 @@ class RNNGSequenceSentence(GraphSentence):
                      edge_vocab=edge_vocab,
                      num_padded=num_padded,
                      unpadded_sent=unpadded_sent)
-    self.actions = self._actions_from_graph(all_surfaces)
+
+    assert graph is None or actions is None
+    if actions is None:
+      actions = self._actions_from_graph(all_surfaces)
+    else:
+      graph = self._graph_from_actions(actions)
+
+    self.graph = graph
+    self.actions = actions
 
   def sent_len(self) -> int:
     return len(self.actions)
@@ -706,7 +719,7 @@ class RNNGSequenceSentence(GraphSentence):
       successors = self.graph.sucessors(current_id, with_edge=True)
       for i in range(results[1], current_id+1):
         if len(successors) == 0 or all_surfaces: # Leaf
-          results[0].append(RNNGAction(RNNGAction.Type.SHIFT, self.value_vocab.convert(self.graph[i].value)))
+          results[0].append(RNNGAction(RNNGAction.Type.GEN, self.value_vocab.convert(self.graph[i].value)))
         else: # Non Terminal
           results[0].append(RNNGAction(RNNGAction.Type.NT, self.node_vocab.convert(self.graph[i].value)))
       results[1] = max(results[1], current_id+1)
@@ -720,3 +733,20 @@ class RNNGSequenceSentence(GraphSentence):
       return results[0]
     # Driver function
     return actions_from_graph(roots[0], [[], 1])
+  
+  def _graph_from_actions(self, actions):
+    stack = []
+    node_list = {}
+    edge_list = []
+    node_id = 0
+    for action in actions:
+      print(action.str_token(self.value_vocab, self.node_vocab))
+      act_type = action.action_type
+      if act_type == RNNGAction.Type.GEN or act_type == RNNGAction.Type.NT:
+        new_node = HyperNode(action.action_content, node_id)
+        stack.append(new_node)
+        node_list[node_id] = new_node
+        node_id += 1
+      elif act_type == RNNGAction.Type.REDUCE_RIGHT:
+        right = stack.pop()
+        left = stack.pop()

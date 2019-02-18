@@ -13,7 +13,7 @@ import xnmt.transducers.char_compose.segmenting_composer as composer
 
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt.modelparts.bridges import NoBridge
-from xnmt.modelparts.rnng.rnng_decoders import RNNGDecoder
+from xnmt.modelparts.decoders.rnng import RNNGDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
 from xnmt import batchers, event_trigger
 from xnmt.param_collections import ParamManager
@@ -43,7 +43,7 @@ class TestGraphToGraph(unittest.TestCase):
     self.src_reader = input_readers.PlainTextReader(vocab=value_vocab)
     self.trg_reader = input_readers.CoNLLToRNNGActionsReader(surface_vocab=value_vocab,
                                                              nt_vocab=node_vocab,
-                                                             edge_vocab=edge_vocab)
+                                                             edg_vocab=edge_vocab)
     
     self.layer_dim = layer_dim
     self.src_data = list(self.src_reader.read_sents("examples/data/dep_tree.en"))

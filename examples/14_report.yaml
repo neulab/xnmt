@@ -17,10 +17,6 @@
       - !LossEvalTask
         src_file: examples/data/head.ja
         ref_file: examples/data/head.en
-  train: !SimpleTrainingRegimen
-    run_for_epochs: 0
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu
