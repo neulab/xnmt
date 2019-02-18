@@ -515,18 +515,25 @@ class CoNLLToRNNGActionsReader(GraphReader, Serializable):
     def emit_tree(idx, lines):
       nodes = {}
       edge_list = []
+      max_node = -1
       for node_id, form, lemma, pos, feat, head, deprel in lines:
         nodes[node_id] = sent.SyntaxTreeNode(node_id=node_id, value=form, head=pos)
+        max_node = max(max_node, node_id)
+      nodes[max_node+1] = sent.SyntaxTreeNode(node_id=max_node+1, value=vocabs.Vocab.ES_STR, head=vocabs.Vocab.ES_STR)
+      root = -1
       for node_id, form, lemma, pos, feat, head, deprel in lines:
-        if head != 0 and deprel != "ROOT":
+        if head == 0:
+          root =node_id
+        else:
           edge_list.append(HyperEdge(head, [node_id], None, deprel))
-      return sent.RNNGSequenceSentence(idx,
-                                       score=None,
-                                       graph=HyperGraph(edge_list, nodes),
-                                       surface_vocab=self.value_vocab,
-                                       nt_vocab=self.node_vocab,
-                                       edge_vocab=self.edge_vocab,
-                                       all_surfaces=True)
+      edge_list.append(HyperEdge(root, [max_node+1], None, vocabs.Vocab.ES_STR))
+      return sent.DepTreeRNNGSequenceSentence(idx,
+                                              score=None,
+                                              graph=HyperGraph(edge_list, nodes),
+                                              surface_vocab=self.value_vocab,
+                                              nt_vocab=self.node_vocab,
+                                              edge_vocab=self.edge_vocab,
+                                              all_surfaces=True)
     idx = 0
     lines = []
     # Loop all lines in the file
@@ -610,7 +617,7 @@ class LatticeReader(GraphReader, Serializable):
     assert len(graph.roots()) == 1 # <SOS>
     assert len(graph.leaves()) == 1 # <EOS>
     # Construct LatticeSentence
-    return sent.GraphSentence(idx=idx, graph=graph, vocab=self.value_vocab)
+    return sent.GraphSentence(idx=idx, graph=graph, value_vocab=self.value_vocab)
 
   def vocab_size(self):
     return len(self.value_vocab)

@@ -1,6 +1,5 @@
 import copy
 import functools
-import math
 import numbers
 import enum
 from typing import List, Optional, Sequence, Union
@@ -9,7 +8,7 @@ import numpy as np
 
 from xnmt.vocabs import Vocab
 from xnmt.output import OutputProcessor
-from xnmt.graph import  HyperGraph, HyperNode
+from xnmt.graph import  HyperGraph, HyperNode, HyperEdge
 
 class Sentence(object):
   """
@@ -629,29 +628,26 @@ class RNNGAction(object):
   def action_id(self):
     return self.action_type.value
   
-  def str_token(self, surface_vocab, nt_vocab):
+  def str_token(self, surface_vocab, nt_vocab, edge_vocab):
     if self.action_type == self.Type.GEN:
       return "GEN('{}')".format(surface_vocab[self.action_content])
     elif self.action_type == self.Type.NT:
       return "NT('{}')".format(nt_vocab[self.action_content])
     elif self.action_type == self.Type.REDUCE_LEFT:
-      return "RL()"
+      return "RL('{}')".format(edge_vocab[self.action_content])
     elif self.action_type == self.Type.REDUCE_RIGHT:
-      return "RR()"
+      return "RR('{}')".format(edge_vocab[self.action_content])
     else:
       return "NONE()"
-    
-#  def __hash__(self):
-#    content = [self.action_type] if self.action_content is None else [self.action_content, self.action_type]
-#    return hash(tuple(content))
-  
+ 
   def __eq__(self, other):
     if type(other) == type(self):
       return self.action_type == other.action_type and self.action_content == other.action_content
     else:
       return False
+
   
-class RNNGSequenceSentence(GraphSentence):
+class DepTreeRNNGSequenceSentence(GraphSentence):
   def __init__(self,
                idx: Optional[numbers.Integral],
                score: Optional[numbers.Real],
@@ -662,7 +658,7 @@ class RNNGSequenceSentence(GraphSentence):
                all_surfaces: bool = False,
                num_padded: numbers.Integral = 0,
                actions: List[RNNGAction] = None,
-               unpadded_sent: 'RNNGSequenceSentence' = None) -> None:
+               unpadded_sent: 'GraphSentence' = None) -> None:
     super().__init__(idx=idx,
                      score=score,
                      graph=graph,
@@ -688,7 +684,7 @@ class RNNGSequenceSentence(GraphSentence):
     return len(self.actions)
   
   def str_tokens(self, **kwargs) -> List[str]:
-    return [action.str_token(self.value_vocab, self.node_vocab) for action in self.actions]
+    return [action.str_token(self.value_vocab, self.node_vocab, self.edge_vocab) for action in self.actions]
 
   def sent_str(self, custom_output_procs=None, **kwargs):
     return " ".join(self.str_tokens())
@@ -740,7 +736,6 @@ class RNNGSequenceSentence(GraphSentence):
     edge_list = []
     node_id = 0
     for action in actions:
-      print(action.str_token(self.value_vocab, self.node_vocab))
       act_type = action.action_type
       if act_type == RNNGAction.Type.GEN or act_type == RNNGAction.Type.NT:
         new_node = HyperNode(action.action_content, node_id)
@@ -750,3 +745,40 @@ class RNNGSequenceSentence(GraphSentence):
       elif act_type == RNNGAction.Type.REDUCE_RIGHT:
         right = stack.pop()
         left = stack.pop()
+        new_edge = HyperEdge(left.node_id, [right.node_id], None, action.action_content)
+        edge_list.append(new_edge)
+        stack.append(left)
+      elif act_type == RNNGAction.Type.REDUCE_LEFT:
+        right = stack.pop()
+        left = stack.pop()
+        new_edge = HyperEdge(right.node_id, [left.node_id], None, action.action_content)
+        edge_list.append(new_edge)
+        stack.append(right)
+      elif act_type == RNNGAction.Type.REDUCE_NT:
+        raise NotImplementedError("Finish this method for syntax tree generation!")
+    return HyperGraph(edge_list, node_list)
+
+class ParseTreeRNNGSequenceSentence(DepTreeRNNGSequenceSentence):
+  def _actions_from_graph(self, all_surfaces):
+    roots = self.graph.roots()
+    assert len(roots) == 1
+    
+    def actions_from_graph(now_id, result, visited):
+      now = self.graph[now_id]
+      if now.node_id in visited:
+        return
+      visited.add(now.node_id)
+      # Adding action accordingly
+      if now.type == SyntaxTreeNode.Type.NT or now.type == SyntaxTreeNode.Type.PRT:
+        result.append(RNNGAction(RNNGAction.Type.NT, now.head))
+        # Enqueue next action
+        for child_id in reversed(self.graph.sucessors(now.node_id)):
+          actions_from_graph(child_id, result, visited)
+        result.append(RNNGAction(RNNGAction.Type.REDUCE_NT))
+      else:
+        result.append(RNNGAction(RNNGAction.Type.GEN, now.head))
+    
+    buffer_result = []
+    actions_from_graph(roots[0], buffer_result, set())
+    return buffer_result
+    

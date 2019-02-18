@@ -1,0 +1,54 @@
+string2dep: !Experiment
+  exp_global: !ExpGlobal
+    model_file: '{EXP_DIR}/models/{EXP}.mod'
+    log_file: '{EXP_DIR}/logs/{EXP}.log'
+    default_layer_dim: 256
+    dropout: 0.3
+  # model architecture
+  model: !TreeTranslator
+    src_reader: !PlainTextReader
+      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+    trg_reader: !CoNLLToRNNGActionsReader
+      surface_vocab: !Vocab
+        vocab_file: examples/data/head.en.vocab
+      edg_vocab: !Vocab
+        vocab_file: examples/data/head.en.edge_vocab
+      nt_vocab: !Vocab
+        vocab_file: examples/data/head.en.node_vocab
+    encoder: !BiLSTMSeqTransducer
+      layers: 1
+    decoder: !RNNGDecoder
+      rnn: !UniLSTMSeqTransducer
+        decoder_input_feeding: false
+      bridge: !CopyBridge {}
+      term_embedder: !DenseWordEmbedder 
+        vocab: !Ref {path: model.trg_reader.surface_vocab}
+      term_scorer: !Softmax
+        vocab: !Ref {path: model.trg_reader.surface_vocab}
+        output_projector: !Ref {path: model.decoder.term_embedder}
+      head_composer: !DyerHeadComposer
+        fwd_combinator: !UniLSTMSeqTransducer
+          decoder_input_feeding: false
+        bwd_combinator: !UniLSTMSeqTransducer
+          decoder_input_feeding: false
+      shift_from_enc: False
+  # training parameters
+  train: !SimpleTrainingRegimen
+    batcher: !SrcBatcher
+      batch_size: 1
+    trainer: !SimpleSGDTrainer
+      e0: 0.1 
+    run_for_epochs: 70
+    src_file: examples/data/head.ja
+    trg_file: examples/data/head.en.conll
+    dev_tasks:
+      - !LossEvalTask
+        src_file: examples/data/head.ja
+        ref_file: examples/data/head.en.conll
+  # final evaluation
+  evaluate:
+    - !DecodingEvalTask
+      src_file: examples/data/head.ja
+      hyp_file: examples/output/{EXP}.test_hyp
+      inference: !AutoRegressiveInference
+        search_strategy: !GreedySearch {}

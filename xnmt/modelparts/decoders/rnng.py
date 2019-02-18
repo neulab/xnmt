@@ -4,6 +4,7 @@ import numbers
 import dynet as dy
 from typing import List
 
+import xnmt.vocabs as vocabs
 import xnmt.persistence as persistence
 import xnmt.modelparts.decoders.base as decoders
 import xnmt.modelparts.embedders as embedders
@@ -29,11 +30,12 @@ class RNNGDecoderState(decoders.DecoderState):
     stack
     context
   """
-  def __init__(self, stack, context, word_read=0, num_open_nt=0):
+  def __init__(self, stack, context, word_read=0, num_open_nt=0, finish_generating=False):
     self._stack = stack
     self._context = context
     self._word_read = word_read
     self._num_open_nt = num_open_nt
+    self._finish_generating = finish_generating
 
   # DecoderState interface
   def as_vector(self): return self.stack[-1].output()
@@ -48,6 +50,8 @@ class RNNGDecoderState(decoders.DecoderState):
   def word_read(self): return self._word_read
   @property
   def num_open_nt(self): return self._num_open_nt
+  @property
+  def finish_generating(self): return self._finish_generating
   
 
 class RNNGStackState(object):
@@ -76,9 +80,9 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
                head_composer: segment_composer.SequenceComposer = bare(segment_composer.DyerHeadComposer),
                rnn: rec.UniLSTMSeqTransducer = None,
                bridge: bridges.Bridge = bare(bridges.NoBridge),
-               nt_embedder: embedders.SimpleWordEmbedder = None,
-               edge_embedder: embedders.SimpleWordEmbedder = None,
-               term_embedder: embedders.SimpleWordEmbedder = None,
+               nt_embedder: embedders.Embedder = None,
+               edge_embedder: embedders.Embedder = None,
+               term_embedder: embedders.Embedder = None,
                action_scorer: scorers.Softmax = None,
                nt_scorer: scorers.Softmax = None,
                term_scorer: scorers.Softmax = None,
@@ -151,7 +155,8 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
         return self._perform_gen(dec_state, self.sent_enc[dec_state.word_read])
       else:
         # Feed in the decoder based on the previously generated output / oracle output
-        return self._perform_gen(dec_state, self.term_embedder.embed(action.action_content))
+        return self._perform_gen(dec_state, self.term_embedder.embed(action.action_content),
+                                 finish_generating=action.action_content == vocabs.Vocab.ES)
     elif action_type == sent.RNNGAction.Type.REDUCE_LEFT or \
          action_type == sent.RNNGAction.Type.REDUCE_RIGHT:
       # Perform Reduce on Left direction or right direction
@@ -171,14 +176,19 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
   def calc_loss(self, dec_state, ref_action):
     state = self._calc_transform(dec_state)
     action_batch = batchers.mark_as_batch([x.action_type.value for x in ref_action])
+    action_type = ref_action[0].action_type
     loss = self.action_scorer.calc_loss(state, action_batch)
     # Aux Losses based on action content
-    if ref_action == sent.RNNGAction.Type.NT:
+    if action_type == sent.RNNGAction.Type.NT:
       nt_batch = batchers.mark_as_batch([x.action_content for x in ref_action])
-      loss += self.nt_scorer(state, nt_batch)
-    elif ref_action == sent.RNNGAction.Type.GEN:
+      loss += self.nt_scorer.calc_loss(state, nt_batch)
+    elif action_type == sent.RNNGAction.Type.GEN:
       term_batch = batchers.mark_as_batch([x.action_content for x in ref_action])
-      loss += self.term_scorer(state, term_batch)
+      loss += self.term_scorer.calc_loss(state, term_batch)
+    elif action_type == sent.RNNGAction.Type.REDUCE_LEFT or \
+         action_type == sent.RNNGAction.Type.REDUCE_RIGHT:
+      edge_batch = batchers.mark_as_batch([x.action_content for x in ref_action])
+      loss += self.edge_scorer.calc_loss(state, edge_batch)
     # Total Loss
     return loss
   
@@ -196,6 +206,9 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
       rule_out.add(sent.RNNGAction.Type.REDUCE_RIGHT.value)
     if self.shift_from_enc:
       if dec_state.word_read >= len(self.sent_enc) :
+        rule_out.add(sent.RNNGAction.Type.GEN.value)
+    else:
+      if dec_state.finish_generating:
         rule_out.add(sent.RNNGAction.Type.GEN.value)
     if dec_state.num_open_nt == 0:
       rule_out.add(sent.RNNGAction.Type.REDUCE_NT.value)
@@ -256,13 +269,15 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
   def _calc_transform(self, dec_state):
     return self.transform.transform(dy.concatenate([dec_state.as_vector(), dec_state.context]))
 
-  def _perform_gen(self, dec_state, word_encoding):
+  def _perform_gen(self, dec_state, word_encoding, finish_generating=False):
     h_i = dec_state.stack[-1].add_input(word_encoding)
     stack_i = [x for x in dec_state.stack] + [RNNGStackState(h_i)]
+    inc_read = 1 if self.shift_from_enc else 0
     return RNNGDecoderState(stack=stack_i,
                             context=dec_state.context,
-                            word_read=dec_state.word_read+1,
-                            num_open_nt=dec_state.num_open_nt)
+                            word_read=dec_state.word_read+inc_read,
+                            num_open_nt=dec_state.num_open_nt,
+                            finish_generating=finish_generating)
   
   def _perform_reduce(self, dec_state, is_left, edge_id):
     children = dec_state.stack[-2:]
@@ -276,7 +291,8 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
     return RNNGDecoderState(stack=stack_i,
                             context=dec_state.context,
                             word_read=dec_state.word_read,
-                            num_open_nt=dec_state.num_open_nt)
+                            num_open_nt=dec_state.num_open_nt,
+                            finish_generating=dec_state.finish_generating)
     
   def _perform_nt(self, dec_state, nt_id):
     x_i = self.nt_embedder.embed(nt_id)
@@ -285,7 +301,8 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
     return RNNGDecoderState(stack=stack_i,
                             context=dec_state.context,
                             word_read=dec_state.word_read,
-                            num_open_nt=dec_state.num_open_nt+1)
+                            num_open_nt=dec_state.num_open_nt+1,
+                            finish_generating=dec_state.finish_generating)
   
   def _perform_reduce_nt(self, dec_state):
     num_pop = 0
@@ -301,13 +318,15 @@ class RNNGDecoder(decoders.Decoder, persistence.Serializable):
     return RNNGDecoderState(stack=stack_i,
                             context=dec_state.context,
                             word_read=dec_state.word_read,
-                            num_open_nt=dec_state.num_open_nt-1)
+                            num_open_nt=dec_state.num_open_nt-1,
+                            finish_generating=dec_state.finish_generating)
 
   def finish_generating(self, dec_output, dec_state):
     if type(dec_output) == np.ndarray or type(dec_output) == list:
       assert len(dec_output) == 1
-    done = dec_state.num_open_nt == 0 and \
-           len(dec_state.stack) == 2 and \
-           dec_state.word_read == len(self.sent_enc)
-    return [done]
+    gen_finish = dec_state.word_read == len(self.sent_enc) if self.shift_from_enc else dec_state.finish_generating
+    done = [dec_state.num_open_nt == 0,
+            len(dec_state.stack) == 2,
+            gen_finish]
+    return [all(done)]
  

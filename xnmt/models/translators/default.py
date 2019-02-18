@@ -226,11 +226,11 @@ class TreeTranslator(DefaultTranslator, Serializable):
   yaml_tag = "!TreeTranslator"
   
   def _emit_translation(self, src, output_actions, score):
-    return sent.RNNGSequenceSentence(idx=src[0].idx,
-                                     score=score,
-                                     actions=output_actions,
-                                     surface_vocab=getattr(self.trg_reader, "surface_vocab", None),
-                                     nt_vocab=getattr(self.trg_reader, "nt_vocab", None),
-                                     edge_vocab=getattr(self.trg_reader, "edge_vocab", None))
+    return sent.DepTreeRNNGSequenceSentence(idx=src[0].idx,
+                                            score=score,
+                                            actions=output_actions,
+                                            surface_vocab=getattr(self.trg_reader, "surface_vocab", None),
+                                            nt_vocab=getattr(self.trg_reader, "nt_vocab", None),
+                                            edge_vocab=getattr(self.trg_reader, "edge_vocab", None))
   
   
