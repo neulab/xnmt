@@ -1,12 +1,12 @@
 import copy
 import functools
-import math
 import numbers
 import enum
 from typing import List, Optional, Sequence, Union
 
 import numpy as np
 
+import xnmt
 from xnmt.vocabs import Vocab
 from xnmt.output import OutputProcessor
 from xnmt.graph import  HyperGraph, HyperNode
@@ -253,7 +253,7 @@ class SimpleSentence(ReadableSentence):
   def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'SimpleSentence':
     if trunc_len == 0:
       return self
-    return self.sent_with_words(self.words[:-trunc_len])
+    return self.sent_with_new_words(self.words[:-trunc_len])
 
   def get_unpadded_sent(self):
     if self.unpadded_sent: return self.unpadded_sent
@@ -324,17 +324,25 @@ class ArraySentence(Sentence):
     return self.nparr.__getitem__(key)
 
   def sent_len(self):
-    # TODO: check, this seems wrong (maybe need a 'transposed' version?)
-    return self.nparr.shape[1] if len(self.nparr.shape) >= 2 else 1
+    if len(self.nparr.shape) == 1:
+      return 1
+    elif xnmt.backend_dynet:
+      return self.nparr.shape[1]
+    else:
+      return self.nparr.shape[0]
 
   def len_unpadded(self):
-    return len(self) - self.padded_len
+    return self.sent_len() - self.padded_len
 
   def create_padded_sent(self, pad_len: numbers.Integral) -> 'ArraySentence':
     if pad_len == 0:
       return self
-    new_nparr = np.append(self.nparr, np.broadcast_to(np.reshape(self.nparr[:, -1], (self.nparr.shape[0], 1)),
-                                                      (self.nparr.shape[0], pad_len)), axis=1)
+    if xnmt.backend_dynet:
+      new_nparr = np.append(self.nparr, np.broadcast_to(np.reshape(self.nparr[:, -1], (self.nparr.shape[0], 1)),
+                                                        (self.nparr.shape[0], pad_len)), axis=1)
+    else:
+      feat_dim = self.nparr.shape[1]
+      new_nparr = np.append(self.nparr, np.broadcast_to(self.nparr[-1:, :], (pad_len, feat_dim)), axis=0)
     return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=self.padded_len + pad_len,
                          unpadded_sent=self if self.padded_len==0 else self.unpadded_sent)
 

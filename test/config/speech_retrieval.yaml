@@ -24,26 +24,26 @@ speech-retrieval: !Experiment
       out_height: 1024 
     database: !StandardRetrievalDatabase
       reader: !H5Reader {}
-      database_file: examples/data/vgg20.h5
+      database_file: test/data/vgg20.h5
     src_reader: !H5Reader {}
     trg_reader: !IDReader {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
     trainer: !AdamTrainer
       alpha: 0.01 
-    src_file: examples/data/mfcc_tr20.h5
-    trg_file: examples/data/flickr_tr20.ids
+    src_file: test/data/mfcc_tr20.h5
+    trg_file: test/data/flickr_tr20.ids
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/mfcc_tx20.h5
-        ref_file: examples/data/flickr_tx20.ids
+        src_file: test/data/mfcc_tx20.h5
+        ref_file: test/data/flickr_tx20.ids
       - !AccuracyEvalTask
         eval_metrics: recall|nbest=1,recall|nbest=5
-        src_file: examples/data/mfcc_tx20.h5
-        ref_file: examples/data/flickr_tx20.ids
+        src_file: test/data/mfcc_tx20.h5
+        ref_file: test/data/flickr_tx20.ids
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: recall|nbest=1,recall|nbest=5
-      src_file: examples/data/mfcc_tx20.h5
-      ref_file: examples/data/flickr_tx20.ids
+      src_file: test/data/mfcc_tx20.h5
+      ref_file: test/data/flickr_tx20.ids
     

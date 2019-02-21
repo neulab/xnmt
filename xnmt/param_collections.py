@@ -1,15 +1,26 @@
 import os
 import re
+import numbers
+import pickle
 
-import dynet as dy
+import numpy as np
 
+import xnmt
 from xnmt import logger
+
+if xnmt.backend_dynet:
+  import dynet as dy
+if xnmt.backend_torch:
+  import torch
+  from torch import nn
+
+
 
 class ParamManager(object):
   """
-  A static class that manages the currently loaded DyNet parameters of all components.
+  A static class that manages the currently loaded neural network parameters of all components.
 
-  Responsibilities are registering of all components that use DyNet parameters and loading pretrained parameters.
+  Responsibilities are registering of all components that use network parameters and loading pretrained parameters.
   Components can register parameters by calling ParamManager.my_params(self) from within their __init__() method.
   This allocates a subcollection with a unique identifier for this component. When loading previously saved parameters,
   one or several paths are specified to look for the corresponding saved DyNet collection named after this identifier.
@@ -36,7 +47,7 @@ class ParamManager(object):
     requested component identifiers.
 
     Args:
-      data_file: a data directory (usually named ``*.data``) containing DyNet parameter collections.
+      data_file: a data directory (usually named ``*.data``) containing saved parameter collections.
     """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
     if not data_file in ParamManager.load_paths: ParamManager.load_paths.append(data_file)
@@ -58,19 +69,19 @@ class ParamManager(object):
           ParamManager.param_col.load_subcol_from_data_file(subcol_name, data_file)
           populated_subcols.append(subcol_name)
     if len(ParamManager.param_col.subcols) == len(populated_subcols):
-      logger.info(f"> populated DyNet weights of all components from given data files")
+      logger.info(f"> populated neural network parameters of all components from given data files")
     elif len(populated_subcols)==0:
-      logger.info(f"> use randomly initialized DyNet weights of all components")
+      logger.info(f"> use randomly initialized neural network parameters for all components")
     else:
-      logger.info(f"> populated a subset of DyNet weights from given data files: {populated_subcols}.\n"
+      logger.info(f"> populated a subset of neural network parameters from given data files: {populated_subcols}.\n"
                   f"  Did not populate {ParamManager.param_col.subcols.keys() - set(populated_subcols)}.\n"
                   f"  If partial population was not intended, likely the unpopulated component or its owner"
                   f"   does not adhere to the Serializable protocol correctly, see documentation:\n"
                   f"   http://xnmt.readthedocs.io/en/latest/writing_xnmt_classes.html#using-serializable-subcomponents")
-    logger.info(f"  DyNet param count: {ParamManager.param_col._param_col.parameter_count()}")
+    logger.info(f"  neural network param count: {ParamManager.param_col.parameter_count()}")
 
   @staticmethod
-  def my_params(subcol_owner) -> dy.ParameterCollection:
+  def my_params(subcol_owner):
     """Creates a dedicated parameter subcollection for a serializable object.
 
     This should only be called from the __init__ method of a Serializable.
@@ -93,19 +104,75 @@ class ParamManager(object):
     return subcol
 
   @staticmethod
-  def global_collection() -> dy.ParameterCollection:
+  def global_collection():
     """ Access the top-level parameter collection, including all parameters.
 
     Returns:
-      top-level DyNet parameter collection
+      top-level parameter collection
     """
     assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
-    return ParamManager.param_col._param_col
+    return ParamManager.param_col.global_collection()
 
-class ParamCollection(object):
+class RevertingUnsavedModelException(Exception): pass
 
+class BaseParamCollection(object):
   def __init__(self) -> None:
     self.reset()
+
+  @property
+  def save_num_checkpoints(self):
+    return self._save_num_checkpoints
+  @save_num_checkpoints.setter
+  def save_num_checkpoints(self, value):
+    self._save_num_checkpoints = value
+    self._update_data_files()
+
+  @property
+  def model_file(self):
+    return self._model_file
+  @model_file.setter
+  def model_file(self, value):
+    self._model_file = value
+    self._update_data_files()
+
+  def _update_data_files(self):
+    if self._save_num_checkpoints>0 and self._model_file:
+      self._data_files = [self.model_file + '.data']
+      for i in range(1,self._save_num_checkpoints):
+        self._data_files.append(self.model_file + '.data.' + str(i))
+    else:
+      self._data_files = []
+  def _remove_existing_history(self):
+    for fname in self._data_files:
+      if os.path.exists(fname):
+        self._remove_data_dir(fname)
+
+  def _remove_data_dir(self, data_dir):
+    assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
+    try:
+      dir_contents = os.listdir(data_dir)
+      for old_file in dir_contents:
+        spl = old_file.split("-")
+        # make sure we're only deleting files with the expected filenames
+        if len(spl) == 2:
+          if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
+            if re.match(r"^[0-9a-f]{8}$", spl[1]):
+              os.remove(os.path.join(data_dir, old_file))
+    except NotADirectoryError:
+      os.remove(data_dir)
+
+  def _shift_saved_checkpoints(self):
+    if os.path.exists(self._data_files[-1]):
+      self._remove_data_dir(self._data_files[-1])
+    for i in range(len(self._data_files) - 1)[::-1]:
+      if os.path.exists(self._data_files[i]):
+        os.rename(self._data_files[i], self._data_files[i + 1])
+
+@xnmt.require_dynet
+class ParamCollectionDynet(BaseParamCollection):
+
+  def __init__(self) -> None:
+    super().__init__()
 
   def reset(self) -> None:
     self._save_num_checkpoints = 1
@@ -115,29 +182,7 @@ class ParamCollection(object):
     self.subcols = {}
     self.all_subcol_owners = set()
 
-  @property
-  def save_num_checkpoints(self):
-    return self._save_num_checkpoints
-  @save_num_checkpoints.setter
-  def save_num_checkpoints(self, value):
-    self._save_num_checkpoints = value
-    self._update_data_files()
-  @property
-  def model_file(self):
-    return self._model_file
-  @model_file.setter
-  def model_file(self, value):
-    self._model_file = value
-    self._update_data_files()
-  def _update_data_files(self):
-    if self._save_num_checkpoints>0 and self._model_file:
-      self._data_files = [self.model_file + '.data']
-      for i in range(1,self._save_num_checkpoints):
-        self._data_files.append(self.model_file + '.data.' + str(i))
-    else:
-      self._data_files = []
-
-  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> dy.ParameterCollection:
+  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> 'dy.ParameterCollection':
     assert subcol_owner not in self.all_subcol_owners
     self.all_subcol_owners.add(subcol_owner)
     if subcol_name in self.subcols:
@@ -165,28 +210,112 @@ class ParamCollection(object):
     for subcol_name, subcol in self.subcols.items():
       subcol.populate(os.path.join(self._data_files[0], subcol_name))
 
-  def _remove_existing_history(self):
-    for fname in self._data_files:
-      if os.path.exists(fname):
-        self._remove_data_dir(fname)
-  def _remove_data_dir(self, data_dir):
-    assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
-    try:
-      dir_contents = os.listdir(data_dir)
-      for old_file in dir_contents:
-        spl = old_file.split(".")
-        # make sure we're only deleting files with the expected filenames
-        if len(spl)==2:
-          if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
-            if re.match(r"^[0-9a-f]{8}$", spl[1]):
-              os.remove(os.path.join(data_dir, old_file))
-    except NotADirectoryError:
-      os.remove(data_dir)
-  def _shift_saved_checkpoints(self):
-    if os.path.exists(self._data_files[-1]):
-      self._remove_data_dir(self._data_files[-1])
-    for i in range(len(self._data_files)-1)[::-1]:
-      if os.path.exists(self._data_files[i]):
-        os.rename(self._data_files[i], self._data_files[i+1])
+  def global_collection(self):
+    return self._param_col
 
-class RevertingUnsavedModelException(Exception): pass
+  def parameter_count(self) -> numbers.Integral:
+    return self._param_col.parameter_count()
+
+@xnmt.require_torch
+class InitializableModuleList(nn.ModuleList if xnmt.backend_torch else object):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+
+  def init_params(self,
+                  param_init: 'xnmt.param_initializers.ParamInitializer',
+                  bias_init: 'xnmt.param_initializers.ParamInitializer' = None):
+    """Initialize all contained parameters
+
+    param_init: initializer to use for params that are named *weight*
+    bias_init: initializer to use for params that are named *bias*
+    """
+    weights_cnt, bias_cnt = 0,0
+    for name, param in self.named_parameters():
+      if 'weight' in name:
+        param_init[weights_cnt].initialize(param)
+        weights_cnt += 1
+      if bias_init is not None and 'bias' in name:
+        bias_init[bias_cnt].initialize(param)
+        bias_cnt += 1
+
+@xnmt.require_torch
+class ParamCollectionTorch(BaseParamCollection):
+
+  def __init__(self) -> None:
+    super().__init__()
+    
+  def reset(self) -> None:
+    self._save_num_checkpoints = 1
+    self._model_file = None
+    self.subcols =  nn.ModuleDict()
+    self._is_saved = False
+    self.all_subcol_owners = set()
+
+  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> InitializableModuleList:
+    assert subcol_owner not in self.all_subcol_owners
+    self.all_subcol_owners.add(subcol_owner)
+    if subcol_name in self.subcols:
+      raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
+    new_subcol = InitializableModuleList()
+    self.subcols[subcol_name] = new_subcol
+    return new_subcol
+
+  def load_subcol_from_data_file(self, subcol_name: str, data_file: str) -> None:
+    try:
+      self.load_subcol_from_data_file_torch(subcol_name=subcol_name, data_file=data_file)
+    except pickle.UnpicklingError:
+      self.load_subcol_from_data_file_dynet(subcol_name=subcol_name, data_file=data_file)
+
+  def load_subcol_from_data_file_torch(self, subcol_name: str, data_file: str) -> None:
+    loaded = torch.load(data_file).state_dict()
+    self.subcols[subcol_name].load_state_dict(loaded)
+
+  def load_subcol_from_data_file_dynet(self, subcol_name: str, data_file: str) -> None:
+    state_dict = self.subcols[subcol_name].state_dict()
+    arrays = []
+    with open(data_file) as f:
+      try:
+        while True:
+          meta_line = next(f)
+          content_line = next(f)
+          dims = tuple([int(s) for s in meta_line.split()[2][1:-1].split(",")])
+          numbers = [float(s) for s in content_line.split()]
+          array = np.asarray(numbers)
+          array.resize(tuple(reversed(dims)))
+          array = array.transpose(tuple(reversed(range(0,len(dims)))))
+          arrays.append(array)
+      except StopIteration: pass
+    subcol_owner = None
+    for owner in self.all_subcol_owners:
+      if owner.xnmt_subcol_name==subcol_name: subcol_owner = owner
+    loaded = subcol_owner.params_from_dynet(arrays, state_dict)
+    loaded = {k:torch.Tensor(v) for (k,v) in loaded.items()}
+    self.subcols[subcol_name].load_state_dict(loaded)
+
+  def save(self) -> None:
+    if not self._is_saved:
+      self._remove_existing_history()
+    self._shift_saved_checkpoints()
+    if not os.path.exists(self._data_files[0]):
+      os.makedirs(self._data_files[0])
+    for subcol_name, subcol in self.subcols.items():
+      torch.save(subcol, os.path.join(self._data_files[0], subcol_name))
+    self._is_saved = True
+
+  def revert_to_best_model(self) -> None:
+    if not self._is_saved:
+      raise RevertingUnsavedModelException(
+        "revert_to_best_model() is illegal because this model has never been saved.")
+    for subcol_name, subcol in self.subcols.items():
+      data_file = os.path.join(self._data_files[0], subcol_name)
+      loaded = torch.load(data_file)
+      subcol.load_state_dict(loaded.state_dict())
+
+  def global_collection(self):
+    return self.subcols
+
+  def parameter_count(self) -> numbers.Integral:
+    return sum(p.numel() for p in self.subcols.parameters())
+
+ParamCollection = xnmt.resolve_backend(ParamCollectionDynet, ParamCollectionTorch)
+

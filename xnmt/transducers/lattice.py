@@ -1,12 +1,15 @@
 from typing import List, Optional, Sequence
 import numbers
-import dynet as dy
 
+import xnmt
 from xnmt import events, expression_seqs, param_collections
 from xnmt.transducers import base as transducers
 from xnmt.persistence import Ref, Serializable, serializable_init
 
+if xnmt.backend_dynet:
+  import dynet as dy
 
+@xnmt.require_dynet
 class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
   """
   A lattice LSTM.
@@ -34,15 +37,15 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     self.dropout_rate = dropout
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-    model = param_collections.ParamManager.my_params(self)
+    my_params = param_collections.ParamManager.my_params(self)
 
     # [i; o; g]
-    self.p_Wx_iog = model.add_parameters(dim=(hidden_dim * 3, input_dim))
-    self.p_Wh_iog = model.add_parameters(dim=(hidden_dim * 3, hidden_dim))
-    self.p_b_iog = model.add_parameters(dim=(hidden_dim * 3,), init=dy.ConstInitializer(0.0))
-    self.p_Wx_f = model.add_parameters(dim=(hidden_dim, input_dim))
-    self.p_Wh_f = model.add_parameters(dim=(hidden_dim, hidden_dim))
-    self.p_b_f = model.add_parameters(dim=(hidden_dim,), init=dy.ConstInitializer(1.0))
+    self.p_Wx_iog = my_params.add_parameters(dim=(hidden_dim * 3, input_dim))
+    self.p_Wh_iog = my_params.add_parameters(dim=(hidden_dim * 3, hidden_dim))
+    self.p_b_iog = my_params.add_parameters(dim=(hidden_dim * 3,), init=dy.ConstInitializer(0.0))
+    self.p_Wx_f = my_params.add_parameters(dim=(hidden_dim, input_dim))
+    self.p_Wh_f = my_params.add_parameters(dim=(hidden_dim, hidden_dim))
+    self.p_b_f = my_params.add_parameters(dim=(hidden_dim,), init=dy.ConstInitializer(1.0))
 
     self.dropout_mask_x = None
     self.dropout_mask_h = None
@@ -69,7 +72,7 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
       self.dropout_mask_h = dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size)
 
   def transduce(self, expr_seq: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
-    if expr_seq.dim()[1] > 1: raise ValueError(f"LatticeLSTMTransducer requires batch size 1, got {expr_seq.dim()[1]}")
+    if expr_seq.batch_size() > 1: raise ValueError(f"LatticeLSTMTransducer requires batch size 1, got {expr_seq.batch_size()}")
     lattice = self.cur_src[0]
     Wx_iog = dy.parameter(self.p_Wx_iog)
     Wh_iog = dy.parameter(self.p_Wh_iog)
@@ -81,7 +84,7 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     c = {}
     h_list = []
 
-    batch_size = expr_seq.dim()[1]
+    batch_size = expr_seq.batch_size()
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
 
@@ -120,7 +123,7 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     self._final_states = [transducers.FinalTransducerState(h_list[-1], h_list[-1])]
     return expression_seqs.ExpressionSequence(expr_list=h_list)
 
-
+@xnmt.require_dynet
 class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
   """
   A multi-layered bidirectional lattice LSTM.
@@ -207,4 +210,4 @@ class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
                                                          0].cell_expr()])) \
       for layer_i in range(len(self.forward_layers))]
     return expression_seqs.ExpressionSequence(expr_list=[dy.concatenate([forward_es[i], rev_backward_es[-i - 1]])
-                                                         for i in range(len(forward_es))])
+                                                         for i in range(forward_es.sent_len())])

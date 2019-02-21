@@ -1,7 +1,6 @@
 import unittest
 
-import dynet as dy
-
+import xnmt, xnmt.tensor_tools as tt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt import batchers, event_trigger, events
 from xnmt.modelparts.bridges import CopyBridge
@@ -25,7 +24,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
     # Load a pre-trained model
     load_experiment = LoadSerialized(
-      filename=f"examples/data/tiny_jaen.model",
+      filename=f"test/data/tiny_jaen.model",
       overwrite=[
         {"path" : "train", "val" : None},
         {"path": "status", "val": None},
@@ -43,11 +42,12 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
     event_trigger.set_train(False)
 
-    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
+    self.src_data = list(self.model.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.model.trg_reader.read_sents("test/data/head.en"))
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_single(self):
-    dy.renew_cg()
+    tt.reset_graph()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch())
 
     # Make sure the output of beam search is the same as the target sentence
@@ -58,7 +58,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
     # Verify that the loss we get from beam search is the same as the loss
     # we get if we call model.calc_nll
-    dy.renew_cg()
+    tt.reset_graph()
     train_loss = self.model.calc_nll(src=self.src_data[0],
                                      trg=outputs[0]).value()
 
@@ -72,8 +72,8 @@ class TestGreedyVsBeam(unittest.TestCase):
     layer_dim = 512
     events.clear()
     ParamManager.init_param_col()
-    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
+    src_vocab = Vocab(vocab_file="test/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="test/data/head.en.vocab")
     self.model = DefaultTranslator(
       src_reader=PlainTextReader(vocab=src_vocab),
       trg_reader=PlainTextReader(vocab=trg_vocab),
@@ -89,14 +89,14 @@ class TestGreedyVsBeam(unittest.TestCase):
     )
     event_trigger.set_train(False)
 
-    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
+    self.src_data = list(self.model.src_reader.read_sents("test/data/head.ja"))
 
   def test_greedy_vs_beam(self):
-    dy.renew_cg()
+    tt.reset_graph()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch(beam_size=1))
     output_score1 = outputs[0].score
 
-    dy.renew_cg()
+    tt.reset_graph()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), GreedySearch())
     output_score2 = outputs[0].score
 

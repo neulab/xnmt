@@ -1,12 +1,10 @@
 from collections import namedtuple
 import math
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, List, Optional
 import numbers
 
-import dynet as dy
 import numpy as np
 
-from xnmt import batchers, logger
 from xnmt.modelparts import decoders
 from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
@@ -142,10 +140,18 @@ class BeamSearch(Serializable, SearchStrategy):
     completed_hyp = []
     for length in range(self.max_len):
       if len(completed_hyp) >= self.beam_size:
-        break
+        completed_hyp = sorted(completed_hyp, key=lambda hyp: hyp.score, reverse=True)
+        completed_hyp = completed_hyp[:self.beam_size]
+        worst_complete_hyp_score = completed_hyp[-1].score
+        active_hyp = [hyp for hyp in active_hyp if hyp.score >= worst_complete_hyp_score]
+        # Assumption: each additional word will always *decrease* the total score.
+        if len(active_hyp) == 0:
+          break
+
       # Expand hyp
       new_set = []
       for hyp in active_hyp:
+        # Note: prev_word has *not* yet been added to prev_state
         if length > 0:
           prev_word = hyp.word
           prev_state = hyp.output.state

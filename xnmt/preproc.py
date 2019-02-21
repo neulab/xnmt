@@ -647,7 +647,11 @@ class MelFiltExtractor(Extractor, Serializable):
           y, sr = librosa.load(db_item["wav"], sr=16000,
                                offset=db_item.get("offset", 0.0),
                                duration=db_item.get("duration", None))
-          if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
+          if len(y)*40<sr:
+            logger.warn(f"Encountered a short audio with only {len(y)} values. Filling up with zeros to extract filterbank features..")
+            missing_len = sr - len(y)*40
+            y = np.pad(y, (0,missing_len), mode='constant')
+            # raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
           logmel = speech_features.logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
             delta = speech_features.calculate_delta(logmel)

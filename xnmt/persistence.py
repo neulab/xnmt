@@ -21,19 +21,24 @@ from enum import IntEnum, auto
 import collections.abc
 import numbers
 import logging
+import inspect
+
+from xnmt.trace import make_traceable
+
 logger = logging.getLogger('xnmt')
 import os
 import copy
 from functools import lru_cache, wraps
 from collections import OrderedDict
 import collections.abc
-from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Any
-import inspect, random
+from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Any, Sequence
+import random
 
 import yaml
 
 from xnmt import param_collections, tee, utils
 import xnmt
+from xnmt.settings import settings
 
 def serializable_init(f):
   @wraps(f)
@@ -93,6 +98,7 @@ def serializable_init(f):
     for key, arg in serialize_params.items():
       if not hasattr(obj, key):
         setattr(obj, key, arg)
+    if settings.COMPUTE_TRACE: make_traceable(obj)
 
   wrapper.uses_serializable_init = True
   return wrapper
@@ -199,6 +205,25 @@ class Serializable(yaml.YAMLObject):
       return f"bare({self.__class__.__name__}{self._bare_kwargs if self._bare_kwargs else ''})"
     else:
       return f"{self.__class__.__name__}@{id(self)}"
+
+  def params_from_dynet(self, arrays: Sequence['numpy.ndarray'], state_dict: dict):
+    """
+    Convert DyNet parameters loaded from disk into the Pytorch format by doing appropriate rearranging and transposing.
+
+    The default implementation simply assumes that the order of saved parameter arrays is identical, and that no
+    transposing needs to be done. Can be overwritten by submodels as needed.
+
+    Args:
+      arrays: List of arrays, as found in a parameter file written out by dynet.
+      state_dict: The state_dict, indicating keys and dimensions expected by PyTorch.
+
+    Returns:
+      a dictionary with the same keys as state_dict, and with the appropriate numpy arrays as values.
+    """
+    if xnmt.backend_dynet:
+      raise RuntimeError("params_from_dynet can only be invoked with 'torch' as active backend")
+    assert len(arrays)==len(state_dict)
+    return {k:arrays[i] for i,k in enumerate(state_dict.keys()) if not "bias_hh" in k}
 
 
 class UninitializedYamlObject(object):
@@ -453,7 +478,7 @@ _subcol_rand = random.Random()
 def _generate_subcol_name(subcol_owner):
   rand_bits = _subcol_rand.getrandbits(32)
   rand_hex = "%008x" % rand_bits
-  return f"{type(subcol_owner).__name__}.{rand_hex}"
+  return f"{type(subcol_owner).__name__}-{rand_hex}"
 
 
 _reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self", "xnmt_subcol_name",
@@ -475,6 +500,9 @@ def _check_serializable_args_valid(node):
       raise ValueError(
         f"'{name}' is not a accepted argument of {type(node).__name__}.__init__(). Valid are {list(init_args.keys())}")
 
+def _check_backend(node):
+  if not getattr(node, "backend_matches", True):
+    raise ValueError(f"'{node.__class__.__name__}' is not supported by this backend.")
 
 @singledispatch
 def _name_serializable_children(node):
@@ -1184,6 +1212,7 @@ class _YamlDeserializer(object):
   def check_args(self, root):
     for _, node in _traverse_tree(root):
       if isinstance(node, Serializable):
+        _check_backend(node)
         _check_serializable_args_valid(node)
 
   def resolve_ref_default_args(self, root):

@@ -7,12 +7,16 @@ from functools import lru_cache
 import numbers
 
 import numpy as np
-import dynet as dy
 
+import xnmt
 from xnmt.persistence import serializable_init, Serializable
-from xnmt import expression_seqs
-from xnmt.transducers import recurrent
 from xnmt import sent
+from xnmt import tensor_tools as tt
+
+if xnmt.backend_dynet:
+  import dynet as dy
+if xnmt.backend_torch:
+  import torch
 
 class Batch(ABC):
   """
@@ -43,8 +47,6 @@ class ListBatch(list, Batch):
   def batch_size(self) -> int: return super().__len__()
   def sent_len(self) -> int: return self[0].sent_len()
   def __len__(self):
-    warnings.warn("use of ListBatch.__len__() is discouraged, use ListBatch.batch_size() "
-                  "[or ListBatch.sent_len()] instead.", DeprecationWarning)
     return self.batch_size()
   def __getitem__(self, key):
     ret = super().__getitem__(key)
@@ -84,7 +86,7 @@ class CompoundBatch(Batch):
       return CompoundBatch(sel_batches)
 
 
-class Mask(object):
+class BaseMask(object):
   """
   An immutable mask specifies padded parts in a sequence or batch of sequences.
 
@@ -105,42 +107,13 @@ class Mask(object):
     return self.np_arr.shape[0]
 
   def reversed(self) -> 'Mask':
-    return Mask(self.np_arr[:,::-1])
-
-  def add_to_tensor_expr(self, tensor_expr: dy.Expression, multiplicator: Optional[numbers.Real]=None) -> dy.Expression:
-    # TODO: might cache these expressions to save memory
-    if np.count_nonzero(self.np_arr) == 0:
-      return tensor_expr
-    else:
-      if multiplicator is not None:
-        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
-      else:
-        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
-      return tensor_expr + mask_expr
+    return Mask(np.copy(self.np_arr[:,::-1]))
 
   def lin_subsampled(self, reduce_factor: Optional[numbers.Integral] = None, trg_len: Optional[numbers.Integral]=None) -> 'Mask':
     if reduce_factor:
       return Mask(np.array([[self.np_arr[b,int(i*reduce_factor)] for i in range(int(math.ceil(len(self)/float(reduce_factor))))] for b in range(self.batch_size())]))
     else:
       return Mask(np.array([[self.np_arr[b,int(i*len(self)/float(trg_len))] for i in range(trg_len)] for b in range(self.batch_size())]))
-
-  def cmult_by_timestep_expr(self, expr: dy.Expression, timestep: numbers.Integral, inverse: bool = False) -> dy.Expression:
-    # TODO: might cache these expressions to save memory
-    """
-    Args:
-      expr: a dynet expression corresponding to one timestep
-      timestep: index of current timestep
-      inverse: True will keep the unmasked parts, False will zero out the unmasked parts
-    """
-    if inverse:
-      if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == 0:
-        return expr
-      mask_exp = dy.inputTensor((1.0 - self.np_arr)[:,timestep:timestep+1].transpose(), batched=True)
-    else:
-      if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == self.np_arr[:,timestep:timestep+1].size:
-        return expr
-      mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
-    return dy.cmult(expr, mask_exp)
 
   @lru_cache(maxsize=1)
   def get_valid_position(self, transpose: bool = True) -> List[numbers.Integral]:
@@ -158,6 +131,76 @@ class Mask(object):
     """
     return len(self) - np.count_nonzero(self.np_arr, axis=1)
 
+@xnmt.require_dynet
+class MaskDynet(BaseMask):
+  def add_to_tensor_expr(self, tensor_expr: tt.Tensor,
+                         multiplicator: Optional[numbers.Real] = None) -> tt.Tensor:
+    # TODO: might cache these expressions to save memory
+    if np.count_nonzero(self.np_arr) == 0:
+      return tensor_expr
+    else:
+      if multiplicator is not None:
+        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
+      else:
+        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
+      return tensor_expr + mask_expr
+
+  def cmult_by_timestep_expr(self, expr: tt.Tensor, timestep: numbers.Integral,
+                             inverse: bool = False) -> tt.Tensor:
+    # TODO: might cache these expressions to save memory
+    """
+    Args:
+      expr: a dynet expression corresponding to one timestep
+      timestep: index of current timestep
+      inverse: True will keep the unmasked parts, False will zero out the unmasked parts
+    """
+    if inverse:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == 0:
+        return expr
+      mask_exp = dy.inputTensor((1.0 - self.np_arr)[:, timestep:timestep + 1].transpose(), batched=True)
+    else:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == self.np_arr[:, timestep:timestep + 1].size:
+        return expr
+      mask_exp = dy.inputTensor(self.np_arr[:, timestep:timestep + 1].transpose(), batched=True)
+    return dy.cmult(expr, mask_exp)
+
+@xnmt.require_torch
+class MaskTorch(BaseMask):
+  def cmult_by_timestep_expr(self, expr: tt.Tensor, timestep: numbers.Integral,
+                             inverse: bool = False) -> tt.Tensor:
+    """
+    Args:
+      expr: a Tensor corresponding to one timestep
+      timestep: index of current timestep
+      inverse: True will keep the unmasked parts, False will zero out the unmasked parts
+    """
+    if inverse:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == 0:
+        return expr
+      mask_exp = torch.as_tensor((1.0 - self.np_arr)[:, timestep:timestep + 1], dtype=expr.dtype, device=xnmt.device)
+    else:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == self.np_arr[:, timestep:timestep + 1].size:
+        return expr
+      mask_exp = torch.as_tensor(self.np_arr[:, timestep:timestep + 1], dtype=expr.dtype, device=xnmt.device)
+    if expr.dim()==1: mask_exp = mask_exp.view(expr.size())
+    ret = torch.mul(expr, mask_exp)
+    assert ret.size() == expr.size()
+    return ret
+
+  def add_to_tensor_expr(self, tensor_expr: tt.Tensor,
+                         multiplicator: Optional[numbers.Real] = None) -> tt.Tensor:
+    if np.count_nonzero(self.np_arr) == 0:
+      return tensor_expr
+    else:
+      if multiplicator is not None:
+        mask_expr = torch.as_tensor(np.expand_dims(self.np_arr, axis=1) * multiplicator, dtype=tensor_expr.dtype,device=xnmt.device)
+      else:
+        mask_expr = torch.as_tensor(np.expand_dims(self.np_arr, axis=1), dtype=tensor_expr.dtype,device=xnmt.device)
+      ret = tensor_expr + mask_expr
+      assert ret.size() == tensor_expr.size()
+      return ret
+
+Mask = xnmt.resolve_backend(MaskDynet, MaskTorch)
 
 class Batcher(object):
   """

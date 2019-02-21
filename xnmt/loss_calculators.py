@@ -1,14 +1,14 @@
 from typing import List, Optional, Sequence, Union
 import numbers
 
-import dynet as dy
 import numpy as np
 
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger, losses, search_strategies, sent, vocabs
 from xnmt.persistence import bare, Ref, Serializable, serializable_init
 from xnmt.modelparts import transforms
 from xnmt.eval import metrics
-
 
 class LossCalculator(object):
   """
@@ -47,11 +47,46 @@ class MLELoss(Serializable, LossCalculator):
     return losses.FactoredLossExpr({"mle": loss})
 
 
+class FeedbackLoss(Serializable, LossCalculator):
+  """
+  A loss that first calculates a standard loss function, then feeds it back to the
+  model using the model.additional_loss function.
+
+  Args:
+    child_loss: The loss that will be fed back to the model
+    repeat: Repeat the process multiple times and use the sum of the losses. This is
+            useful when there is some non-determinism (such as sampling in the encoder, etc.)
+  """
+  yaml_tag = '!FeedbackLoss'
+  @serializable_init
+  def __init__(self,
+               child_loss: LossCalculator = bare(MLELoss),
+               repeat: numbers.Integral = 1) -> None:
+    self.child_loss = child_loss
+    self.repeat = repeat
+
+  def calc_loss(self,
+                model: 'model_base.ConditionedModel',
+                src: Union[sent.Sentence, 'batcher.Batch'],
+                trg: Union[sent.Sentence, 'batcher.Batch']) -> losses.FactoredLossExpr:
+    loss_builder = losses.FactoredLossExpr()
+    for _ in range(self.repeat):
+      standard_loss = self.child_loss.calc_loss(model, src, trg)
+      additional_loss = event_trigger.calc_additional_loss(trg, model, standard_loss)
+      loss_builder.add_factored_loss_expr(standard_loss)
+      loss_builder.add_factored_loss_expr(additional_loss)
+    return loss_builder
+
+if xnmt.backend_dynet:
+
+  import dynet as dy
+
+@xnmt.require_dynet
 class GlobalFertilityLoss(Serializable, LossCalculator):
   """
   A fertility loss according to Cohn+, 2016.
   Incorporating Structural Alignment Biases into an Attentional Neural Translation Model
-  
+
   https://arxiv.org/pdf/1601.01085.pdf
   """
   yaml_tag = '!GlobalFertilityLoss'
@@ -69,14 +104,14 @@ class GlobalFertilityLoss(Serializable, LossCalculator):
     if trg.mask is not None:
       trg_mask = 1-(trg.mask.np_arr.transpose())
       masked_attn = [dy.cmult(attn, dy.inputTensor(mask, batched=True)) for attn, mask in zip(masked_attn, trg_mask)]
-    
+
     loss = self.global_fertility(masked_attn)
     return losses.FactoredLossExpr({"global_fertility": loss})
 
-  def global_fertility(self, a: Sequence[dy.Expression]) -> dy.Expression:
+  def global_fertility(self, a: Sequence[tt.Tensor]) -> tt.Tensor:
     return dy.sum_elems(dy.square(1 - dy.esum(a)))
 
-
+@xnmt.require_dynet
 class CompositeLoss(Serializable, LossCalculator):
   """
   Summing losses from multiple LossCalculator.
@@ -100,12 +135,12 @@ class CompositeLoss(Serializable, LossCalculator):
       total_loss.add_factored_loss_expr(loss.calc_loss(model, src, trg) * weight)
     return total_loss
 
-
+@xnmt.require_dynet
 class ReinforceLoss(Serializable, LossCalculator):
   """
   Reinforce Loss according to Ranzato+, 2015.
   SEQUENCE LEVEL TRAINING WITH RECURRENT NEURAL NETWORKS.
-  
+
   (This is not the MIXER algorithm)
 
   https://arxiv.org/pdf/1511.06732.pdf
@@ -158,7 +193,7 @@ class ReinforceLoss(Serializable, LossCalculator):
       total_loss.add_factored_loss_expr(loss)
     return loss
 
-
+@xnmt.require_dynet
 class MinRiskLoss(Serializable, LossCalculator):
   yaml_tag = '!MinRiskLoss'
 
@@ -228,32 +263,3 @@ class MinRiskLoss(Serializable, LossCalculator):
     return losses.FactoredLossExpr({"risk": risk})
 
 
-class FeedbackLoss(Serializable, LossCalculator):
-  """
-  A loss that first calculates a standard loss function, then feeds it back to the
-  model using the model.additional_loss function.
-
-  Args:
-    child_loss: The loss that will be fed back to the model
-    repeat: Repeat the process multiple times and use the sum of the losses. This is
-            useful when there is some non-determinism (such as sampling in the encoder, etc.)
-  """
-  yaml_tag = '!FeedbackLoss'
-  @serializable_init
-  def __init__(self,
-               child_loss: LossCalculator = bare(MLELoss),
-               repeat: numbers.Integral = 1) -> None:
-    self.child_loss = child_loss
-    self.repeat = repeat
-
-  def calc_loss(self,
-                model: 'model_base.ConditionedModel',
-                src: Union[sent.Sentence, 'batcher.Batch'],
-                trg: Union[sent.Sentence, 'batcher.Batch']) -> losses.FactoredLossExpr:
-    loss_builder = losses.FactoredLossExpr()
-    for _ in range(self.repeat):
-      standard_loss = self.child_loss.calc_loss(model, src, trg)
-      additional_loss = event_trigger.calc_additional_loss(trg, model, standard_loss)
-      loss_builder.add_factored_loss_expr(standard_loss)
-      loss_builder.add_factored_loss_expr(additional_loss)
-    return loss_builder

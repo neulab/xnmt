@@ -1,11 +1,14 @@
 from typing import List
 import numbers
 
-import dynet as dy
-
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt.modelparts import transforms
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import expression_seqs
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 class FinalTransducerState(object):
   """
@@ -17,16 +20,16 @@ class FinalTransducerState(object):
     main_expr: expression for hidden state
     cell_expr: expression for cell state, if exists
   """
-  def __init__(self, main_expr: dy.Expression, cell_expr: dy.Expression=None) -> None:
+  def __init__(self, main_expr: tt.Tensor, cell_expr: tt.Tensor=None) -> None:
     self._main_expr = main_expr
     self._cell_expr = cell_expr
 
-  def main_expr(self) -> dy.Expression:
+  def main_expr(self) -> tt.Tensor:
     return self._main_expr
 
-  def cell_expr(self) -> dy.Expression:
+  def cell_expr(self) -> tt.Tensor:
     """Returns:
-         dy.Expression: cell state; if not given, it is inferred as inverse tanh of main expression
+         cell state; if not given, it is inferred as inverse tanh of main expression
     """
     if self._cell_expr is None:
       # TODO: This taking of the tanh inverse is disabled, because it can cause NaNs
@@ -106,8 +109,8 @@ class IdentitySeqTransducer(SeqTransducer, Serializable):
   def transduce(self, seq: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     return seq
 
-
-class TransformSeqTransducer(SeqTransducer, Serializable):
+@xnmt.require_dynet
+class TransformSeqTransducerDynet(SeqTransducer, Serializable):
   """
   A sequence transducer that applies a given transformation to the sequence's tensor representation
 
@@ -132,7 +135,7 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
     out_mask = src.mask
     if self.downsample_by > 1:
       assert len(src_tensor.dim()[0])==2, \
-        f"Downsampling only supported for tensors of order to. Found dims {src_tensor.dim()}"
+        f"Downsampling only supported for tensors of order two. Found dims {src_tensor.dim()}"
       (hidden_dim, seq_len), batch_size = src_tensor.dim()
       if seq_len % self.downsample_by != 0:
         raise ValueError(
@@ -150,3 +153,46 @@ class TransformSeqTransducer(SeqTransducer, Serializable):
     output_seq = expression_seqs.ExpressionSequence(expr_tensor=output, mask=out_mask)
     self._final_states = [FinalTransducerState(output_seq[-1])]
     return output_seq
+
+
+@xnmt.require_torch
+class TransformSeqTransducerTorch(SeqTransducer, Serializable):
+  """
+  A sequence transducer that applies a given transformation to the sequence's tensor representation
+
+  Args:
+      transform: the Transform to apply to the sequence
+      downsample_by: if > 1, downsample the sequence via appropriate reshapes.
+                     The transform must accept a respectively larger hidden dimension.
+  """
+  yaml_tag = '!TransformSeqTransducer'
+
+  @serializable_init
+  def __init__(self, transform: transforms.Transform, downsample_by: numbers.Integral = 1) -> None:
+    self.transform = transform
+    if downsample_by < 1: raise ValueError(f"downsample_by must be >=1, was {downsample_by}")
+    self.downsample_by = downsample_by
+
+  def get_final_states(self) -> List[FinalTransducerState]:
+    return self._final_states
+
+  def transduce(self, src: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
+    src_tensor = src.as_tensor()
+    out_mask = src.mask
+    if self.downsample_by > 1:
+      assert src_tensor.dim()==3, \
+        f"Downsampling only supported for tensors of order two (+ batch). Found dims {src_tensor.size()}"
+      batch_size , seq_len, hidden_dim = src_tensor.size()
+      if seq_len % self.downsample_by != 0:
+        raise ValueError(
+          "For downsampling, sequence lengths must be multiples of the total reduce factor. "
+          "Configure batcher accordingly.")
+      src_tensor = src_tensor.view((batch_size, seq_len//self.downsample_by, hidden_dim*self.downsample_by))
+      if out_mask:
+        out_mask = out_mask.lin_subsampled(reduce_factor=self.downsample_by)
+    output = self.transform.transform(src_tensor)
+    output_seq = expression_seqs.ExpressionSequence(expr_tensor=output, mask=out_mask)
+    self._final_states = [FinalTransducerState(output_seq[-1])]
+    return output_seq
+
+TransformSeqTransducer = xnmt.resolve_backend(TransformSeqTransducerDynet, TransformSeqTransducerTorch)

@@ -1,9 +1,6 @@
-import numbers
-from typing import Optional, Sequence, Union
+from typing import Union
 
-import dynet as dy
-import numpy as np
-
+import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger, inferences, input_readers, sent
 from xnmt.modelparts import transforms
 from xnmt.modelparts import scorers
@@ -60,7 +57,7 @@ class SequenceClassifier(models.ConditionedModel, models.GeneratorModel, Seriali
     return self.transform.transform(h)
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
-          -> dy.Expression:
+          -> tt.Tensor:
     h = self._encode_src(src)
     ids = trg.value if not batchers.is_batched(trg) else batchers.ListBatch([trg_i.value for trg_i in trg])
     loss_expr = self.scorer.calc_loss(h, ids)

@@ -4,12 +4,12 @@ report: !Experiment
     compute_report: True
   model: !DefaultTranslator
     src_reader: !CharFromWordTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.charvocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.charvocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
       segment_composer: !LookupComposer
-        word_vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        word_vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
       policy_learning: !PolicyGradient
         output_dim: 2
         conf_penalty: !ConfidencePenalty {}
@@ -19,17 +19,17 @@ report: !Experiment
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en 
+    src_file: test/data/head.ja
+    trg_file: test/data/head.en
     loss_calculator: !CompositeLoss
       losses: [!FeedbackLoss {child_loss: !MLELoss {}}]
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
-      src_file: examples/data/debug.ja
-      ref_file: examples/data/debug.en
+      src_file: test/data/debug.ja
+      ref_file: test/data/debug.en
       hyp_file: test/tmp/{EXP}.test_hyp
     - !LossEvalTask
-      src_file: examples/data/debug.ja
-      ref_file: examples/data/debug.en
+      src_file: test/data/debug.ja
+      ref_file: test/data/debug.en
 

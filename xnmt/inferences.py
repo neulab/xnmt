@@ -5,10 +5,7 @@ from typing.io import TextIO
 import numbers
 import shutil
 
-from xnmt.settings import settings
-
-import dynet as dy
-
+import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger
 from xnmt import events, logger, losses, loss_calculators, output, reports, search_strategies, sent, utils
 from xnmt.models import base as models
@@ -125,7 +122,7 @@ class Inference(object):
       fp.write(f"{output_txt}\n")
     else:
       with utils.ReportOnException({"src": src_batch, "graph": utils.print_cg_conditional}):
-        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+        tt.reset_graph()
         outputs = self.generate_one(generator, src_batch)
         if self.reporter: self._create_sent_report()
         for i in range(len(outputs)):
@@ -181,12 +178,11 @@ class Inference(object):
     batch_size = len(src_batch)
     src_batches, ref_batches = batcher.pack(src_batch, ref_batch)
     src_batch = src_batches[0]
-    ref_batch = ref_batches[0]
     src_len = src_batch.sent_len()
 
     if max_src_len is None or src_len <= max_src_len is not None and src_len > max_src_len:
       with utils.ReportOnException({"src": src_batch, "graph": utils.print_cg_conditional}):
-        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+        tt.reset_graph()
         outputs = self.generate_one(generator, src_batch)
         if self.reporter: self._create_sent_report()
         for i in range(len(outputs)):
@@ -261,7 +257,7 @@ class Inference(object):
     ref_scores = []
     for sent_count, (src, ref) in enumerate(zip(batched_src, batched_ref)):
       if max_num_sents and sent_count >= max_num_sents: break
-      dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+      tt.reset_graph()
       loss = self.compute_losses_one(generator, src, ref)
       if isinstance(loss.value(), collections.abc.Iterable):
         ref_scores.extend(loss.value())

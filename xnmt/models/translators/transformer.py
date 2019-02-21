@@ -1,9 +1,9 @@
 import numpy as np
-import dynet as dy
 import itertools
 
 from typing import Sequence
 
+import xnmt
 import xnmt.vocabs as vocabs
 import xnmt.sent as sent
 import xnmt.events as events
@@ -16,10 +16,13 @@ from xnmt.persistence import Serializable, serializable_init
 from xnmt.reports import Reportable
 from xnmt.settings import settings
 
-from .auto_regressive import AutoRegressiveTranslator
+from xnmt.models.translators import auto_regressive
 
+if xnmt.backend_dynet:
+  import dynet as dy
 
-class TransformerTranslator(AutoRegressiveTranslator, Serializable, Reportable):
+@xnmt.require_dynet
+class TransformerTranslator(auto_regressive.AutoRegressiveTranslator, Serializable, Reportable):
   """
   A translator based on the transformer model.
   Args:

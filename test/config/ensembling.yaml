@@ -5,17 +5,17 @@ ensemble1: !Experiment
   # Just use default model settings here
   model: !DefaultTranslator
     src_reader: &src_reader !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
     trg_reader: &trg_reader !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
   train: &train !SimpleTrainingRegimen
     run_for_epochs: 2
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
+    src_file: test/data/head.ja
+    trg_file: test/data/head.en
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/head.ja
-        ref_file: examples/data/head.en
+        src_file: test/data/head.ja
+        ref_file: test/data/head.en
 
 ensemble2: !Experiment
   exp_global: *globals
@@ -55,6 +55,6 @@ ensemble3-load: !Experiment
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
-      src_file: examples/data/head.ja
-      ref_file: examples/data/head.en
+      src_file: test/data/head.ja
+      ref_file: test/data/head.en
       hyp_file: test/tmp/{EXP}.test_hyp

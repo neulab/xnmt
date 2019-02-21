@@ -1,10 +1,13 @@
-import dynet as dy
 import numpy as np
-from xnmt.settings import settings
 
+from xnmt.settings import settings
+import xnmt
 from xnmt import batchers, expression_seqs
 from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 ##### A class for retrieval databases
 # This file contains databases used for retrieval.
@@ -72,6 +75,7 @@ class Retriever(models.ConditionedModel, models.GeneratorModel):
         candidates = sorted({int(x):1 for x in f}.keys())
     self.index_database(candidates)
 
+@xnmt.require_dynet
 class DotProductRetriever(Retriever, Serializable):
   """
   A retriever trains using max-margin methods.

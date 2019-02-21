@@ -39,7 +39,7 @@ def extract_components(mod_infile):
     for line in file_:
       yaml_lines.append(line)
       if SUBCOL_TAG in line:
-        type_name, hash_name = line.strip().split(SUBCOL_TAG)[-1].split('.')
+        type_name, hash_name = line.strip().split(SUBCOL_TAG)[-1].split('-')
         components.add((type_name, hash_name))
   return components, yaml_lines
 
@@ -49,13 +49,13 @@ def rewrite_components(mod_infile, mod_outfile, components, yaml_lines):
   for type_name, hash_name in components:
     new_hash = generate_hash()
     new_hashes[hash_name] = new_hash
-    shutil.copy(f"{mod_infile}.data/{type_name}.{hash_name}",
-                f"{mod_outfile}.data/{type_name}.{new_hash}")
+    shutil.copy(f"{mod_infile}.data/{type_name}-{hash_name}",
+                f"{mod_outfile}.data/{type_name}-{new_hash}")
   with open(f"{mod_infile}", 'r', encoding="utf-8") as file_in, \
        open(f"{mod_outfile}", 'w', encoding="utf-8") as file_out:
     for line in yaml_lines:
       if SUBCOL_TAG in line:
-        part = line.strip().split('.')
+        part = line.strip().split('-')
         if part[-1] in new_hashes:
           line = line.replace(part[-1], new_hashes[part[-1]])
       file_out.write(line)

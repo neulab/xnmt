@@ -1,16 +1,16 @@
 from typing import Optional, Sequence, Union
 
-import dynet as dy
-
+import xnmt.tensor_tools as tt
 from xnmt import batchers, input_readers, sent
 from xnmt.persistence import Serializable, serializable_init
+
 
 class TrainableModel(object):
   """
   A template class for a basic trainable model, implementing a loss function.
   """
 
-  def calc_nll(self, *args, **kwargs) -> dy.Expression:
+  def calc_nll(self, *args, **kwargs) -> tt.Tensor:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -32,7 +32,7 @@ class UnconditionedModel(TrainableModel):
   def __init__(self, trg_reader: input_readers.InputReader) -> None:
     self.trg_reader = trg_reader
 
-  def calc_nll(self, trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
+  def calc_nll(self, trg: Union[batchers.Batch, sent.Sentence]) -> tt.Tensor:
     """Calculate loss based on target inputs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.
@@ -59,7 +59,7 @@ class ConditionedModel(TrainableModel):
     self.trg_reader = trg_reader
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
-          -> dy.Expression:
+          -> tt.Tensor:
     """Calculate loss based on input-output pairs.
 
     Losses are accumulated only across unmasked timesteps in each batch element.

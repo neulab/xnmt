@@ -8,15 +8,15 @@ speech-self-att: !Experiment
     tasks:
     - !PreprocExtract
       in_files:
-      - examples/data/LDC94S13A.yaml
+      - test/data/LDC94S13A.yaml
       out_files:
-      - examples/data/LDC94S13A.h5
+      - test/data/LDC94S13A.h5
       specs: !MelFiltExtractor {}
   model: !DefaultTranslator
     src_reader: !H5Reader
       transpose: True
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     src_embedder: !NoopEmbedder
       emb_dim: 40
     encoder: !SAAMSeqTransducer
@@ -36,13 +36,13 @@ speech-self-att: !Experiment
       embedder: !SimpleWordEmbedder
         emb_dim: 32
   train: !SimpleTrainingRegimen
-    src_file: examples/data/LDC94S13A.h5
-    trg_file: examples/data/LDC94S13A.char
+    src_file: test/data/LDC94S13A.h5
+    trg_file: test/data/LDC94S13A.char
     run_for_epochs: 1
     batcher: !SrcBatcher
       batch_size: 3
       pad_src_to_multiple: 4
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/LDC94S13A.h5
-        ref_file: examples/data/LDC94S13A.char
+        src_file: test/data/LDC94S13A.h5
+        ref_file: test/data/LDC94S13A.char

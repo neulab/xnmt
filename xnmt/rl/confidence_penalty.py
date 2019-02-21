@@ -1,11 +1,15 @@
 from typing import Sequence
 import numbers
 
-import dynet as dy
-
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class ConfidencePenalty(Serializable):
   """ 
   The confidence penalty.
@@ -14,7 +18,7 @@ class ConfidencePenalty(Serializable):
   Calculate the -entropy for the given (batched policy).
   Entropy is used as an additional loss so that it will penalize a too confident network.
   """
- 
+
   yaml_tag = "!ConfidencePenalty"
 
   @serializable_init
@@ -26,7 +30,7 @@ class ConfidencePenalty(Serializable):
   def on_start_sent(self, src):
     self.valid_pos = src.mask.get_valid_position() if src.mask is not None else None
 
-  def calc_loss(self, policy: Sequence[dy.Expression]) -> dy.Expression:
+  def calc_loss(self, policy: Sequence[tt.Tensor]) -> tt.Tensor:
     if self.weight < 1e-8:
       return None
     neg_entropy = []

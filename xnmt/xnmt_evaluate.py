@@ -67,7 +67,7 @@ def xnmt_evaluate(ref_file: Union[str, Sequence[str]],
 
 def main() -> None:
   parser = argparse.ArgumentParser()
-  utils.add_dynet_argparse(parser)
+  utils.add_backend_argparse(parser)
   parser.add_argument("--metric",
                       help=f"Scoring metric(s), a string. "
                            f"Accepted metrics are {', '.join(eval_shortcuts.keys())}."

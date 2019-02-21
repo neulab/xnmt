@@ -3,8 +3,6 @@
 # First, let's a define a simple experiment with a single model
 exp1-single: !Experiment
   exp_global: &globals !ExpGlobal
-    model_file: examples/output/{EXP}.mod
-    log_file: examples/output/{EXP}.log
     default_layer_dim: 32
   # Just use default model settings here
   model: &model1 !DefaultTranslator

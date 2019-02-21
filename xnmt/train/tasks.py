@@ -84,7 +84,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     model: a trainable supervised model
     src_file: The file for the source data.
     trg_file: The file for the target data.
-    dev_every: dev checkpoints every n sentences (0 for only after epoch)
     batcher: Type of batcher
     loss_calculator:
     run_for_epochs: number of epochs (None for unlimited epochs)
@@ -115,7 +114,6 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                model: 'model_base.ConditionedModel',
                src_file: Union[str, Sequence[str]] = None,
                trg_file: str = None,
-               dev_every: numbers.Integral = 0,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
                run_for_epochs: Optional[numbers.Integral] = None,
@@ -131,7 +129,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
                sample_train_sents: Optional[numbers.Integral] = None,
                max_num_train_sents: Optional[numbers.Integral] = None,
                max_src_len: Optional[numbers.Integral] = None,
-               max_trg_len: Optional[numbers.Integral] = None) -> None:
+               max_trg_len: Optional[numbers.Integral] = None,
+               train_loss_tracker: loss_trackers.TrainLossTracker = bare(loss_trackers.TrainLossTracker),
+               dev_loss_tracker: loss_trackers.DevLossTracker = bare(loss_trackers.DevLossTracker)) -> None:
     self.src_file = src_file
     self.trg_file = trg_file
     self.dev_tasks = dev_tasks
@@ -161,8 +161,12 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_trg_len = max_trg_len
 
     self.batcher = batcher
-    self.dev_loss_tracker = loss_trackers.DevLossTracker(self, dev_every, name)
     self.name = name
+    self.train_loss_tracker = train_loss_tracker
+    self.train_loss_tracker.set_training_task(self)
+    self.dev_loss_tracker = dev_loss_tracker
+    self.dev_loss_tracker.set_training_task(self)
+
 
   def _augment_data_initial(self):
     """
@@ -273,6 +277,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         src = self.src_batches[batch_num]
         trg = self.trg_batches[batch_num]
         self.training_state.steps_into_epoch += 1
+        self.training_state.steps_since_start += 1
         self.training_state.sents_into_epoch += src.batch_size()
         self.training_state.sents_since_start += src.batch_size()
         yield src, trg
@@ -379,6 +384,7 @@ class TrainingState(object):
     self.cur_attempt = 0
     self.epoch_num = 0
     self.steps_into_epoch = 0
+    self.steps_since_start = 0
     self.sents_since_start = 0
     self.sents_into_epoch = 0
     self.best_dev_score = None

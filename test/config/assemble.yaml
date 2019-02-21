@@ -4,9 +4,9 @@ exp1-pretrain1: !Experiment
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
     encoder: !BiLSTMSeqTransducer
@@ -27,8 +27,8 @@ exp1-pretrain1: !Experiment
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
+    src_file: test/data/head.ja
+    trg_file: test/data/head.en
 
 exp2-pretrain2: !Experiment
   exp_global: !ExpGlobal
@@ -36,9 +36,9 @@ exp2-pretrain2: !Experiment
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
     encoder: !BiLSTMSeqTransducer
@@ -58,8 +58,8 @@ exp2-pretrain2: !Experiment
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
+    src_file: test/data/head.ja
+    trg_file: test/data/head.en
 
 
 exp3-assemble: !Experiment
@@ -67,9 +67,9 @@ exp3-assemble: !Experiment
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
     src_embedder: !LoadSerialized
       filename: test/tmp/exp1-pretrain1.mod
       path: 'model.decoder.embedder'
@@ -91,8 +91,8 @@ exp3-assemble: !Experiment
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
-    src_file: examples/data/head.en
-    trg_file: examples/data/head.ja
+    src_file: test/data/head.en
+    trg_file: test/data/head.ja
 
 
 
@@ -101,9 +101,9 @@ exp4-assemble: !Experiment
     default_layer_dim: 64
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
     encoder: !ModularSeqTransducer
@@ -128,5 +128,5 @@ exp4-assemble: !Experiment
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
-    src_file: examples/data/head.en
-    trg_file: examples/data/head.ja
+    src_file: test/data/head.en
+    trg_file: test/data/head.ja
