@@ -38,6 +38,7 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
                                                                             " --settings=standard")
     argparser.add_argument("--resume", action='store_true', help="whether a saved experiment is being resumed, and"
                                                                  "locations of output files should be re-used.")
+    argparser.add_argument("--backend", type=str, default="dynet", help="backend (dynet or torch)")
     argparser.add_argument("experiments_file")
     argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
     argparser.set_defaults(generate_doc=False)

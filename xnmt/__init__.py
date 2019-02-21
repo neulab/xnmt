@@ -14,6 +14,11 @@ logger = logging.getLogger('xnmt')
 yaml_logger = logging.getLogger('yaml')
 file_logger = logging.getLogger('xnmt_file')
 
+if "torch" in sys.argv or "--backend=torch" in sys.argv:
+  backend_dynet, backend_torch = False, True
+else:
+  backend_dynet, backend_torch = True, False
+
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
 import xnmt.batchers

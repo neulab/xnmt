@@ -50,7 +50,6 @@ class MlpAttender(Attender, Serializable):
     hidden_dim: hidden MLP dimension
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
-    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
   """
 
   yaml_tag = '!MlpAttender'
@@ -62,12 +61,10 @@ class MlpAttender(Attender, Serializable):
                state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    self.truncate_dec_batches = truncate_dec_batches
     param_collection = param_collections.ParamManager.my_params(self)
     self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
     self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
@@ -96,9 +93,6 @@ class MlpAttender(Attender, Serializable):
 
     WI = self.WI
     curr_sent_mask = self.curr_sent.mask
-    if self.truncate_dec_batches:
-      if curr_sent_mask: state, WI, curr_sent_mask = batchers.truncate_batches(state, WI, curr_sent_mask)
-      else: state, WI = batchers.truncate_batches(state, WI)
     h = dy.tanh(dy.colwise_add(WI, V * state))
     scores = dy.transpose(U * h)
     if curr_sent_mask is not None:
@@ -114,16 +108,13 @@ class DotAttender(Attender, Serializable):
 
   Args:
     scale: whether to perform scaling
-    truncate_dec_batches: currently unsupported
   """
 
   yaml_tag = '!DotAttender'
 
   @serializable_init
   def __init__(self,
-               scale: bool = True,
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
-    if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for DotAttender")
+               scale: bool = True) -> None:
     self.curr_sent = None
     self.scale = scale
     self.attention_vecs = []
@@ -152,7 +143,6 @@ class BilinearAttender(Attender, Serializable):
     input_dim: input dimension; if None, use exp_global.default_layer_dim
     state_dim: dimension of state inputs; if None, use exp_global.default_layer_dim
     param_init: how to initialize weight matrices; if None, use ``exp_global.param_init``
-    truncate_dec_batches: currently unsupported
   """
 
   yaml_tag = '!BilinearAttender'
@@ -161,9 +151,7 @@ class BilinearAttender(Attender, Serializable):
   def __init__(self,
                input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
-               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
-    if truncate_dec_batches: raise NotImplementedError("truncate_dec_batches not yet implemented for BilinearAttender")
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer))) -> None:
     self.input_dim = input_dim
     self.state_dim = state_dim
     param_collection = param_collections.ParamManager.my_params(self)
@@ -194,7 +182,6 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
     hidden_dim: hidden MLP dimension
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
-    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
   """
 
   yaml_tag = '!LatticeBiasedMlpAttender'
@@ -206,10 +193,9 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
                state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
-               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
     super().__init__(input_dim=input_dim, state_dim=state_dim, hidden_dim=hidden_dim, param_init=param_init,
-                     bias_init=bias_init, truncate_dec_batches=truncate_dec_batches)
+                     bias_init=bias_init)
 
   @events.handle_xnmt_event
   def on_start_sent(self, src):
@@ -225,9 +211,6 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
 
     WI = self.WI
     curr_sent_mask = self.curr_sent.mask
-    if self.truncate_dec_batches:
-      if curr_sent_mask: state, WI, curr_sent_mask = batchers.truncate_batches(state, WI, curr_sent_mask)
-      else: state, WI = batchers.truncate_batches(state, WI)
     h = dy.tanh(dy.colwise_add(WI, V * state))
     scores = dy.transpose(U * h)
     if curr_sent_mask is not None:

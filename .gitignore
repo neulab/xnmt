@@ -28,3 +28,4 @@ examples/preproc/
 dist/
 docs/_build/
 docs/examples
+.history

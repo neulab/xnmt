@@ -149,6 +149,15 @@ class Mask(object):
     x = [np.nonzero(1-arr)[0] for arr in np_arr]
     return x
 
+  def seq_lengths(self) -> np.ndarray:
+    """
+    Get sequence length for each batch element
+
+    Returns:
+      an array of sequence lengths
+    """
+    return len(self) - np.count_nonzero(self.np_arr, axis=1)
+
 
 class Batcher(object):
   """
@@ -699,49 +708,3 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
     if self.avg_batch_size:
       self.batch_size = (sum([s.sent_len() for s in src]) + sum([s.sent_len() for s in trg])) / len(src) * self.avg_batch_size
     return super()._pack_by_order(src, trg, order)
-
-def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, recurrent.UniLSTMState]) \
-        -> Sequence[Union[dy.Expression, Batch, Mask, recurrent.UniLSTMState]]:
-  """
-  Truncate a list of batched items so that all items have the batch size of the input with the smallest batch size.
-
-  Inputs can be of various types and would usually correspond to a single time step.
-  Assume that the batch elements with index 0 correspond across the inputs, so that batch elements will be truncated
-  from the top, i.e. starting with the highest-indexed batch elements.
-  Masks are not considered even if attached to a input of :class:`Batch` type.
-
-  Args:
-    *xl: batched timesteps of various types
-
-  Returns:
-    Copies of the inputs, truncated to consistent batch size.
-  """
-  batch_sizes = []
-  for x in xl:
-    if isinstance(x, dy.Expression) or isinstance(x, expression_seqs.ExpressionSequence):
-      batch_sizes.append(x.dim()[1])
-    elif isinstance(x, Batch):
-      batch_sizes.append(len(x))
-    elif isinstance(x, Mask):
-      batch_sizes.append(x.batch_size())
-    elif isinstance(x, recurrent.UniLSTMState):
-      batch_sizes.append(x.output().dim()[1])
-    else:
-      raise ValueError(f"unsupported type {type(x)}")
-    assert batch_sizes[-1] > 0
-  ret = []
-  for i, x in enumerate(xl):
-    if batch_sizes[i] > min(batch_sizes):
-      if isinstance(x, dy.Expression) or isinstance(x, expression_seqs.ExpressionSequence):
-        ret.append(x[tuple([slice(None)]*len(x.dim()[0]) + [slice(min(batch_sizes))])])
-      elif isinstance(x, Batch):
-        ret.append(mark_as_batch(x[:min(batch_sizes)]))
-      elif isinstance(x, Mask):
-        ret.append(Mask(x.np_arr[:min(batch_sizes)]))
-      elif isinstance(x, recurrent.UniLSTMState):
-        ret.append(x[:,:min(batch_sizes)])
-      else:
-        raise ValueError(f"unsupported type {type(x)}")
-    else:
-      ret.append(x)
-  return ret
