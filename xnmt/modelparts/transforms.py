@@ -194,8 +194,8 @@ if xnmt.backend_dynet:
 
 if xnmt.backend_torch:
 
+  import torch
   from torch import nn
-  import torch.nn.functional as F
 
   class Linear(Transform, Serializable):
     """
@@ -256,15 +256,15 @@ if xnmt.backend_torch:
       self.output_dim = output_dim
       self.input_dim = input_dim
       if activation == 'tanh':
-        self.activation = F.tanh
+        self.activation = torch.tanh
       elif activation == 'relu':
-        self.activation = F.relu
+        self.activation = torch.relu
       elif activation == 'sigmoid':
-        self.activation = F.sigmoid
+        self.activation = torch.sigmoid
       elif activation == 'elu':
-        self.activation = F.elu
+        self.activation = torch.elu
       elif activation == 'selu':
-        self.activation = F.selu
+        self.activation = torch.selu
       elif activation == 'identity':
         def identity(x):
           return x
