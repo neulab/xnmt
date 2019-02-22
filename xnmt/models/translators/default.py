@@ -231,6 +231,7 @@ class TreeTranslator(DefaultTranslator, Serializable):
                                             actions=output_actions,
                                             surface_vocab=getattr(self.trg_reader, "surface_vocab", None),
                                             nt_vocab=getattr(self.trg_reader, "nt_vocab", None),
-                                            edge_vocab=getattr(self.trg_reader, "edge_vocab", None))
+                                            edge_vocab=getattr(self.trg_reader, "edge_vocab", None),
+                                            output_procs=self.trg_reader.output_procs)
   
   

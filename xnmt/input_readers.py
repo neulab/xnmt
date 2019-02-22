@@ -508,7 +508,7 @@ class CoNLLToRNNGActionsReader(GraphReader, Serializable):
   @serializable_init
   def __init__(self, surface_vocab: vocabs.Vocab, nt_vocab: vocabs.Vocab, edg_vocab: vocabs.Vocab, output_procs=[]):
     super().__init__(nt_vocab, edg_vocab, surface_vocab)
-    self.output_procs = output_procs
+    self.output_procs = output.OutputProcessor.get_output_processor(output_procs)
 
   def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None):
     # Routine to add tree
@@ -533,7 +533,8 @@ class CoNLLToRNNGActionsReader(GraphReader, Serializable):
                                               surface_vocab=self.value_vocab,
                                               nt_vocab=self.node_vocab,
                                               edge_vocab=self.edge_vocab,
-                                              all_surfaces=True)
+                                              all_surfaces=True,
+                                              output_procs=self.output_procs)
     idx = 0
     lines = []
     # Loop all lines in the file
@@ -580,8 +581,8 @@ class LatticeReader(GraphReader, Serializable):
   yaml_tag = '!LatticeReader'
 
   @serializable_init
-  def __init__(self, vocab:vocabs.Vocab, text_input: bool = False, flatten = False):
-    super().__init__(None, None, vocab)
+  def __init__(self, vocab:vocabs.Vocab, text_input: bool = False, flatten = False, output_procs=[]):
+    super().__init__(None, None, vocab, output_procs)
     self.text_input = text_input
     self.flatten = flatten
 

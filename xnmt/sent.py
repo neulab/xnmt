@@ -108,6 +108,7 @@ class ReadableSentence(Sentence):
     Returns: list of tokens.
     """
     raise NotImplementedError("must be implemented by subclasses")
+  
   def sent_str(self, custom_output_procs=None, **kwargs) -> str:
     """
     Return a single string containing the readable version of the sentence.
@@ -126,8 +127,10 @@ class ReadableSentence(Sentence):
     for pp in pps:
       out_str = pp.process(out_str)
     return out_str
+  
   def __repr__(self):
     return f'"{self.sent_str()}"'
+  
   def __str__(self):
     return self.sent_str()
 
@@ -399,8 +402,9 @@ class GraphSentence(ReadableSentence):
                node_vocab: Optional[Vocab] = None,
                edge_vocab: Optional[Vocab] = None,
                num_padded: numbers.Integral = 0,
-               unpadded_sent: 'GraphSentence' = None) -> None:
-    super().__init__(idx=idx, score=score)
+               unpadded_sent: 'GraphSentence' = None,
+               output_procs = None) -> None:
+    super().__init__(idx=idx, score=score, output_procs=output_procs)
     self.idx = idx
     self.graph = graph
     self.edge_vocab = edge_vocab
@@ -515,7 +519,7 @@ class GraphSentence(ReadableSentence):
 
     Returns: list of tokens of linearized graph.
     """
-    return [self.value_vocab.i2w[self.graph[node_id].value] for node_id in self.nodes]
+    return [self.value_vocab[self.graph[node.node_id].value] for node in self.graph.iter_nodes()]
 
   def sent_str(self, custom_output_procs=None, **kwargs) -> str:
     """
@@ -527,7 +531,7 @@ class GraphSentence(ReadableSentence):
 
     Returns: readable string
     """
-    out_str = str([self.str_tokens(**kwargs), [self.graph.sucessors(node_id) for node_id in self.nodes]])
+    out_str = str([self.str_tokens(**kwargs), [self.graph.sucessors(node.node_id) for node in self.graph.iter_nodes()]])
     return out_str
   
   def plot(self, out_file):
@@ -658,7 +662,8 @@ class DepTreeRNNGSequenceSentence(GraphSentence):
                all_surfaces: bool = False,
                num_padded: numbers.Integral = 0,
                actions: List[RNNGAction] = None,
-               unpadded_sent: 'GraphSentence' = None) -> None:
+               unpadded_sent: 'GraphSentence' = None,
+               output_procs = None) -> None:
     super().__init__(idx=idx,
                      score=score,
                      graph=graph,
@@ -666,7 +671,8 @@ class DepTreeRNNGSequenceSentence(GraphSentence):
                      node_vocab=nt_vocab,
                      edge_vocab=edge_vocab,
                      num_padded=num_padded,
-                     unpadded_sent=unpadded_sent)
+                     unpadded_sent=unpadded_sent,
+                     output_procs=output_procs)
 
     assert graph is None or actions is None
     if actions is None:
@@ -687,7 +693,10 @@ class DepTreeRNNGSequenceSentence(GraphSentence):
     return [action.str_token(self.value_vocab, self.node_vocab, self.edge_vocab) for action in self.actions]
 
   def sent_str(self, custom_output_procs=None, **kwargs):
-    return " ".join(self.str_tokens())
+    if custom_output_procs is not None:
+      return custom_output_procs.process(self)
+    else:
+      return " ".join(self.str_tokens())
 
   def __getitem__(self, key: numbers.Integral) -> Optional[int]:
     return self.actions[key]
