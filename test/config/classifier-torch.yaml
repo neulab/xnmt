@@ -21,3 +21,7 @@ classifier: !Experiment
     src_file: examples/data/head.en
     trg_file: examples/data/head.smallids
 
+load: !LoadSerialized
+  filename: test/config/models/classifier.mod
+  path: ''
+
