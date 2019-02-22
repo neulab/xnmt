@@ -221,9 +221,12 @@ if xnmt.backend_torch:
       self.input_dim = input_dim
       self.output_dim = output_dim
 
+      my_params = param_collections.ParamManager.my_params(self)
       self.linear = nn.Linear(in_features=input_dim,
                               out_features=output_dim,
                               bias=bias)
+      my_params.append(self.linear)
+
       # TODO: param initialization
 
     def transform(self, input_expr: tt.Tensor) -> tt.Tensor:
@@ -275,6 +278,8 @@ if xnmt.backend_torch:
       self.linear = nn.Linear(in_features=self.input_dim,
                               out_features=self.output_dim,
                               bias=self.bias)
+      my_params = param_collections.ParamManager.my_params(self)
+      my_params.append(self.linear)
 
     def transform(self, input_expr: tt.Tensor) -> tt.Tensor:
       return self.activation(self.linear(input_expr))

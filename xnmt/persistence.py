@@ -453,7 +453,7 @@ _subcol_rand = random.Random()
 def _generate_subcol_name(subcol_owner):
   rand_bits = _subcol_rand.getrandbits(32)
   rand_hex = "%008x" % rand_bits
-  return f"{type(subcol_owner).__name__}.{rand_hex}"
+  return f"{type(subcol_owner).__name__}-{rand_hex}"
 
 
 _reserved_arg_names = ["_xnmt_id", "yaml_path", "serialize_params", "init_params", "kwargs", "self", "xnmt_subcol_name",

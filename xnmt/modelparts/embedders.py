@@ -549,6 +549,7 @@ if xnmt.backend_torch:
                  yaml_path: Path = Path(),
                  src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                  trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
+      # TODO: param init
       assert not weight_noise
       assert not word_dropout
       assert not fix_norm
@@ -558,12 +559,11 @@ if xnmt.backend_torch:
       self.fix_norm = fix_norm
       self.word_id_mask = None
       self.train = False
-      # param_collection = param_collections.ParamManager.my_params(self)
       self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
       self.save_processed_arg("vocab_size", self.vocab_size)
-      # self.embeddings = param_collection.add_lookup_parameters((self.vocab_size, self.emb_dim),
-      #                          init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
       self.embeddings = nn.Embedding(self.vocab_size, self.emb_dim)
+      my_params = param_collections.ParamManager.my_params(self)
+      my_params.append(self.embeddings)
 
     @events.handle_xnmt_event
     def on_set_train(self, val: bool) -> None:

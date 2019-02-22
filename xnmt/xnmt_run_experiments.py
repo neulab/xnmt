@@ -17,6 +17,7 @@ from typing import Optional, Sequence, Tuple
 
 import numpy as np
 
+import xnmt
 from xnmt.settings import settings
 from xnmt import logger, file_logger, tee, utils
 from xnmt.tee import log_preamble
@@ -65,7 +66,7 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
       if len(nonexistent) != 0:
         raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
-    log_preamble(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log_preamble(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} with {'DyNet' if xnmt.backend_dynet else 'PyTorch'} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     for experiment_name in experiment_names:
 
       ParamManager.init_param_col()

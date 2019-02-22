@@ -418,7 +418,6 @@ if xnmt.backend_torch:
                  bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                  output_projector: transforms.Linear = None) -> None:
       assert label_smoothing==0.0
-      self.param_col = param_collections.ParamManager.my_params(self)
       self.input_dim = input_dim
       self.output_dim = self._choose_vocab_size(vocab_size, vocab, trg_reader)
       self.label_smoothing = label_smoothing
