@@ -150,9 +150,9 @@ class ReinforceLoss(Serializable, LossCalculator):
         baseline_loss = []
         cur_losses = []
         for state, mask in zip(search_output.state, search_output.mask):
-          bs_score = self.baseline.transform(state.state.as_vector())
+          bs_score = self.baseline.transform(state.dec_state.as_vector())
           baseline_loss.append(dy.squared_distance(self.reward, bs_score))
-          logsoft = model.calc_log_probs(state.state)
+          logsoft = model.calc_log_probs(state.dec_state)
           loss_i = dy.cmult(logsoft, self.reward - bs_score)
           valid = list(np.nonzero(mask)[0])
           cur_losses.append(dy.cmult(loss_i, dy.inputTensor(mask, batched=True)))
@@ -195,7 +195,7 @@ class MinRiskLoss(Serializable, LossCalculator):
       assert search_output.word_ids[0].shape == (len(search_output.state),)
       logprob = []
       for word, state in zip(search_output.word_ids[0], search_output.state):
-        lpdist = model.calc_log_probs(state.state)
+        lpdist = model.calc_log_probs(state.dec_state)
         lp = dy.pick(lpdist, word)
         logprob.append(lp)
       sample = search_output.word_ids

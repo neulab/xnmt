@@ -7,7 +7,7 @@ import dynet as dy
 import numpy as np
 
 from xnmt import batchers, logger
-from xnmt.modelparts import decoders
+from xnmt.modelparts import decoders, attenders
 from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare
 from xnmt.vocabs import Vocab
@@ -32,12 +32,14 @@ class SearchStrategy(object):
   """
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      initial_state: decoders.AutoRegressiveDecoderState,
+                      initial_dec_state: decoders.AutoRegressiveDecoderState,
+                      initial_att_state: attenders.AttenderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     """
     Args:
       translator: a translator
-      initial_state: initial decoder state
+      initial_dec_state: initial decoder state
+      initial_att_state: initial attender state
       src_length: length of src sequence, required for some types of length normalization
     Returns:
       List of (word_ids, attentions, score, logsoftmaxes)
@@ -60,7 +62,8 @@ class GreedySearch(Serializable, SearchStrategy):
 
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      initial_state: decoders.AutoRegressiveDecoderState,
+                      initial_dec_state: decoders.AutoRegressiveDecoderState,
+                      initial_att_state: attenders.AttenderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     # Output variables
     score = []
@@ -71,14 +74,16 @@ class GreedySearch(Serializable, SearchStrategy):
     masks = []
     # Search Variables
     done = None
-    current_state = initial_state
+    current_dec_state = initial_dec_state
+    current_att_state = initial_att_state
     for length in range(self.max_len):
       prev_word = word_ids[length-1] if length > 0 else None
-      current_output = translator.add_input(prev_word, current_state)
+      current_output = translator.add_input(prev_word, current_dec_state, current_att_state)
       word_id, word_score = translator.best_k(current_output, 1, normalize_scores=True)
       word_id = word_id[0]
       word_score = word_score[0]
-      current_state = current_output.state
+      current_dec_state = current_output.dec_state
+      current_att_state = current_output.att_state
 
       if len(word_id.shape) == 0:
         word_id = np.array([word_id])
@@ -95,7 +100,7 @@ class GreedySearch(Serializable, SearchStrategy):
       word_ids.append(word_id)
       attentions.append(current_output.attention)
       logsoftmaxes.append(None)
-      states.append(current_state)
+      states.append((current_dec_state, current_att_state))
 
       # Check if we are done.
       done = [x == Vocab.ES for x in word_id]
@@ -138,7 +143,8 @@ class BeamSearch(Serializable, SearchStrategy):
 
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      initial_state: decoders.AutoRegressiveDecoderState,
+                      initial_dec_state: decoders.AutoRegressiveDecoderState,
+                      initial_att_state: attenders.AttenderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     # TODO(philip30): can only do single decoding, not batched
     active_hyp = [self.Hypothesis(0, None, None, None)]
@@ -151,10 +157,12 @@ class BeamSearch(Serializable, SearchStrategy):
       for hyp in active_hyp:
         if length > 0:
           prev_word = hyp.word
-          prev_state = hyp.output.state
+          prev_dec_state = hyp.output.dec_state
+          prev_att_state = hyp.output.att_state
         else:
           prev_word = None
-          prev_state = initial_state
+          prev_dec_state = initial_dec_state
+          prev_att_state = initial_att_state
 
         # We have a complete hyp ending with </s>
         if prev_word == Vocab.ES:
@@ -162,7 +170,7 @@ class BeamSearch(Serializable, SearchStrategy):
           continue
 
         # Find the k best words at the next time step
-        current_output = translator.add_input(prev_word, prev_state)
+        current_output = translator.add_input(prev_word, prev_dec_state, prev_att_state)
         top_words, top_scores = translator.best_k(current_output, self.beam_size, normalize_scores=True)
 
         # Queue next states
@@ -197,7 +205,7 @@ class BeamSearch(Serializable, SearchStrategy):
       while current.parent is not None:
         word_ids.append(current.word)
         attentions.append(current.output.attention)
-        states.append(current.output.state)
+        states.append((current.output.dec_state, current.output.att_state))
         # TODO(philip30): This should probably be uncommented.
         # These 2 statements are an overhead because it is need only for reinforce and minrisk
         # Furthermore, the attentions is only needed for report.
@@ -230,20 +238,23 @@ class SamplingSearch(Serializable, SearchStrategy):
 
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                      initial_state: decoders.AutoRegressiveDecoderState,
+                      initial_dec_state: decoders.AutoRegressiveDecoderState,
+                      initial_att_state: attenders.AttenderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     outputs = []
     for k in range(self.sample_size):
-      outputs.append(self.sample_one(translator, initial_state))
+      outputs.append(self.sample_one(translator, initial_dec_state, initial_att_state))
     return outputs
 
   # Words ids, attentions, score, logsoftmax, state
   def sample_one(self,
                  translator: 'xnmt.models.translators.AutoRegressiveTranslator',
-                 initial_state: decoders.AutoRegressiveDecoderState) -> SearchOutput:
+                 initial_dec_state: decoders.AutoRegressiveDecoderState,
+                 initial_att_state: attenders.AttenderState) -> SearchOutput:
     # Search variables
     current_words = None
-    current_state = initial_state
+    current_dec_state = initial_dec_state
+    current_att_state = initial_att_state
     done = None
     # Outputs
     scores = []
@@ -253,7 +264,7 @@ class SamplingSearch(Serializable, SearchStrategy):
     masks = []
     # Sample to the max length
     for length in range(self.max_len):
-      current_output = translator.add_input(current_words, current_state)
+      current_output = translator.add_input(current_words, current_dec_state, current_att_state)
       word_id, word_score = translator.sample(current_output, 1)[0]
       word_score = word_score.npvalue()
       assert word_score.shape == (1,)
@@ -278,7 +289,8 @@ class SamplingSearch(Serializable, SearchStrategy):
 
       # Next time step
       current_words = word_id
-      current_state = current_output.state
+      current_dec_state = current_output.dec_state
+      current_att_state = current_output.att_state
 
       # Check done
       done = [x == Vocab.ES for x in word_id]
@@ -429,6 +441,7 @@ class MctsSearch(Serializable, SearchStrategy):
   def generate_output(self,
                       translator: 'xnmt.models.translators.AutoRegressiveTranslator',
                       dec_state: decoders.AutoRegressiveDecoderState,
+                      att_state: attenders.AttenderState,
                       src_length: Optional[numbers.Integral] = None) -> List[SearchOutput]:
     orig_dec_state = dec_state
 

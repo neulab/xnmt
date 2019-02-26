@@ -8,37 +8,45 @@ from xnmt import logger
 from xnmt import batchers, expression_seqs, events, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 
+class AttenderState(object):
+  pass
+
 class Attender(object):
   """
   A template class for functions implementing attention.
   """
 
-  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> AttenderState:
     """Args:
          sent: the encoder states, aka keys and values. Usually but not necessarily an :class:`expression_seqs.ExpressionSequence`
     """
     raise NotImplementedError('init_sent must be implemented for Attender subclasses')
 
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
+  def calc_attention(self, dec_state: dy.Expression, att_state: AttenderState = None) -> dy.Expression:
     """ Compute attention weights.
 
     Args:
-      state: the current decoder state, aka query, for which to compute the weights.
+      dec_state: the current decoder state, aka query, for which to compute the weights.
+      att_state: the current attender state
     Returns:
       DyNet expression containing normalized attention scores
     """
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
-  def calc_context(self, state: dy.Expression, attention: dy.Expression = None) -> dy.Expression:
+  def calc_context(self, dec_state: dy.Expression, att_state: AttenderState = None, attention: dy.Expression = None) -> dy.Expression:
     """ Compute weighted sum.
 
     Args:
-      state: the current decoder state, aka query, for which to compute the weighted sum.
-      attention: the attention vector to use. if not given it is calculated from the state.
+      dec_state: the current decoder state, aka query, for which to compute the weighted sum.
+      att_state: the current attender state
+      attention: the attention vector to use. if not given it is calculated from the state(s).
     """
-    attention = attention or self.calc_attention(state)
+    attention = attention or self.calc_attention(dec_state, att_state)
     I = self.curr_sent.as_tensor()
     return I * attention
+
+  def update(self, att_state: AttenderState, attention: dy.Expression):
+    return None
 
 class MlpAttender(Attender, Serializable):
   """
@@ -46,7 +54,7 @@ class MlpAttender(Attender, Serializable):
 
   Args:
     input_dim: input dimension
-    state_dim: dimension of state inputs
+    state_dim: dimension of dec_state inputs
     hidden_dim: hidden MLP dimension
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
@@ -69,36 +77,34 @@ class MlpAttender(Attender, Serializable):
     self.hidden_dim = hidden_dim
     self.truncate_dec_batches = truncate_dec_batches
     param_collection = param_collections.ParamManager.my_params(self)
-    self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
-    self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
-    self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
-    self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
+    self.W = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
+    self.V = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
+    self.b = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
+    self.U = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
 
   def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
     self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
-    W = dy.parameter(self.pW)
-    b = dy.parameter(self.pb)
-    self.WI = dy.affine_transform([b, W, I])
+    self.WI = dy.affine_transform([self.b, self.W, I])
     wi_dim = self.WI.dim()
     # TODO(philip30): dynet affine transform bug, should be fixed upstream
     # if the input size is "1" then the last dimension will be dropped.
     if len(wi_dim[0]) == 1:
       self.WI = dy.reshape(self.WI, (wi_dim[0][0], 1), batch_size=wi_dim[1])
+    return None
 
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
-    V = dy.parameter(self.pV)
-    U = dy.parameter(self.pU)
-
+  def calc_attention(self, dec_state: dy.Expression, att_state: AttenderState = None) -> dy.Expression:
     WI = self.WI
     curr_sent_mask = self.curr_sent.mask
     if self.truncate_dec_batches:
-      if curr_sent_mask: state, WI, curr_sent_mask = batchers.truncate_batches(state, WI, curr_sent_mask)
-      else: state, WI = batchers.truncate_batches(state, WI)
-    h = dy.tanh(dy.colwise_add(WI, V * state))
-    scores = dy.transpose(U * h)
+      if curr_sent_mask:
+        dec_state, WI, curr_sent_mask = batchers.truncate_batches(dec_state, WI, curr_sent_mask)
+      else:
+        dec_state, WI = batchers.truncate_batches(dec_state, WI)
+    h = dy.tanh(dy.colwise_add(WI, self.V * dec_state))
+    scores = dy.transpose(self.U * h)
     if curr_sent_mask is not None:
       scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
@@ -130,11 +136,12 @@ class DotAttender(Attender, Serializable):
     self.curr_sent = sent
     self.attention_vecs = []
     self.I = dy.transpose(self.curr_sent.as_tensor())
+    return None
 
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
-    scores = self.I * state
+  def calc_attention(self, dec_state: dy.Expression, att_state: AttenderState = None) -> dy.Expression:
+    scores = self.I * dec_state
     if self.scale:
-      scores /= math.sqrt(state.dim()[0][0])
+      scores /= math.sqrt(dec_state.dim()[0][0])
     if self.curr_sent.mask is not None:
       scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)
@@ -148,7 +155,7 @@ class BilinearAttender(Attender, Serializable):
 
   Args:
     input_dim: input dimension; if None, use exp_global.default_layer_dim
-    state_dim: dimension of state inputs; if None, use exp_global.default_layer_dim
+    state_dim: dimension of dec_state inputs; if None, use exp_global.default_layer_dim
     param_init: how to initialize weight matrices; if None, use ``exp_global.param_init``
     truncate_dec_batches: currently unsupported
   """
@@ -165,19 +172,19 @@ class BilinearAttender(Attender, Serializable):
     self.input_dim = input_dim
     self.state_dim = state_dim
     param_collection = param_collections.ParamManager.my_params(self)
-    self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
+    self.Wa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 
   def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
     self.curr_sent = sent
     self.attention_vecs = []
     self.I = self.curr_sent.as_tensor()
+    return None
 
   # TODO(philip30): Please apply masking here
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
+  def calc_attention(self, dec_state: dy.Expression, att_state: AttenderState = None) -> dy.Expression:
     logger.warning("BilinearAttender does currently not do masking, which may harm training results.")
-    Wa = dy.parameter(self.pWa)
-    scores = (dy.transpose(state) * Wa) * self.I
+    scores = (dy.transpose(dec_state) * self.Wa) * self.I
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return dy.transpose(normalized)
@@ -188,7 +195,7 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
 
   Args:
     input_dim: input dimension
-    state_dim: dimension of state inputs
+    state_dim: dimension of dec_state inputs
     hidden_dim: hidden MLP dimension
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
@@ -217,17 +224,16 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
         self.cur_sent_bias[node_i, 0, batch_i] = node.marginal_log_prob
     self.cur_sent_bias_expr = None
 
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
-    V = dy.parameter(self.pV)
-    U = dy.parameter(self.pU)
-
+  def calc_attention(self, dec_state: dy.Expression, att_state: AttenderState = None) -> dy.Expression:
     WI = self.WI
     curr_sent_mask = self.curr_sent.mask
     if self.truncate_dec_batches:
-      if curr_sent_mask: state, WI, curr_sent_mask = batchers.truncate_batches(state, WI, curr_sent_mask)
-      else: state, WI = batchers.truncate_batches(state, WI)
-    h = dy.tanh(dy.colwise_add(WI, V * state))
-    scores = dy.transpose(U * h)
+      if curr_sent_mask:
+        dec_state, WI, curr_sent_mask = batchers.truncate_batches(dec_state, WI, curr_sent_mask)
+      else:
+        dec_state, WI = batchers.truncate_batches(dec_state, WI)
+    h = dy.tanh(dy.colwise_add(WI, self.V * dec_state))
+    scores = dy.transpose(self.U * h)
     if curr_sent_mask is not None:
       scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -1e10)
     if self.cur_sent_bias_expr is None: self.cur_sent_bias_expr = dy.inputTensor(self.cur_sent_bias, batched=True)
