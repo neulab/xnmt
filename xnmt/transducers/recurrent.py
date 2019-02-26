@@ -439,8 +439,10 @@ if xnmt.backend_torch:
       my_params = param_collections.ParamManager.my_params(self)
       my_params.append(self.lstm)
       for name, param in self.lstm.named_parameters():
-        if 'weight' in name or 'bias' in name:
-          param.data.uniform_(-0.1, 0.1)
+        if 'weight' in name:
+          param_init.initialize(param)
+        if 'bias' in name:
+          bias_init.initialize(param)
 
     @handle_xnmt_event
     def on_start_sent(self, src):

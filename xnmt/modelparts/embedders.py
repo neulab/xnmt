@@ -549,7 +549,6 @@ if xnmt.backend_torch:
                  yaml_path: Path = Path(),
                  src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                  trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
-      # TODO: param init
       assert not weight_noise
       assert not word_dropout
       assert not fix_norm
@@ -562,6 +561,7 @@ if xnmt.backend_torch:
       self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
       self.save_processed_arg("vocab_size", self.vocab_size)
       self.embeddings = nn.Embedding(self.vocab_size, self.emb_dim)
+      param_init.initialize(self.embeddings.weight)
       my_params = param_collections.ParamManager.my_params(self)
       my_params.append(self.embeddings)
 
