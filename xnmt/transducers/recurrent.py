@@ -435,7 +435,7 @@ if xnmt.backend_torch:
 
       # for recurrent dropout implementations, see here:
       # https://towardsdatascience.com/learning-note-dropout-in-recurrent-networks-part-2-f209222481f8
-      self.lstm = nn.LSTM(input_dim, self.hidden_dim//2, num_layers=self.num_layers, bidirectional=True, batch_first=True)
+      self.lstm = nn.LSTM(input_dim, self.hidden_dim//2, num_layers=self.num_layers, bidirectional=True, batch_first=True).to(xnmt.device)
       my_params = param_collections.ParamManager.my_params(self)
       my_params.append(self.lstm)
       for name, param in self.lstm.named_parameters():

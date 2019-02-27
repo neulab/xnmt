@@ -465,7 +465,7 @@ if xnmt.backend_torch:
       if self.can_loss_be_derived_from_scores():
         scores = self.calc_scores(x)
         # TODO: device?
-        return F.nll_loss(input=scores, target=torch.tensor(y), reduction='none')
+        return F.nll_loss(input=scores, target=torch.tensor(y).to(xnmt.device), reduction='none')
       else:
         raise NotImplementedError()
 

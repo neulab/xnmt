@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 
 # No support for python2
 if sys.version_info[0] == 2:
@@ -14,10 +15,21 @@ logger = logging.getLogger('xnmt')
 yaml_logger = logging.getLogger('yaml')
 file_logger = logging.getLogger('xnmt_file')
 
-if "torch" in sys.argv or "--backend=torch" in sys.argv:
+base_arg_parser = argparse.ArgumentParser()
+base_arg_parser.add_argument('--backend', type=str, default="dynet")
+base_arg_parser.add_argument('--gpu', action='store_true')
+args = base_arg_parser.parse_known_args(sys.argv)[0]
+if args.backend=="torch":
   backend_dynet, backend_torch = False, True
-else:
+  import torch
+  if args.gpu:
+    device = torch.device('cuda')
+  else:
+    device = torch.device('cpu')
+elif args.backend=="dynet":
   backend_dynet, backend_torch = True, False
+else:
+  raise ValueError(f"unknown backend {args.backend}")
 
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax

@@ -224,7 +224,7 @@ if xnmt.backend_torch:
       my_params = param_collections.ParamManager.my_params(self)
       self.linear = nn.Linear(in_features=input_dim,
                               out_features=output_dim,
-                              bias=bias)
+                              bias=bias).to(xnmt.device)
       param_init.initialize(self.linear.weight)
       if self.bias: bias_init.initialize(self.linear.bias)
       my_params.append(self.linear)
@@ -278,7 +278,7 @@ if xnmt.backend_torch:
 
       self.linear = nn.Linear(in_features=self.input_dim,
                               out_features=self.output_dim,
-                              bias=self.bias)
+                              bias=self.bias).to(xnmt.device)
       param_init.initialize(self.linear.weight)
       if self.bias: bias_init.initialize(self.linear.bias)
       my_params = param_collections.ParamManager.my_params(self)

@@ -560,7 +560,7 @@ if xnmt.backend_torch:
       self.train = False
       self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
       self.save_processed_arg("vocab_size", self.vocab_size)
-      self.embeddings = nn.Embedding(self.vocab_size, self.emb_dim)
+      self.embeddings = nn.Embedding(self.vocab_size, self.emb_dim).to(xnmt.device)
       param_init.initialize(self.embeddings.weight)
       my_params = param_collections.ParamManager.my_params(self)
       my_params.append(self.embeddings)
@@ -574,4 +574,4 @@ if xnmt.backend_torch:
       self.word_id_mask = None
 
     def embed(self, x: Union[numbers.Integral, batchers.Batch]) -> torch.Tensor:
-      return self.embeddings(torch.tensor(x))
+      return self.embeddings(torch.tensor(x).to(xnmt.device))
