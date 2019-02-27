@@ -66,7 +66,6 @@ class UniLSTMState(object):
                         c=[ci[item] for ci in self._c],
                         h=[hi[item] for hi in self._h])
 
-
 class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements a single LSTM layer based on the memory-friendly dedicated DyNet nodes.
@@ -238,6 +237,117 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
       cur_input = [h[1:]]
 
     return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
+
+class UniGRUSeqTransducer(transducers.SeqTransducer, Serializable):
+  """
+  This implements a single GRU layer
+
+  Args:
+    layers (int): number of layers
+    input_dim (int): input dimension
+    hidden_dim (int): hidden dimension
+    dropout (float): dropout probability
+    weightnoise_std (float): weight noise standard deviation
+    param_init (ParamInitializer): how to initialize weight matrices
+    bias_init (ParamInitializer): how to initialize bias vectors
+  """
+  yaml_tag = '!UniGRUSeqTransducer'
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               layers: numbers.Integral = 1,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))):
+    self.num_layers = layers
+    model = param_collections.ParamManager.my_params(self)
+    self.hidden_dim = hidden_dim
+    self.input_dim = input_dim
+
+    if not isinstance(param_init, collections.abc.Sequence):
+      param_init = [param_init] * layers
+    if not isinstance(bias_init, collections.abc.Sequence):
+        bias_init = [bias_init] * layers
+
+    self.Wz = []
+    self.Wr = []
+    self.Wu = []
+    self.Uz = []
+    self.Ur = []
+    self.Uu = []
+    self.bz = []
+    self.br = []
+    self.bu = []
+    for layer_idx in range(layers):
+      w_dim = (hidden_dim, input_dim) if layer_idx == 0 else (hidden_dim, hidden_dim)
+      u_dim = (hidden_dim, hidden_dim)
+      b_dim = (hidden_dim,)
+      self.Wz.append(model.add_parameters(dim=w_dim, init=param_init[layer_idx].initializer(w_dim)))
+      self.Wr.append(model.add_parameters(dim=w_dim, init=param_init[layer_idx].initializer(w_dim)))
+      self.Wu.append(model.add_parameters(dim=w_dim, init=param_init[layer_idx].initializer(w_dim)))
+      self.Uz.append(model.add_parameters(dim=u_dim, init=param_init[layer_idx].initializer(u_dim)))
+      self.Ur.append(model.add_parameters(dim=u_dim, init=param_init[layer_idx].initializer(u_dim)))
+      self.Uu.append(model.add_parameters(dim=u_dim, init=param_init[layer_idx].initializer(u_dim)))
+      self.bz.append(model.add_parameters(dim=b_dim, init=bias_init[layer_idx].initializer(b_dim)))
+      self.br.append(model.add_parameters(dim=b_dim, init=bias_init[layer_idx].initializer(b_dim)))
+      self.bu.append(model.add_parameters(dim=b_dim, init=bias_init[layer_idx].initializer(b_dim)))
+
+  @handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
+
+  @handle_xnmt_event
+  def on_start_sent(self, src):
+    self._final_states = None
+
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
+    return self._final_states
+
+  def initial_state(self) -> dy.Expression:
+    return dy.zeros((self.hidden_size,))
+
+  def set_dropout(self, dropout: numbers.Real) -> None:
+    self.dropout_rate = dropout
+
+  def add_input_to_prev(self, prev_state: dy.Expression, x: Union[dy.Expression, Sequence[dy.Expression]]) \
+          -> Sequence[dy.Expression]:
+    if isinstance(x, dy.Expression):
+      x = [x]
+    elif type(x) != list:
+      x = list(x)
+
+    h = prev_state
+    for layer_i in range(self.num_layers):
+      new_xs = []
+      for xi in x:
+        z = dy.logistic(self.Wz[layer_i] * xi + self.Uz[layer_i] * h + self.bz[layer_i])
+        r = dy.logistic(self.Wr[layer_i] * xi + self.Ur[layer_i] * h + self.br[layer_i])
+        u = dy.logistic(self.Wu[layer_i] * xi + self.Uu[layer_i] * h + self.bu[layer_i])
+        h = dy.cmult(1 - z, h) + dy.cmult(z, u)
+        new_xs.append(h)
+      assert len(new_xs) == len(x)
+      x = new_xs
+
+    return new_xs
+
+  def transduce(self, expr_seq: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
+    """
+    transduce the sequence, applying masks if given (masked timesteps simply copy previous h)
+
+    Args:
+      expr_seq: expression sequence to transduce
+    Returns:
+      expression sequence
+    """
+    if isinstance(expr_seq, expression_seqs.ExpressionSequence):
+      expr_seq = [expr_seq]
+    batch_size = expr_seq[0][0].dim()[1]
+
+    h = dy.zeros((self.hidden_dim,), batch_size=batch_size)
+    h = self.add_input_to_prev(h, expr_seq)
+    return expression_seqs.ExpressionSequence(expr_list=h, mask=expr_seq[0].mask)
 
 class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """

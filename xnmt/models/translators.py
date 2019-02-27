@@ -133,8 +133,8 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
         dec_state = self.decoder.add_input(dec_state, input_word)
       rnn_output = dec_state.as_vector()
       attention = self.attender.calc_attention(rnn_output, att_state)
-      att_state = self.attender.update(att_state, attention)
-      dec_state.context = self.attender.calc_context(rnn_output)
+      att_state = self.attender.update(rnn_output, att_state, attention)
+      dec_state.context = self.attender.calc_context(rnn_output, att_state, attention)
       word_loss = self.decoder.calc_loss(dec_state, ref_word)
 
       if not self.truncate_dec_batches and batchers.is_batched(src) and trg_mask is not None:
@@ -245,7 +245,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
     next_dec_state = self.decoder.add_input(dec_state, word) if word is not None else dec_state
     attention = self.attender.calc_attention(next_dec_state.as_vector(), att_state)
-    next_att_state = self.attender.update(att_state, attention)
+    next_att_state = self.attender.update(next_dec_state.as_vector(), att_state, attention)
     context = self.attender.calc_context(next_dec_state.as_vector(), attention=attention)
     next_dec_state.context = context
     return TranslatorOutput(next_dec_state, next_att_state, attention)

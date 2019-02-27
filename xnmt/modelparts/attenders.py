@@ -6,7 +6,9 @@ import dynet as dy
 
 from xnmt import logger
 from xnmt import batchers, expression_seqs, events, param_collections, param_initializers
+from xnmt.modelparts import decoders
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.transducers import recurrent
 
 class AttenderState(object):
   pass
@@ -45,8 +47,17 @@ class Attender(object):
     I = self.curr_sent.as_tensor()
     return I * attention
 
-  def update(self, att_state: AttenderState, attention: dy.Expression):
+  def update(self, dec_state: decoders.DecoderState, att_state: AttenderState, attention: dy.Expression):
     return None
+
+def safe_affine_transform(xs):
+  r = dy.affine_transform(xs)
+  d = r.dim()
+  # TODO(philip30): dynet affine transform bug, should be fixed upstream
+  # if the input size is "1" then the last dimension will be dropped.
+  if len(d[0]) == 1:
+    r = dy.reshape(r, (d[0][0], 1), batch_size=d[1])
+  return r
 
 class MlpAttender(Attender, Serializable):
   """
@@ -62,7 +73,6 @@ class MlpAttender(Attender, Serializable):
   """
 
   yaml_tag = '!MlpAttender'
-
 
   @serializable_init
   def __init__(self,
@@ -87,12 +97,7 @@ class MlpAttender(Attender, Serializable):
     self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
-    self.WI = dy.affine_transform([self.b, self.W, I])
-    wi_dim = self.WI.dim()
-    # TODO(philip30): dynet affine transform bug, should be fixed upstream
-    # if the input size is "1" then the last dimension will be dropped.
-    if len(wi_dim[0]) == 1:
-      self.WI = dy.reshape(self.WI, (wi_dim[0][0], 1), batch_size=wi_dim[1])
+    self.WI = safe_affine_transform([self.b, self.W, I])
     return None
 
   def calc_attention(self, dec_state: dy.Expression, att_state: AttenderState = None) -> dy.Expression:
@@ -110,6 +115,91 @@ class MlpAttender(Attender, Serializable):
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
+
+class CoverageAttender(Attender, Serializable):
+  """
+  Implements the attention model of Tu et. al (2016)
+  "Modeling Coverage for Neural Machine Translation"
+
+  Args:
+    input_dim: input dimension
+    state_dim: dimension of dec_state inputs
+    hidden_dim: hidden MLP dimension
+    param_init: how to initialize weight matrices
+    bias_init: how to initialize bias vectors
+    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
+  """
+
+  yaml_tag = '!CoverageAttender'
+
+
+  @serializable_init
+  def __init__(self,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               coverage_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               coverage_updater = None,
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
+               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
+    self.input_dim = input_dim
+    self.state_dim = state_dim
+    self.hidden_dim = hidden_dim
+    self.coverage_dim = coverage_dim
+    self.truncate_dec_batches = truncate_dec_batches
+    param_collection = param_collections.ParamManager.my_params(self)
+    self.W = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
+    self.V = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
+    self.b = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
+    self.U = param_collection.add_parameters((hidden_dim, coverage_dim), init=param_init.initializer((hidden_dim, coverage_dim)))
+    self.v = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
+    self.curr_sent = None
+
+    self.coverage_updater = self.add_serializable_component(
+        "coverage_updater",
+        coverage_updater,
+        lambda: recurrent.UniGRUSeqTransducer(
+            input_dim=(self.state_dim + self.hidden_dim + 1),
+            hidden_dim=self.coverage_dim,
+            param_init=param_init,
+            bias_init=bias_init))
+
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
+    self.attention_vecs = []
+    self.curr_sent = sent
+    I = self.curr_sent.as_tensor()
+    self.I = I
+    self.WI = safe_affine_transform([self.b, self.W, I])
+    return dy.zeros((self.coverage_dim, len(sent)))
+
+  def calc_attention(self, dec_state: dy.Expression, att_state: AttenderState = None) -> dy.Expression:
+    assert att_state is not None
+    WI = self.WI
+    curr_sent_mask = self.curr_sent.mask
+    if self.truncate_dec_batches:
+      if curr_sent_mask:
+        dec_state, WI, curr_sent_mask = batchers.truncate_batches(dec_state, WI, curr_sent_mask)
+      else:
+        dec_state, WI = batchers.truncate_batches(dec_state, WI)
+
+    h_in1 = dy.colwise_add(WI, self.V * dec_state)
+    h_in2 = self.U * att_state
+    h_in = h_in1 + h_in2
+    h = dy.tanh(h_in)
+    scores = dy.transpose(self.v * h)
+    if curr_sent_mask is not None:
+      scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
+    normalized = dy.softmax(scores)
+    self.attention_vecs.append(normalized)
+    return normalized
+
+  def update(self, dec_state: decoders.DecoderState, att_state: AttenderState, attention: dy.Expression):
+    dec_state_b = dy.concatenate_cols([dec_state for _ in range(self.I.dim()[0][1])])
+    h_in = dy.concatenate([self.I, dy.transpose(attention), dec_state_b])
+    h_out = self.coverage_updater.add_input_to_prev(att_state, h_in)[0]
+    assert h_out.dim() == att_state.dim()
+    return h_out
 
 class DotAttender(Attender, Serializable):
   """
