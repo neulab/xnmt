@@ -6,7 +6,7 @@ from xnmt.persistence import LoadSerialized, YamlPreloader, initialize_if_needed
 
 def main() -> None:
   parser = argparse.ArgumentParser()
-  utils.add_dynet_argparse(parser)
+  utils.add_backend_argparse(parser)
   parser.add_argument("--src", help=f"Path of source file to read from.", required=True)
   parser.add_argument("--hyp", help="Path of file to write hypothesis to.", required=True)
   parser.add_argument("--mod", help="Path of model file to read.", required=True)

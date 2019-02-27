@@ -33,7 +33,7 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
 
   with tee.Tee(), tee.Tee(error=True):
     argparser = argparse.ArgumentParser()
-    utils.add_dynet_argparse(argparser)
+    utils.add_backend_argparse(argparser)
     argparser.add_argument("--settings", type=str, default="standard", help="settings (standard, debug, or unittest)"
                                                                             "must be given in '=' syntax, e.g."
                                                                             " --settings=standard")

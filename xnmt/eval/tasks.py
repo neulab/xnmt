@@ -1,8 +1,6 @@
 from typing import Sequence, Union, Optional, Any
 
-import dynet as dy
-
-from xnmt.settings import settings
+import xnmt.tensor_tools as tt
 
 from xnmt import batchers, event_trigger, events, inferences, input_readers, loss_calculators, losses, reports, utils, \
   xnmt_evaluate
@@ -81,7 +79,7 @@ class LossEvalTask(EvalTask, Serializable):
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
-        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+        tt.reset_graph()
 
         loss = self.loss_calculator.calc_loss(self.model, src, trg)
 

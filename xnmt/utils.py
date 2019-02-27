@@ -9,14 +9,20 @@ import numbers
 from typing import List, MutableMapping, Optional
 
 import numpy as np
-import dynet as dy
 
+import xnmt
 from xnmt import logger
 from xnmt.settings import settings
 
 def print_cg_conditional() -> None:
   if settings.PRINT_CG_ON_ERROR:
-    dy.print_text_graphviz()
+    if xnmt.backend_dynet:
+      import dynet as dy
+      dy.print_text_graphviz()
+    else:
+      raise NotImplementedError() # TODO
+      # https://discuss.pytorch.org/t/print-autograd-graph/692/6
+
 
 def make_parent_dir(filename: str) -> None:
   if not os.path.exists(os.path.dirname(filename) or "."):
@@ -132,17 +138,21 @@ def cached_file_lines(file_name: str) -> List[str]:
     ret = f.readlines()
   return ret
 
-def add_dynet_argparse(argparser: argparse.ArgumentParser) -> None:
-  argparser.add_argument("--dynet-mem", type=str)
-  argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
-  argparser.add_argument("--dynet-autobatch", type=int)
-  argparser.add_argument("--dynet-devices", type=str)
-  argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
-  argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
-  argparser.add_argument("--dynet-gpu-ids", type=int)
-  argparser.add_argument("--dynet-gpus", type=int)
-  argparser.add_argument("--dynet-weight-decay", type=float)
-  argparser.add_argument("--dynet-profiling", type=int)
+def add_backend_argparse(argparser: argparse.ArgumentParser) -> None:
+  # TODO
+  # if xnmt.backend_dynet:
+    argparser.add_argument("--dynet-mem", type=str)
+    argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
+    argparser.add_argument("--dynet-autobatch", type=int)
+    argparser.add_argument("--dynet-devices", type=str)
+    argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
+    argparser.add_argument("--dynet-gpu", action='store_true', help="use GPU acceleration")
+    argparser.add_argument("--dynet-gpu-ids", type=int)
+    argparser.add_argument("--dynet-gpus", type=int)
+    argparser.add_argument("--dynet-weight-decay", type=float)
+    argparser.add_argument("--dynet-profiling", type=int)
+  # if xnmt.backend_torch:
+    argparser.add_argument("--gpu", action='store_true', help="use GPU acceleration")
 
 def has_cython() -> bool:
   try:
@@ -151,3 +161,11 @@ def has_cython() -> bool:
   except:
     return False
 
+def require_dynet(x):
+  if xnmt.backend_dynet:
+    return x
+  else: return None
+def require_torch(x):
+  if xnmt.backend_torch:
+    return x
+  else: return None
