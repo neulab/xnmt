@@ -1,11 +1,15 @@
-import dynet as dy
-import torch
 from abc import ABC
+
+import xnmt
 
 class Tensor(ABC): pass
 
-Tensor.register(dy.Expression)
-Tensor.register(torch.Tensor)
+if xnmt.backend_dynet:
+  import dynet as dy
+  Tensor.register(dy.Expression)
+if xnmt.backend_torch:
+  import torch
+  Tensor.register(torch.Tensor)
 
 def sent_len(x):
   if isinstance(x, dy.Expression):
