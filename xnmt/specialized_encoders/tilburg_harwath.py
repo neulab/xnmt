@@ -1,14 +1,17 @@
-import dynet as dy
-
+import xnmt
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import Serializable, serializable_init
 from xnmt.transducers.base import SeqTransducer
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
 # This is a file for specialized encoders that implement a particular model
 # Ideally, these will eventually be refactored to use standard components and the ModularSeqTransducer framework,
 #  (for more flexibility), but for ease of implementation it is no problem to perform an initial implementation here.
 
+@xnmt.require_dynet
 def padding(src, min_size):
   """ do padding for the sequence input along the time step (for example speech), so that so that the output of convolutional layer has the same size(time) of the input.
 
@@ -27,7 +30,7 @@ def padding(src, min_size):
     right_border = (int(pad_size)+1) / 2
     return dy.concatenate([dy.zeroes((src_dim[0][0], left_border, channels)), src, dy.zeroes((src_dim[0][0], right_border, channels))], d=1) # do concatenate along cols
 
-
+@xnmt.require_dynet
 class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!TilburgSpeechSeqTransducer'
 
@@ -110,6 +113,7 @@ class TilburgSpeechSeqTransducer(SeqTransducer, Serializable):
 
 # This is a CNN-based encoder that was used in the following paper:
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
+@xnmt.require_dynet
 class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
   yaml_tag = '!HarwathSpeechSeqTransducer'
 
@@ -168,6 +172,7 @@ class HarwathSpeechSeqTransducer(SeqTransducer, Serializable):
 
 # This is an image encoder that takes in features and does a linear transform from the following paper
 #  http://papers.nips.cc/paper/6186-unsupervised-learning-of-spoken-language-with-visual-context.pdf
+@xnmt.require_dynet
 class HarwathImageTransducer(SeqTransducer, Serializable):
   """
     Inputs are first put through 2 CNN layers, each with stride (2,2), so dimensionality

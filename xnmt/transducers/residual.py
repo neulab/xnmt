@@ -1,12 +1,15 @@
 from typing import List
 import numbers
 
-import dynet as dy
-
+import xnmt
 from xnmt import events, expression_seqs, param_collections
 from xnmt.transducers import base as transducers
 from xnmt.persistence import Ref, serializable_init, Serializable
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class ResidualSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   A sequence transducer that wraps a :class:`xnmt.transducers.base.SeqTransducer` in an additive residual

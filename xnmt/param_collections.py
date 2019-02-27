@@ -247,7 +247,7 @@ class ParamCollectionTorch(object):
     else:
       self._data_files = []
 
-  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> nn.Module:
+  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> 'nn.Module':
     assert subcol_owner not in self.all_subcol_owners
     self.all_subcol_owners.add(subcol_owner)
     if subcol_name in self.subcols:

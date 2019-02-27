@@ -1,12 +1,16 @@
 from enum import Enum
 
-import dynet as dy
 import numpy as np
 
+import xnmt
 from xnmt import events, losses, param_initializers
 from xnmt.modelparts import transforms
 from xnmt.persistence import Ref, bare, Serializable, serializable_init
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class PolicyGradient(Serializable):
   """
   (Sequence) policy gradient class. It holds a policy network that will perform a linear regression to the output_dim decision labels.

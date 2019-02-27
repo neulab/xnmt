@@ -1,12 +1,15 @@
 from typing import List, Optional, Sequence
 import numbers
-import dynet as dy
 
+import xnmt
 from xnmt import events, expression_seqs, param_collections
 from xnmt.transducers import base as transducers
 from xnmt.persistence import Ref, Serializable, serializable_init
 
+if xnmt.backend_dynet:
+  import dynet as dy
 
+@xnmt.require_dynet
 class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
   """
   A lattice LSTM.
@@ -120,7 +123,7 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     self._final_states = [transducers.FinalTransducerState(h_list[-1], h_list[-1])]
     return expression_seqs.ExpressionSequence(expr_list=h_list)
 
-
+@xnmt.require_dynet
 class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
   """
   A multi-layered bidirectional lattice LSTM.

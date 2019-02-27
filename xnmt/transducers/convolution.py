@@ -1,11 +1,15 @@
-import dynet as dy
 from typing import List
 import numbers
 
+import xnmt
 from xnmt import expression_seqs, param_collections
 from xnmt.transducers import base as transducers
 from xnmt.persistence import Serializable, serializable_init
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class ConvConnectedSeqTransducer(transducers.SeqTransducer, Serializable):
   yaml_tag = '!ConvConnectedSeqTransducer'
   """

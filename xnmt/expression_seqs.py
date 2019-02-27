@@ -317,9 +317,9 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
   If necessary, both forms of representation are created from the other on demand.
   """
   def __init__(self,
-               expr_list: Optional[Sequence[torch.Tensor]] = None,
-               expr_tensor: Optional[torch.Tensor] = None,
-               expr_transposed_tensor: Optional[torch.Tensor] = None,
+               expr_list: Optional[Sequence[tt.Tensor]] = None,
+               expr_tensor: Optional[tt.Tensor] = None,
+               expr_transposed_tensor: Optional[tt.Tensor] = None,
                mask: Optional['batchers.Mask'] = None) -> None:
     """Constructor.
 
@@ -354,7 +354,7 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
         return torch.index_select(self.expr_transposed_tensor, dim=-1, key=key)\
                     .resize_(self.expr_transposed_tensor.size()[0:-1])
 
-  def as_list(self) -> List[torch.Tensor]:
+  def as_list(self) -> List[tt.Tensor]:
     """Get a list.
 
     Returns:
@@ -364,7 +364,7 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
       self.expr_list = [self[i] for i in range(len(self))]
     return self.expr_list
 
-  def as_tensor(self) -> torch.Tensor:
+  def as_tensor(self) -> tt.Tensor:
     """Get a tensor.
     Returns:
       the whole sequence as a tensor expression where each column is one of the embeddings.
@@ -376,7 +376,7 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
         self.expr_tensor = torch.t(self.expr_transposed_tensor)
     return self.expr_tensor
 
-  def as_transposed_tensor(self) -> torch.Tensor:
+  def as_transposed_tensor(self) -> tt.Tensor:
     """Get a tensor.
     Returns:
       the whole sequence as a tensor expression where each row is one of the embeddings.

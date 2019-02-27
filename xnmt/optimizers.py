@@ -132,7 +132,7 @@ class XnmtOptimizerTorch(XnmtOptimizer):
     clip_threshold: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
   """
 
-  def __init__(self, optimizer: torch.optim.Optimizer, clip_threshold: numbers.Real = 5.0) -> None:
+  def __init__(self, optimizer: 'torch.optim.Optimizer', clip_threshold: numbers.Real = 5.0) -> None:
     self.optimizer = optimizer
     self.clip_threshold = clip_threshold
     self.lr_factor = 1.0

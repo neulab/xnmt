@@ -1,13 +1,17 @@
 import numpy as np
-import dynet as dy
 from math import sqrt
 from typing import List
 import numbers
 
+import xnmt
 from xnmt import events, expression_seqs, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.transducers import base as transducers
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class MultiHeadAttentionSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements the Multi-headed attention layer of "Attention is All You Need":

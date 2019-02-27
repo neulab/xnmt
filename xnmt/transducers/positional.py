@@ -1,17 +1,19 @@
 from typing import List
 import numbers
 
-import dynet as dy
-
+import xnmt
 from xnmt import events, expression_seqs, param_collections, param_initializers
 from xnmt.transducers import base as transducers
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 
+if xnmt.backend_dynet:
+  import dynet as dy
 
 # Note: alternatively, this could wrap "PositionEmbedder", but it seems to me
 #       that PositionEmbedder is probably not necessary in the first place, so
 #       it probably makes more sense to have this as a SeqTransducer that
 #       adds positional embeddings to an input
+@xnmt.require_dynet
 class PositionalSeqTransducer(transducers.SeqTransducer, Serializable):
   yaml_tag = '!PositionalSeqTransducer'
 

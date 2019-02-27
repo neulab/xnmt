@@ -145,10 +145,10 @@ class FactoredLossExprTorch(BaseFactoredLossExpr):
     init_loss: initial loss values
   """
 
-  def __init__(self, init_loss: Optional[Dict[str, torch.Tensor]] = None) -> None:
+  def __init__(self, init_loss: Optional[Dict[str, tt.Tensor]] = None) -> None:
     super().__init__(init_loss)
 
-  def compute(self, comb_method: str = "sum") -> torch.Tensor:
+  def compute(self, comb_method: str = "sum") -> tt.Tensor:
     return self._combine_batches(sum(self.expr_factors.values()), comb_method)
 
   def value(self) -> List[float]:

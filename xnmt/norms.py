@@ -4,15 +4,19 @@ This module holds normalizers for neural networks. Currently implemented are lay
 from typing import List, Optional, Tuple
 import numbers
 
-import dynet as dy
 import numpy as np
 
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt import batchers, events, expression_seqs, param_collections
 from xnmt.modelparts import transforms
 from xnmt.transducers import base as transducers
 from xnmt.persistence import Serializable, serializable_init
 
+if xnmt.backend_dynet:
+  import dynet as dy
 
+@xnmt.require_dynet
 class LayerNorm(Serializable, transforms.Transform):
   yaml_tag = "!LayerNorm"
 
@@ -22,7 +26,7 @@ class LayerNorm(Serializable, transforms.Transform):
     self.p_g = subcol.add_parameters(dim=d_hid, init=dy.ConstInitializer(1.0))
     self.p_b = subcol.add_parameters(dim=d_hid, init=dy.ConstInitializer(0.0))
 
-  def transform(self, x: dy.Expression) -> dy.Expression:
+  def transform(self, x: tt.Tensor) -> tt.Tensor:
     g = dy.parameter(self.p_g)
     b = dy.parameter(self.p_b)
     return dy.layer_norm(x, g, b)
@@ -34,7 +38,7 @@ class LayerNorm(Serializable, transforms.Transform):
 BN_EPS = 0.1
 BN_MOMENTUM = 0.1
 
-
+@xnmt.require_dynet
 class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
   """
   Implements batch normalization according to Ioffe and Szegedy, 2015.
@@ -94,7 +98,7 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
     if self.time_first: return list(range(self.num_dim-1))
     else: return list(range(1, self.num_dim))
 
-  def transform(self, input_expr: dy.Expression, mask: Optional[batchers.Mask]=None) -> dy.Expression:
+  def transform(self, input_expr: tt.Tensor, mask: Optional[batchers.Mask]=None) -> tt.Tensor:
     """
     Apply batch norm.
 
@@ -138,7 +142,7 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
 
 # Batch norm helpers:
 
-def broadcast_factor(mask: batchers.Mask, tensor_expr: dy.Expression) -> numbers.Integral:
+def broadcast_factor(mask: batchers.Mask, tensor_expr: tt.Tensor) -> numbers.Integral:
   """
   returns product(tensor_expr dims) / product(mask dims)
   """
@@ -152,7 +156,7 @@ def mask_reshape_size(mask: batchers.Mask, tensor_dim: tuple, time_first: bool =
   else:
     return [1] * (len(tensor_dim[0]) - len(mask.np_arr.shape) + 1) + list(reversed(mask.np_arr.shape))
 
-def set_masked_to_mean(mask: batchers.Mask, tensor_expr: dy.Expression, time_first: bool = False) -> dy.Expression:
+def set_masked_to_mean(mask: batchers.Mask, tensor_expr: tt.Tensor, time_first: bool = False) -> tt.Tensor:
   """
   Set masked parts of the tensor expr to the mean of the unmasked parts.
   """

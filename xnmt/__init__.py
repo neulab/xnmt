@@ -31,15 +31,22 @@ elif args.backend=="dynet":
 else:
   raise ValueError(f"unknown backend {args.backend}")
 
+import yaml
+
+def no_init(*wrong, **backend): raise ValueError("wrong backend")
 def require_dynet(x):
   x.xnmt_backend = "dynet"
   if backend_torch:
-    x.__init__ = lambda: 1/0 # wrong backend
+    x.__init__ = no_init
+    if hasattr(x, "yaml_tag"):
+      delattr(x, "yaml_tag")
   return x
 def require_torch(x):
   x.xnmt_backend = "torch"
   if backend_dynet:
-    x.__init__ = lambda: 1/0 # wrong backend
+    x.__init__ = no_init
+    if hasattr(x, "yaml_tag"):
+      delattr(x, "yaml_tag")
   return x
 def resolve_backend(a, b):
   expected_backend = "dynet" if backend_dynet else "torch"
@@ -48,6 +55,7 @@ def resolve_backend(a, b):
     new_name = resolved.__name__[:len(resolved.yaml_tag)-1]
     assert resolved.__name__.startswith(new_name)
     resolved.__name__ = new_name
+    yaml.loader.Loader.yaml_constructors[resolved.yaml_tag] = resolved.from_yaml
   return resolved
 
 
@@ -106,7 +114,6 @@ def init_representer(dumper, obj):
     serialize_params = resolved_serialize_params[id(obj)]
   return dumper.represent_mapping('!' + obj.__class__.__name__, serialize_params)
 
-import yaml
 seen_yaml_tags = set()
 for SerializableChild in xnmt.persistence.Serializable.__subclasses__():
   needed_for_backend = (backend_dynet and getattr(SerializableChild, "xnmt_backend", "dynet") == "dynet") or \

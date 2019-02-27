@@ -24,8 +24,9 @@ import matplotlib.pyplot as plt
 from scipy.stats import entropy
 
 import numpy as np
-import dynet as dy
 
+import xnmt
+import xnmt.tensor_tools as tt
 import xnmt.param_initializers
 from xnmt import norms, events, param_collections
 from xnmt.modelparts import transforms
@@ -34,15 +35,19 @@ from xnmt.expression_seqs import ExpressionSequence
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
 from xnmt.modelparts import embedders
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+
 LOG_ATTENTION = False
 
-
+@xnmt.require_dynet
 class SAAMTimeDistributed(object):
   """
   A Callable that puts the time-dimension of an input expression into the batch dimension via a reshape.
   """
 
-  def __call__(self, x: dy.Expression) -> dy.Expression:
+  def __call__(self, x: tt.Tensor) -> tt.Tensor:
     """
     Move the time-dimension of an input expression into the batch dimension via a reshape.
 
@@ -59,7 +64,7 @@ class SAAMTimeDistributed(object):
     input_tensor = x.as_tensor()
     return dy.reshape(input_tensor, (model_dim,), batch_size=total_words)
 
-
+@xnmt.require_dynet
 class SAAMPositionwiseFeedForward(Serializable):
   """
   Interleaved feed-forward components of the transformer, computed as layer_norm(dropout(linear(relu(linear))) + x).
@@ -93,7 +98,7 @@ class SAAMPositionwiseFeedForward(Serializable):
       output = dy.dropout(output, p)
     return self.layer_norm.transform(output + residual)
 
-
+@xnmt.require_dynet
 class SAAMMultiHeadedSelfAttention(Serializable):
   """
   Args:
@@ -218,7 +223,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
     out = dy.transpose(out)
     return dy.reshape(out, (seq_len, self.dim_per_head), batch_size=batch_size * self.head_count)
 
-  def __call__(self, x: dy.Expression, att_mask: np.ndarray, batch_mask: np.ndarray, p: numbers.Real):
+  def __call__(self, x: tt.Tensor, att_mask: np.ndarray, batch_mask: np.ndarray, p: numbers.Real):
     """
     x: expression of dimensions (input_dim, time) x batch
     att_mask: numpy array of dimensions (time, time); pre-transposed
@@ -383,7 +388,7 @@ class SAAMMultiHeadedSelfAttention(Serializable):
       {"key": "self_att_mask_var: ", "val": [float(x) for x in list(self.diag_gauss_mask_sigma.as_array().flat)],
        "desc": self.desc})
 
-
+@xnmt.require_dynet
 class TransformerEncoderLayer(Serializable):
   yaml_tag = "!TransformerEncoderLayer"
   @serializable_init
@@ -469,7 +474,7 @@ class TransformerEncoderLayer(Serializable):
       expr_tensor=dy.reshape(out, (out.dim()[0][0], seq_len), batch_size=batch_size),
       mask=out_mask)
 
-
+@xnmt.require_dynet
 class SAAMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   Args:

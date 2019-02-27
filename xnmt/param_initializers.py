@@ -5,6 +5,7 @@ import numbers
 import numpy as np
 
 import xnmt
+import xnmt.tensor_tools as tt
 from xnmt.persistence import serializable_init, Serializable
 
 if xnmt.backend_dynet:
@@ -39,7 +40,7 @@ class ParamInitializerTorch(object):
 
   # def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False,
   #                 num_shared: numbers.Integral = 1) -> 'dy.Initializer':
-  def initialize(self, weights: torch.Tensor) -> None:
+  def initialize(self, weights: tt.Tensor) -> None:
     """
     Args:
       dim: dimension of parameter tensor
@@ -124,7 +125,7 @@ class ConstInitializerTorch(ParamInitializerTorch, Serializable):
   def __init__(self, c: numbers.Real) -> None:
     self.c = c
 
-  def initialize(self, weights: torch.Tensor) -> None:
+  def initialize(self, weights: tt.Tensor) -> None:
     torch.nn.init.constant_(weights, val=self.c)
 
 ConstInitializer = xnmt.resolve_backend(ConstInitializerDynet, ConstInitializerTorch)
@@ -215,7 +216,7 @@ class GlorotInitializerTorch(ParamInitializerTorch, Serializable):
   def __init__(self, gain: numbers.Real = 1.0) -> None:
     self.gain = gain
 
-  def initialize(self, weights: torch.Tensor) -> None:
+  def initialize(self, weights: tt.Tensor) -> None:
     torch.nn.init.xavier_uniform_(weights, gain = self.gain)
 
 GlorotInitializer = xnmt.resolve_backend(GlorotInitializerDynet, GlorotInitializerTorch)

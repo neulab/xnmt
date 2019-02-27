@@ -1,14 +1,16 @@
 from typing import Any, List, Sequence, Union
 import numbers
 
-import dynet as dy
-
+import xnmt
 from xnmt.transducers import recurrent
 from xnmt import expression_seqs, events
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.transducers import base as transducers
 
+if xnmt.backend_dynet:
+  import dynet as dy
 
+@xnmt.require_dynet
 class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   Builder for pyramidal RNNs that delegates to ``UniLSTMSeqTransducer`` objects and wires them together.

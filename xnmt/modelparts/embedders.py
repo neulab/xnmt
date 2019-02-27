@@ -406,7 +406,7 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
   def on_start_sent(self, *args, **kwargs) -> None:
     self.word_id_mask = None
 
-  def embed(self, x: Union[numbers.Integral, batchers.Batch]) -> torch.Tensor:
+  def embed(self, x: Union[numbers.Integral, batchers.Batch]) -> tt.Tensor:
     return self.embeddings(torch.tensor(x).to(xnmt.device))
 
 SimpleWordEmbedder = xnmt.resolve_backend(SimpleWordEmbedderDynet, SimpleWordEmbedderTorch)
