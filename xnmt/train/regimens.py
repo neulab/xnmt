@@ -3,11 +3,9 @@ from typing import Callable, Dict, Optional, Sequence, Union
 from collections import OrderedDict
 import numbers
 
-from xnmt.settings import settings
 import numpy as np
-import dynet as dy
 
-
+import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger, loss_calculators, loss_trackers, losses, optimizers, param_collections, utils
 from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
@@ -28,7 +26,7 @@ class TrainingRegimen(object):
     """
     raise NotImplementedError("")
 
-  def backward(self, loss: dy.Expression, dynet_profiling: numbers.Integral) -> None:
+  def backward(self, loss: tt.Tensor, dynet_profiling: numbers.Integral) -> None:
     """
     Perform backward pass to accumulate gradients.
 
@@ -37,7 +35,7 @@ class TrainingRegimen(object):
       dynet_profiling: if > 0, print the computation graph
     """
     if dynet_profiling and dynet_profiling > 0:
-      dy.print_text_graphviz()
+      utils.print_cg_conditional()
     loss.backward()
 
   def update(self, trainer: optimizers.XnmtOptimizer) -> None:
@@ -153,7 +151,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
           self.checkpoint_and_save(save_fct)
           self.dev_zero = False
         with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
-          dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+          tt.reset_graph()
           with self.train_loss_tracker.time_tracker:
             event_trigger.set_train(True)
             loss_builder = self.training_step(src, trg)
@@ -286,7 +284,7 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
     """
     Main training loop (overwrites TrainingRegimen.run_training())
     """
-    dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+    tt.reset_graph()
     if self.run_for_epochs is None or self.run_for_epochs > 0:
       total_loss = losses.FactoredLossExpr()
       # Needed for report
@@ -312,7 +310,7 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
             self.train_loss_tracker.report(reported_trg, total_loss_val)
             total_loss = losses.FactoredLossExpr()
             total_trg = []
-            dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+            tt.reset_graph()
         if self.checkpoint_needed():
           # Do a last update before checkpoint
           # Force forward-backward for the last batch even if it's smaller than update_every
@@ -445,7 +443,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             task_src_trg.append((task, src, trg))
         if self.dev_zero: # True only in first iteration
           self.checkpoint_and_save(save_fct)
-        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+        tt.reset_graph()
         task_trg_loss_stats = {}
         with contextlib.ExitStack() as stack: #use exit stack to control whether to use global or per-task time tracking
           if not self.per_task_backward:
@@ -459,7 +457,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
               task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
               if self.per_task_backward:
                 self.backward(loss_builder.compute(), self.dynet_profiling)
-                dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+                tt.reset_graph()
               else:
                 task_losses.append(loss_builder.compute())
           if not self.per_task_backward:
@@ -531,7 +529,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     dev_zero = {i:self.dev_zero for i in range(len(self.tasks))}
     if self.tasks[0].run_for_epochs > 0:
       while True:
-        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+        tt.reset_graph()
         cur_task_i = np.random.choice(range(len(self.tasks)), p=self.task_weights)
         cur_task = self.tasks[cur_task_i]
         task_gen = task_generators[cur_task]
@@ -598,7 +596,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
       task_gen = cur_task.next_minibatch()
       if cur_task.run_for_epochs > 0:
         while True:
-          dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+          tt.reset_graph()
           src, trg = next(task_gen)
           if dev_zero[cur_task_id]: self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           with cur_train_loss_tracker.time_tracker:

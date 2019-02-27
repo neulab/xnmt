@@ -1,15 +1,20 @@
 from typing import Optional, Set, Sequence, Union
 import numbers
 
-import dynet as dy
 import numpy as np
 
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger, events, inferences, input_readers, reports, sent, vocabs
 from xnmt.modelparts import attenders, embedders, scorers, transforms
 from xnmt.models import base as models
 from xnmt.transducers import recurrent, base as transducers
 from xnmt.persistence import serializable_init, Serializable, bare
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, reports.Reportable):
   """
   A simple sequence labeler based on an encoder and an output softmax layer.
@@ -62,7 +67,7 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
     return batch_size, encodings, outputs, seq_len
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
-          -> dy.Expression:
+          -> tt.Tensor:
     assert batchers.is_batched(src) and batchers.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
 

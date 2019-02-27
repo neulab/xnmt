@@ -2,11 +2,15 @@ import math
 import numbers
 
 import numpy as np
-import dynet as dy
 
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt import logger
-from xnmt import batchers, expression_seqs, events, param_collections, param_initializers
+from xnmt import expression_seqs, events, param_collections, param_initializers
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 class Attender(object):
   """
@@ -19,7 +23,7 @@ class Attender(object):
     """
     raise NotImplementedError('init_sent must be implemented for Attender subclasses')
 
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
+  def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
     """ Compute attention weights.
 
     Args:
@@ -29,7 +33,7 @@ class Attender(object):
     """
     raise NotImplementedError('calc_attention must be implemented for Attender subclasses')
 
-  def calc_context(self, state: dy.Expression, attention: dy.Expression = None) -> dy.Expression:
+  def calc_context(self, state: tt.Tensor, attention: tt.Tensor = None) -> tt.Tensor:
     """ Compute weighted sum.
 
     Args:
@@ -40,6 +44,7 @@ class Attender(object):
     I = self.curr_sent.as_tensor()
     return I * attention
 
+@xnmt.require_dynet
 class MlpAttender(Attender, Serializable):
   """
   Implements the attention model of Bahdanau et. al (2014)
@@ -87,7 +92,7 @@ class MlpAttender(Attender, Serializable):
     if len(wi_dim[0]) == 1:
       self.WI = dy.reshape(self.WI, (wi_dim[0][0], 1), batch_size=wi_dim[1])
 
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
+  def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
     V = dy.parameter(self.pV)
     U = dy.parameter(self.pU)
 
@@ -101,6 +106,7 @@ class MlpAttender(Attender, Serializable):
     self.attention_vecs.append(normalized)
     return normalized
 
+@xnmt.require_dynet
 class DotAttender(Attender, Serializable):
   """
   Implements dot product attention of https://arxiv.org/abs/1508.04025
@@ -124,7 +130,7 @@ class DotAttender(Attender, Serializable):
     self.attention_vecs = []
     self.I = dy.transpose(self.curr_sent.as_tensor())
 
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
+  def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
     scores = self.I * state
     if self.scale:
       scores /= math.sqrt(state.dim()[0][0])
@@ -134,6 +140,7 @@ class DotAttender(Attender, Serializable):
     self.attention_vecs.append(normalized)
     return normalized
 
+@xnmt.require_dynet
 class BilinearAttender(Attender, Serializable):
   """
   Implements a bilinear attention, equivalent to the 'general' linear
@@ -164,7 +171,7 @@ class BilinearAttender(Attender, Serializable):
     self.I = self.curr_sent.as_tensor()
 
   # TODO(philip30): Please apply masking here
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
+  def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
     logger.warning("BilinearAttender does currently not do masking, which may harm training results.")
     Wa = dy.parameter(self.pWa)
     scores = (dy.transpose(state) * Wa) * self.I
@@ -172,6 +179,7 @@ class BilinearAttender(Attender, Serializable):
     self.attention_vecs.append(normalized)
     return dy.transpose(normalized)
 
+@xnmt.require_dynet
 class LatticeBiasedMlpAttender(MlpAttender, Serializable):
   """
   Modified MLP attention, where lattices are assumed as input and the attention is biased toward confident nodes.
@@ -183,7 +191,6 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
   """
-
   yaml_tag = '!LatticeBiasedMlpAttender'
 
   @events.register_xnmt_handler
@@ -205,7 +212,7 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
         self.cur_sent_bias[node_id, 0, batch_i] = lattice_batch_elem.graph[node_id].marginal_log_prob
     self.cur_sent_bias_expr = None
 
-  def calc_attention(self, state: dy.Expression) -> dy.Expression:
+  def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
     V = dy.parameter(self.pV)
     U = dy.parameter(self.pU)
 

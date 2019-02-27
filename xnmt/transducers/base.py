@@ -1,11 +1,14 @@
 from typing import List
 import numbers
 
-import dynet as dy
-
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt.modelparts import transforms
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import expression_seqs
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 class FinalTransducerState(object):
   """
@@ -17,16 +20,16 @@ class FinalTransducerState(object):
     main_expr: expression for hidden state
     cell_expr: expression for cell state, if exists
   """
-  def __init__(self, main_expr: dy.Expression, cell_expr: dy.Expression=None) -> None:
+  def __init__(self, main_expr: tt.Tensor, cell_expr: tt.Tensor=None) -> None:
     self._main_expr = main_expr
     self._cell_expr = cell_expr
 
-  def main_expr(self) -> dy.Expression:
+  def main_expr(self) -> tt.Tensor:
     return self._main_expr
 
-  def cell_expr(self) -> dy.Expression:
+  def cell_expr(self) -> tt.Tensor:
     """Returns:
-         dy.Expression: cell state; if not given, it is inferred as inverse tanh of main expression
+         cell state; if not given, it is inferred as inverse tanh of main expression
     """
     if self._cell_expr is None:
       # TODO: This taking of the tanh inverse is disabled, because it can cause NaNs
@@ -106,7 +109,7 @@ class IdentitySeqTransducer(SeqTransducer, Serializable):
   def transduce(self, seq: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     return seq
 
-
+@xnmt.require_dynet
 class TransformSeqTransducer(SeqTransducer, Serializable):
   """
   A sequence transducer that applies a given transformation to the sequence's tensor representation
