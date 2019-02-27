@@ -5,6 +5,11 @@ import numbers
 import xnmt
 from xnmt import logger
 
+if xnmt.backend_dynet:
+  import dynet as dy
+if xnmt.backend_torch:
+  import torch
+  from torch import nn
 
 
 
@@ -107,208 +112,203 @@ class ParamManager(object):
 
 class RevertingUnsavedModelException(Exception): pass
 
-if xnmt.backend_dynet:
+@xnmt.require_dynet
+class ParamCollectionDynet(object):
 
-  import dynet as dy
+  def __init__(self) -> None:
+    self.reset()
 
-  class ParamCollection(object):
+  def reset(self) -> None:
+    self._save_num_checkpoints = 1
+    self._model_file = None
+    self._param_col = dy.Model()
+    self._is_saved = False
+    self.subcols = {}
+    self.all_subcol_owners = set()
 
-    def __init__(self) -> None:
-      self.reset()
+  @property
+  def save_num_checkpoints(self):
+    return self._save_num_checkpoints
+  @save_num_checkpoints.setter
+  def save_num_checkpoints(self, value):
+    self._save_num_checkpoints = value
+    self._update_data_files()
+  @property
+  def model_file(self):
+    return self._model_file
+  @model_file.setter
+  def model_file(self, value):
+    self._model_file = value
+    self._update_data_files()
+  def _update_data_files(self):
+    if self._save_num_checkpoints>0 and self._model_file:
+      self._data_files = [self.model_file + '.data']
+      for i in range(1,self._save_num_checkpoints):
+        self._data_files.append(self.model_file + '.data.' + str(i))
+    else:
+      self._data_files = []
 
-    def reset(self) -> None:
-      self._save_num_checkpoints = 1
-      self._model_file = None
-      self._param_col = dy.Model()
-      self._is_saved = False
-      self.subcols = {}
-      self.all_subcol_owners = set()
+  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> 'dy.ParameterCollection':
+    assert subcol_owner not in self.all_subcol_owners
+    self.all_subcol_owners.add(subcol_owner)
+    if subcol_name in self.subcols:
+      raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
+    new_subcol = self._param_col.add_subcollection(subcol_name)
+    self.subcols[subcol_name] = new_subcol
+    return new_subcol
 
-    @property
-    def save_num_checkpoints(self):
-      return self._save_num_checkpoints
-    @save_num_checkpoints.setter
-    def save_num_checkpoints(self, value):
-      self._save_num_checkpoints = value
-      self._update_data_files()
-    @property
-    def model_file(self):
-      return self._model_file
-    @model_file.setter
-    def model_file(self, value):
-      self._model_file = value
-      self._update_data_files()
-    def _update_data_files(self):
-      if self._save_num_checkpoints>0 and self._model_file:
-        self._data_files = [self.model_file + '.data']
-        for i in range(1,self._save_num_checkpoints):
-          self._data_files.append(self.model_file + '.data.' + str(i))
-      else:
-        self._data_files = []
+  def load_subcol_from_data_file(self, subcol_name: str, data_file: str) -> None:
+    self.subcols[subcol_name].populate(data_file)
 
-    def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> dy.ParameterCollection:
-      assert subcol_owner not in self.all_subcol_owners
-      self.all_subcol_owners.add(subcol_owner)
-      if subcol_name in self.subcols:
-        raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
-      new_subcol = self._param_col.add_subcollection(subcol_name)
-      self.subcols[subcol_name] = new_subcol
-      return new_subcol
+  def save(self) -> None:
+    if not self._is_saved:
+      self._remove_existing_history()
+    self._shift_saved_checkpoints()
+    if not os.path.exists(self._data_files[0]):
+      os.makedirs(self._data_files[0])
+    for subcol_name, subcol in self.subcols.items():
+      subcol.save(os.path.join(self._data_files[0], subcol_name))
+    self._is_saved = True
 
-    def load_subcol_from_data_file(self, subcol_name: str, data_file: str) -> None:
-      self.subcols[subcol_name].populate(data_file)
+  def revert_to_best_model(self) -> None:
+    if not self._is_saved:
+      raise RevertingUnsavedModelException("revert_to_best_model() is illegal because this model has never been saved.")
+    for subcol_name, subcol in self.subcols.items():
+      subcol.populate(os.path.join(self._data_files[0], subcol_name))
 
-    def save(self) -> None:
-      if not self._is_saved:
-        self._remove_existing_history()
-      self._shift_saved_checkpoints()
-      if not os.path.exists(self._data_files[0]):
-        os.makedirs(self._data_files[0])
-      for subcol_name, subcol in self.subcols.items():
-        subcol.save(os.path.join(self._data_files[0], subcol_name))
-      self._is_saved = True
+  def _remove_existing_history(self):
+    for fname in self._data_files:
+      if os.path.exists(fname):
+        self._remove_data_dir(fname)
+  def _remove_data_dir(self, data_dir):
+    assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
+    try:
+      dir_contents = os.listdir(data_dir)
+      for old_file in dir_contents:
+        spl = old_file.split(".")
+        # make sure we're only deleting files with the expected filenames
+        if len(spl)==2:
+          if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
+            if re.match(r"^[0-9a-f]{8}$", spl[1]):
+              os.remove(os.path.join(data_dir, old_file))
+    except NotADirectoryError:
+      os.remove(data_dir)
+  def _shift_saved_checkpoints(self):
+    if os.path.exists(self._data_files[-1]):
+      self._remove_data_dir(self._data_files[-1])
+    for i in range(len(self._data_files)-1)[::-1]:
+      if os.path.exists(self._data_files[i]):
+        os.rename(self._data_files[i], self._data_files[i+1])
 
-    def revert_to_best_model(self) -> None:
-      if not self._is_saved:
-        raise RevertingUnsavedModelException("revert_to_best_model() is illegal because this model has never been saved.")
-      for subcol_name, subcol in self.subcols.items():
-        subcol.populate(os.path.join(self._data_files[0], subcol_name))
+  def global_collection(self):
+    return self._param_col
 
-    def _remove_existing_history(self):
-      for fname in self._data_files:
-        if os.path.exists(fname):
-          self._remove_data_dir(fname)
-    def _remove_data_dir(self, data_dir):
-      assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
-      try:
-        dir_contents = os.listdir(data_dir)
-        for old_file in dir_contents:
-          spl = old_file.split(".")
-          # make sure we're only deleting files with the expected filenames
-          if len(spl)==2:
-            if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
-              if re.match(r"^[0-9a-f]{8}$", spl[1]):
-                os.remove(os.path.join(data_dir, old_file))
-      except NotADirectoryError:
-        os.remove(data_dir)
-    def _shift_saved_checkpoints(self):
-      if os.path.exists(self._data_files[-1]):
-        self._remove_data_dir(self._data_files[-1])
-      for i in range(len(self._data_files)-1)[::-1]:
-        if os.path.exists(self._data_files[i]):
-          os.rename(self._data_files[i], self._data_files[i+1])
+  def parameter_count(self) -> numbers.Integral:
+    return self._param_col.parameter_count()
 
-    def global_collection(self):
-      return self._param_col
+@xnmt.require_torch
+class ParamCollectionTorch(object):
 
-    def parameter_count(self) -> numbers.Integral:
-      return self._param_col.parameter_count()
+  # TODO: move some code into a BaseParamCollection
 
-if xnmt.backend_torch:
+  def __init__(self) -> None:
+    self.reset()
 
-  import torch
-  from torch import nn
+  def reset(self) -> None:
+    self._save_num_checkpoints = 1
+    self._model_file = None
+    self.subcols =  nn.ModuleDict()
+    self._is_saved = False
+    self.all_subcol_owners = set()
 
-  class ParamCollection(object):
+  @property
+  def save_num_checkpoints(self):
+    return self._save_num_checkpoints
 
-    # TODO: move some code into a BaseParamCollection
+  @save_num_checkpoints.setter
+  def save_num_checkpoints(self, value):
+    self._save_num_checkpoints = value
+    self._update_data_files()
 
-    def __init__(self) -> None:
-      self.reset()
+  @property
+  def model_file(self):
+    return self._model_file
 
-    def reset(self) -> None:
-      self._save_num_checkpoints = 1
-      self._model_file = None
-      self.subcols =  nn.ModuleDict()
-      self._is_saved = False
-      self.all_subcol_owners = set()
+  @model_file.setter
+  def model_file(self, value):
+    self._model_file = value
+    self._update_data_files()
 
-    @property
-    def save_num_checkpoints(self):
-      return self._save_num_checkpoints
+  def _update_data_files(self):
+    if self._save_num_checkpoints > 0 and self._model_file:
+      self._data_files = [self.model_file + '.data']
+      for i in range(1, self._save_num_checkpoints):
+        self._data_files.append(self.model_file + '.data.' + str(i))
+    else:
+      self._data_files = []
 
-    @save_num_checkpoints.setter
-    def save_num_checkpoints(self, value):
-      self._save_num_checkpoints = value
-      self._update_data_files()
+  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> nn.Module:
+    assert subcol_owner not in self.all_subcol_owners
+    self.all_subcol_owners.add(subcol_owner)
+    if subcol_name in self.subcols:
+      raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
+    new_subcol = nn.ModuleList()
+    self.subcols[subcol_name] = new_subcol
+    return new_subcol
 
-    @property
-    def model_file(self):
-      return self._model_file
+  def load_subcol_from_data_file(self, subcol_name: str, data_file: str) -> None:
+    loaded = torch.load(data_file).state_dict()
+    self.subcols[subcol_name].load_state_dict(loaded)
 
-    @model_file.setter
-    def model_file(self, value):
-      self._model_file = value
-      self._update_data_files()
+  def save(self) -> None:
+    if not self._is_saved:
+      self._remove_existing_history()
+    self._shift_saved_checkpoints()
+    if not os.path.exists(self._data_files[0]):
+      os.makedirs(self._data_files[0])
+    for subcol_name, subcol in self.subcols.items():
+      torch.save(subcol, os.path.join(self._data_files[0], subcol_name))
+    self._is_saved = True
 
-    def _update_data_files(self):
-      if self._save_num_checkpoints > 0 and self._model_file:
-        self._data_files = [self.model_file + '.data']
-        for i in range(1, self._save_num_checkpoints):
-          self._data_files.append(self.model_file + '.data.' + str(i))
-      else:
-        self._data_files = []
+  def revert_to_best_model(self) -> None:
+    if not self._is_saved:
+      raise RevertingUnsavedModelException(
+        "revert_to_best_model() is illegal because this model has never been saved.")
+    for subcol_name, subcol in self.subcols.items():
+      data_file = os.path.join(self._data_files[0], subcol_name)
+      loaded = torch.load(data_file)
+      subcol.load_state_dict(loaded.state_dict())
 
-    def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> nn.Module:
-      assert subcol_owner not in self.all_subcol_owners
-      self.all_subcol_owners.add(subcol_owner)
-      if subcol_name in self.subcols:
-        raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
-      new_subcol = nn.ModuleList()
-      self.subcols[subcol_name] = new_subcol
-      return new_subcol
+  def _remove_existing_history(self):
+    for fname in self._data_files:
+      if os.path.exists(fname):
+        self._remove_data_dir(fname)
 
-    def load_subcol_from_data_file(self, subcol_name: str, data_file: str) -> None:
-      loaded = torch.load(data_file).state_dict()
-      self.subcols[subcol_name].load_state_dict(loaded)
+  def _remove_data_dir(self, data_dir):
+    assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
+    try:
+      dir_contents = os.listdir(data_dir)
+      for old_file in dir_contents:
+        spl = old_file.split(".")
+        # make sure we're only deleting files with the expected filenames
+        if len(spl) == 2:
+          if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
+            if re.match(r"^[0-9a-f]{8}$", spl[1]):
+              os.remove(os.path.join(data_dir, old_file))
+    except NotADirectoryError:
+      os.remove(data_dir)
 
-    def save(self) -> None:
-      if not self._is_saved:
-        self._remove_existing_history()
-      self._shift_saved_checkpoints()
-      if not os.path.exists(self._data_files[0]):
-        os.makedirs(self._data_files[0])
-      for subcol_name, subcol in self.subcols.items():
-        torch.save(subcol, os.path.join(self._data_files[0], subcol_name))
-      self._is_saved = True
+  def _shift_saved_checkpoints(self):
+    if os.path.exists(self._data_files[-1]):
+      self._remove_data_dir(self._data_files[-1])
+    for i in range(len(self._data_files) - 1)[::-1]:
+      if os.path.exists(self._data_files[i]):
+        os.rename(self._data_files[i], self._data_files[i + 1])
 
-    def revert_to_best_model(self) -> None:
-      if not self._is_saved:
-        raise RevertingUnsavedModelException(
-          "revert_to_best_model() is illegal because this model has never been saved.")
-      for subcol_name, subcol in self.subcols.items():
-        data_file = os.path.join(self._data_files[0], subcol_name)
-        loaded = torch.load(data_file)
-        subcol.load_state_dict(loaded.state_dict())
+  def global_collection(self):
+    return self.subcols
 
-    def _remove_existing_history(self):
-      for fname in self._data_files:
-        if os.path.exists(fname):
-          self._remove_data_dir(fname)
+  def parameter_count(self) -> numbers.Integral:
+    return sum(p.numel() for p in self.subcols.parameters())
 
-    def _remove_data_dir(self, data_dir):
-      assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
-      try:
-        dir_contents = os.listdir(data_dir)
-        for old_file in dir_contents:
-          spl = old_file.split(".")
-          # make sure we're only deleting files with the expected filenames
-          if len(spl) == 2:
-            if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
-              if re.match(r"^[0-9a-f]{8}$", spl[1]):
-                os.remove(os.path.join(data_dir, old_file))
-      except NotADirectoryError:
-        os.remove(data_dir)
-
-    def _shift_saved_checkpoints(self):
-      if os.path.exists(self._data_files[-1]):
-        self._remove_data_dir(self._data_files[-1])
-      for i in range(len(self._data_files) - 1)[::-1]:
-        if os.path.exists(self._data_files[i]):
-          os.rename(self._data_files[i], self._data_files[i + 1])
-
-    def global_collection(self):
-      return self.subcols
-
-    def parameter_count(self) -> numbers.Integral:
-      return sum(p.numel() for p in self.subcols.parameters())
+ParamCollection = xnmt.resolve_backend(ParamCollectionDynet, ParamCollectionTorch)

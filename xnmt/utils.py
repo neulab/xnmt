@@ -161,11 +161,3 @@ def has_cython() -> bool:
   except:
     return False
 
-def require_dynet(x):
-  if xnmt.backend_dynet:
-    return x
-  else: return None
-def require_torch(x):
-  if xnmt.backend_torch:
-    return x
-  else: return None

@@ -11,6 +11,10 @@ import numpy as np
 import xnmt
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import sent
+from xnmt import tensor_tools as tt
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 class Batch(ABC):
   """
@@ -127,43 +131,43 @@ class BaseMask(object):
     """
     return len(self) - np.count_nonzero(self.np_arr, axis=1)
 
-if xnmt.backend_dynet:
-  import dynet as dy
-  class Mask(BaseMask):
-    def add_to_tensor_expr(self, tensor_expr: dy.Expression,
-                           multiplicator: Optional[numbers.Real] = None) -> dy.Expression:
-      # TODO: might cache these expressions to save memory
-      if np.count_nonzero(self.np_arr) == 0:
-        return tensor_expr
+@xnmt.require_dynet
+class MaskDynet(BaseMask):
+  def add_to_tensor_expr(self, tensor_expr: tt.Tensor,
+                         multiplicator: Optional[numbers.Real] = None) -> tt.Tensor:
+    # TODO: might cache these expressions to save memory
+    if np.count_nonzero(self.np_arr) == 0:
+      return tensor_expr
+    else:
+      if multiplicator is not None:
+        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
       else:
-        if multiplicator is not None:
-          mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1) * multiplicator, batched=True)
-        else:
-          mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
-        return tensor_expr + mask_expr
+        mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
+      return tensor_expr + mask_expr
 
-    def cmult_by_timestep_expr(self, expr: dy.Expression, timestep: numbers.Integral,
-                               inverse: bool = False) -> dy.Expression:
-      # TODO: might cache these expressions to save memory
-      """
-      Args:
-        expr: a dynet expression corresponding to one timestep
-        timestep: index of current timestep
-        inverse: True will keep the unmasked parts, False will zero out the unmasked parts
-      """
-      if inverse:
-        if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == 0:
-          return expr
-        mask_exp = dy.inputTensor((1.0 - self.np_arr)[:, timestep:timestep + 1].transpose(), batched=True)
-      else:
-        if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == self.np_arr[:, timestep:timestep + 1].size:
-          return expr
-        mask_exp = dy.inputTensor(self.np_arr[:, timestep:timestep + 1].transpose(), batched=True)
-      return dy.cmult(expr, mask_exp)
+  def cmult_by_timestep_expr(self, expr: tt.Tensor, timestep: numbers.Integral,
+                             inverse: bool = False) -> tt.Tensor:
+    # TODO: might cache these expressions to save memory
+    """
+    Args:
+      expr: a dynet expression corresponding to one timestep
+      timestep: index of current timestep
+      inverse: True will keep the unmasked parts, False will zero out the unmasked parts
+    """
+    if inverse:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == 0:
+        return expr
+      mask_exp = dy.inputTensor((1.0 - self.np_arr)[:, timestep:timestep + 1].transpose(), batched=True)
+    else:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == self.np_arr[:, timestep:timestep + 1].size:
+        return expr
+      mask_exp = dy.inputTensor(self.np_arr[:, timestep:timestep + 1].transpose(), batched=True)
+    return dy.cmult(expr, mask_exp)
 
-if xnmt.backend_torch:
-  class Mask(BaseMask): pass
+@xnmt.require_torch
+class MaskTorch(BaseMask): pass
 
+Mask = xnmt.resolve_backend(MaskDynet, MaskTorch)
 
 class Batcher(object):
   """

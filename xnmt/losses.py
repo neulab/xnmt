@@ -4,6 +4,11 @@ import collections
 import xnmt
 import xnmt.tensor_tools as tt
 
+if xnmt.backend_dynet:
+  import dynet as dy
+if xnmt.backend_torch:
+  import torch
+
 class BaseFactoredLossExpr(object):
   """
   Loss in form of tensors, with one tensor per loss factor.
@@ -86,85 +91,81 @@ class BaseFactoredLossExpr(object):
         raise NotImplementedError("Summing factored loss expr with unknown type:", type(other))
 
 
-if xnmt.backend_dynet:
+@xnmt.require_dynet
+class FactoredLossExprDynet(BaseFactoredLossExpr):
 
-  import dynet as dy
+  """
+  Loss consisting of (possibly batched) DyNet expressions, with one expression per loss factor.
 
-  class FactoredLossExpr(BaseFactoredLossExpr):
+  Used to represent losses within a training step.
 
+  Args:
+    init_loss: initial loss values
+  """
+
+  def __init__(self, init_loss: Optional[Dict[str, tt.Tensor]] = None) -> None:
+    super().__init__(init_loss)
+
+
+  def compute(self, comb_method: str = "sum") -> tt.Tensor:
+    return self._combine_batches(dy.esum(list(self.expr_factors.values())), comb_method)
+
+  def value(self) -> List[float]:
+    return dy.esum(list(self.expr_factors.values())).value()
+
+  def _combine_batches(self, batched_expr, comb_method: str = "sum"):
+    if comb_method == "sum":
+      return dy.sum_batches(batched_expr)
+    elif comb_method == "avg":
+      return dy.sum_batches(batched_expr) * (1.0 / batched_expr.dim()[1])
+    else:
+      raise ValueError(f"Unknown batch combination method '{comb_method}', expected 'sum' or 'avg'.'")
+
+  def get_nobackprop_loss(self) -> Dict[str, tt.Tensor]:
     """
-    Loss consisting of (possibly batched) DyNet expressions, with one expression per loss factor.
+    Get dictionary of named non-backpropagating loss expressions
 
-    Used to represent losses within a training step.
-
-    Args:
-      init_loss: initial loss values
+    Returns:
+      Loss expressions
     """
+    return {k: dy.nobackprop(v) for k, v in self.expr_factors.items()}
 
-    def __init__(self, init_loss: Optional[Dict[str, dy.Expression]] = None) -> None:
-      super().__init__(init_loss)
+  def get_factored_loss_val(self, comb_method: str = "sum") -> 'FactoredLossVal':
+    return FactoredLossVal({k: self._combine_batches(v, comb_method).value() for k, v in self.expr_factors.items()})
 
+@xnmt.require_torch
+class FactoredLossExprTorch(BaseFactoredLossExpr):
 
-    def compute(self, comb_method: str = "sum") -> dy.Expression:
-      return self._combine_batches(dy.esum(list(self.expr_factors.values())), comb_method)
+  """
+  Loss consisting of (possibly batched) DyNet expressions, with one expression per loss factor.
 
-    def value(self) -> List[float]:
-      return dy.esum(list(self.expr_factors.values())).value()
+  Used to represent losses within a training step.
 
-    def _combine_batches(self, batched_expr, comb_method: str = "sum"):
-      if comb_method == "sum":
-        return dy.sum_batches(batched_expr)
-      elif comb_method == "avg":
-        return dy.sum_batches(batched_expr) * (1.0 / batched_expr.dim()[1])
-      else:
-        raise ValueError(f"Unknown batch combination method '{comb_method}', expected 'sum' or 'avg'.'")
+  Args:
+    init_loss: initial loss values
+  """
 
-    def get_nobackprop_loss(self) -> Dict[str, dy.Expression]:
-      """
-      Get dictionary of named non-backpropagating loss expressions
+  def __init__(self, init_loss: Optional[Dict[str, torch.Tensor]] = None) -> None:
+    super().__init__(init_loss)
 
-      Returns:
-        Loss expressions
-      """
-      return {k: dy.nobackprop(v) for k, v in self.expr_factors.items()}
+  def compute(self, comb_method: str = "sum") -> torch.Tensor:
+    return self._combine_batches(sum(self.expr_factors.values()), comb_method)
 
-    def get_factored_loss_val(self, comb_method: str = "sum") -> 'FactoredLossVal':
-      return FactoredLossVal({k: self._combine_batches(v, comb_method).value() for k, v in self.expr_factors.items()})
+  def value(self) -> List[float]:
+    return sum(self.expr_factors.values()).cpu().data.numpy().tolist()
 
-if xnmt.backend_torch:
+  def _combine_batches(self, batched_expr, comb_method: str = "sum"):
+    if comb_method == "sum":
+      return batched_expr.sum()
+    elif comb_method == "avg":
+      return batched_expr.mean()
+    else:
+      raise ValueError(f"Unknown batch combination method '{comb_method}', expected 'sum' or 'avg'.'")
 
-  import torch
+  def get_factored_loss_val(self, comb_method: str = "sum") -> 'FactoredLossVal':
+    return FactoredLossVal({k: self._combine_batches(v, comb_method).cpu().data.numpy() for k, v in self.expr_factors.items()})
 
-  class FactoredLossExpr(BaseFactoredLossExpr):
-
-    """
-    Loss consisting of (possibly batched) DyNet expressions, with one expression per loss factor.
-
-    Used to represent losses within a training step.
-
-    Args:
-      init_loss: initial loss values
-    """
-
-    def __init__(self, init_loss: Optional[Dict[str, torch.Tensor]] = None) -> None:
-      super().__init__(init_loss)
-
-    def compute(self, comb_method: str = "sum") -> torch.Tensor:
-      return self._combine_batches(sum(self.expr_factors.values()), comb_method)
-
-    def value(self) -> List[float]:
-      return sum(self.expr_factors.values()).cpu().data.numpy().tolist()
-
-    def _combine_batches(self, batched_expr, comb_method: str = "sum"):
-      if comb_method == "sum":
-        return batched_expr.sum()
-      elif comb_method == "avg":
-        return batched_expr.mean()
-      else:
-        raise ValueError(f"Unknown batch combination method '{comb_method}', expected 'sum' or 'avg'.'")
-
-    def get_factored_loss_val(self, comb_method: str = "sum") -> 'FactoredLossVal':
-      return FactoredLossVal({k: self._combine_batches(v, comb_method).cpu().data.numpy() for k, v in self.expr_factors.items()})
+FactoredLossExpr = xnmt.resolve_backend(FactoredLossExprDynet, FactoredLossExprTorch)
 
 class FactoredLossVal(object):
   

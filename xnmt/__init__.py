@@ -31,6 +31,26 @@ elif args.backend=="dynet":
 else:
   raise ValueError(f"unknown backend {args.backend}")
 
+def require_dynet(x):
+  x.xnmt_backend = "dynet"
+  if backend_torch:
+    x.__init__ = lambda: 1/0 # wrong backend
+  return x
+def require_torch(x):
+  x.xnmt_backend = "torch"
+  if backend_dynet:
+    x.__init__ = lambda: 1/0 # wrong backend
+  return x
+def resolve_backend(a, b):
+  expected_backend = "dynet" if backend_dynet else "torch"
+  resolved = a if a.xnmt_backend==expected_backend else b
+  if hasattr(resolved, "yaml_tag"):
+    new_name = resolved.__name__[:len(resolved.yaml_tag)-1]
+    assert resolved.__name__.startswith(new_name)
+    resolved.__name__ = new_name
+  return resolved
+
+
 # all Serializable objects must be imported here in order to be parsable
 # using the !Classname YAML syntax
 import xnmt.batchers
@@ -89,13 +109,17 @@ def init_representer(dumper, obj):
 import yaml
 seen_yaml_tags = set()
 for SerializableChild in xnmt.persistence.Serializable.__subclasses__():
-  assert hasattr(SerializableChild,
-                 "yaml_tag") and SerializableChild.yaml_tag == f"!{SerializableChild.__name__}",\
-    f"missing or misnamed yaml_tag attribute for class {SerializableChild.__name__}"
-  assert SerializableChild.yaml_tag not in seen_yaml_tags, \
-    f"encountered naming conflict: more than one class with yaml_tag='{SerializableChild.yaml_tag}'. " \
-    f"Change to a unique class name."
-  assert getattr(SerializableChild.__init__, "uses_serializable_init",
-                 False), f"{SerializableChild.__name__}.__init__() must be wrapped in @serializable_init."
-  seen_yaml_tags.add(SerializableChild.yaml_tag)
-  yaml.add_representer(SerializableChild, init_representer)
+  needed_for_backend = (backend_dynet and getattr(SerializableChild, "xnmt_backend", "dynet") == "dynet") or \
+                       (backend_torch and getattr(SerializableChild, "xnmt_backend", "torch") == "torch")
+  assert hasattr(SerializableChild, "yaml_tag"),\
+    f"missing yaml_tag attribute for class {SerializableChild.__name__}"
+  if needed_for_backend:
+    assert SerializableChild.yaml_tag == f"!{SerializableChild.__name__}", \
+      f"misnamed yaml_tag attribute for class {SerializableChild.__name__}"
+    assert SerializableChild.yaml_tag not in seen_yaml_tags, \
+      f"encountered naming conflict: more than one class with yaml_tag='{SerializableChild.yaml_tag}'. " \
+      f"Change to a unique class name."
+    assert getattr(SerializableChild.__init__, "uses_serializable_init",
+                   False), f"{SerializableChild.__name__}.__init__() must be wrapped in @serializable_init."
+    seen_yaml_tags.add(SerializableChild.yaml_tag)
+    yaml.add_representer(SerializableChild, init_representer)
