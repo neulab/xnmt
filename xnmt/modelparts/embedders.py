@@ -6,7 +6,7 @@ import numpy as np
 
 import xnmt
 from xnmt import logger
-from xnmt import tensor_tools as tt, utils
+from xnmt import tensor_tools as tt
 from xnmt import batchers, events, expression_seqs, input_readers, param_collections, param_initializers, sent, vocabs
 from xnmt.modelparts import transforms
 from xnmt.persistence import bare, Path, Ref, Serializable, serializable_init
