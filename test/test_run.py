@@ -36,13 +36,8 @@ class TestRunningConfig(unittest.TestCase):
   def test_cascade(self):
     run.main(["test/config/cascade.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_classifier(self):
     run.main(["test/config/classifier.yaml"])
-
-  # TODO: merge with test_classifier
-  def test_classifier_torch(self):
-    run.main(["test/config/classifier-torch.yaml"])
 
   @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_component_sharing(self):

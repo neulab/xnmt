@@ -1,4 +1,4 @@
-from typing import List, Union, Optional
+from typing import List, Tuple, Union, Optional
 import numbers
 
 import numpy as np
@@ -15,7 +15,14 @@ if xnmt.backend_torch:
   import torch
   import torch.nn.functional as F
 
-def find_best_k(scores, k):
+def find_best_k(scores: np.ndarray, k: numbers.Integral) -> Tuple[np.ndarray, np.ndarray]:
+  """
+  Args:
+    scores: numpy array of dim (#classes, batch_size)
+    k: integer
+  Returns:
+    tuple: indices of top words [k, batch_size], top scores [k, batch_size]
+  """
   k = min(len(scores), k)
   top_words = np.argpartition(scores, -k, axis=0)[-k:]
 
@@ -430,17 +437,18 @@ class SoftmaxTorch(Scorer, Serializable):
 
   def best_k(self, x: tt.Tensor, k: numbers.Integral, normalize_scores: bool = False):
     scores_expr = self.calc_log_probs(x) if normalize_scores else self.calc_scores(x)
-    scores = scores_expr.npvalue()
+    scores = scores_expr.cpu().transpose(0,1).data.numpy()
     return find_best_k(scores, k)
 
   def sample(self, x: tt.Tensor, n: numbers.Integral, temperature: numbers.Real=1.0):
+    raise NotImplementedError("this has not been sufficiently tested")
     assert temperature != 0.0
     scores_expr = self.calc_log_probs(x)
     if temperature != 1.0:
       scores_expr *= 1.0 / temperature
-      scores = dy.softmax(scores_expr).npvalue()
+      scores = dy.softmax(scores_expr).cpu().data.numpy()
     else:
-      scores = dy.exp(scores_expr).npvalue()
+      scores = dy.exp(scores_expr).cpu().data.numpy()
 
     # Numpy is very picky. If the sum is off even by 1e-8 it complains.
     scores /= sum(scores)
