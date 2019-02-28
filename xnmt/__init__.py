@@ -19,7 +19,7 @@ base_arg_parser = argparse.ArgumentParser()
 base_arg_parser.add_argument('--backend', type=str, default="dynet")
 base_arg_parser.add_argument('--gpu', action='store_true')
 args = base_arg_parser.parse_known_args(sys.argv)[0]
-if args.backend=="torch":
+if args.backend=="torch" or os.environ.get("XNMT_BACKEND", default="dynet")=="torch":
   backend_dynet, backend_torch = False, True
   import torch
   if args.gpu:
