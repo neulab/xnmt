@@ -2,8 +2,8 @@ import unittest
 import math
 
 import numpy as np
-import dynet as dy
 
+import xnmt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt.modelparts.bridges import CopyBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
@@ -18,6 +18,9 @@ from xnmt.modelparts.transforms import NonLinear
 from xnmt.models.translators.default import DefaultTranslator
 from xnmt.vocabs import Vocab
 from xnmt import batchers, event_trigger, events
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 class TestEncoder(unittest.TestCase):
 
@@ -41,6 +44,7 @@ class TestEncoder(unittest.TestCase):
     encodings = model.encoder.transduce(embeddings)
     self.assertEqual(len(embeddings), len(encodings))
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_bi_lstm_encoder_len(self):
     layer_dim = 512
     model = DefaultTranslator(
@@ -58,6 +62,7 @@ class TestEncoder(unittest.TestCase):
     )
     self.assert_in_out_len_equal(model)
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_uni_lstm_encoder_len(self):
     layer_dim = 512
     model = DefaultTranslator(
@@ -93,6 +98,7 @@ class TestEncoder(unittest.TestCase):
   #   )
   #   self.assert_in_out_len_equal(model)
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_py_lstm_encoder_len(self):
     layer_dim = 512
     model = DefaultTranslator(
@@ -117,6 +123,7 @@ class TestEncoder(unittest.TestCase):
       encodings = model.encoder.transduce(embeddings)
       self.assertEqual(int(math.ceil(len(embeddings) / float(4))), len(encodings))
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_py_lstm_mask(self):
     layer_dim = 512
     model = DefaultTranslator(
@@ -149,6 +156,7 @@ class TestEncoder(unittest.TestCase):
       else:
         np.testing.assert_array_almost_equal(train_src[sent_i].mask.np_arr, encodings.mask.np_arr)
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_multihead_attention_encoder_len(self):
     layer_dim = 512
     model = DefaultTranslator(

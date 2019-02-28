@@ -1,12 +1,9 @@
 import unittest
 
-#import dynet_config
-#dynet_config.set(random_seed=3)
-
-import dynet as dy
 import numpy
 import random
 
+import xnmt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt.modelparts.bridges import CopyBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
@@ -40,6 +37,9 @@ from xnmt.rl.policy_gradient import PolicyGradient
 from xnmt.rl.eps_greedy import EpsilonGreedy
 from xnmt.rl.confidence_penalty import ConfidencePenalty
 from xnmt.utils import has_cython
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 class TestSegmentingEncoder(unittest.TestCase):
   
@@ -102,6 +102,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_reinforce_loss(self):
     fertility_loss = GlobalFertilityLoss()
     mle_loss = MLELoss()
@@ -130,19 +131,22 @@ class TestSegmentingEncoder(unittest.TestCase):
     reinforce_loss = event_trigger.calc_additional_loss(self.trg[0], self.model, loss)
     return loss, reinforce_loss
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_gold_input(self):
     self.model.encoder.policy_learning = None
     self.model.encoder.eps_greedy = None
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.GOLD)
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   @unittest.skipUnless(has_cython(), "requires cython to run")
   def test_sample_input(self):
     self.model.encoder.eps_greedy.eps_prob= 1.0
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY_SAMPLE)
     self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.PREDEFINED)
-  
+
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_policy_train_test(self):
     event_trigger.set_train(True)
     self.calc_loss_single_batch()
@@ -151,6 +155,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.POLICY_AMAX)
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_no_policy_train_test(self):
     self.model.encoder.policy_learning = None
     event_trigger.set_train(True)
@@ -160,22 +165,26 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.PURE_SAMPLE)
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_sample_during_search(self):
     event_trigger.set_train(False)
     self.model.encoder.sample_during_search = True
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY)
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   @unittest.skipUnless(has_cython(), "requires cython to run")
   def test_policy_gold(self):
     self.model.encoder.eps_greedy.prior = GoldInputPrior("segment")
     self.model.encoder.eps_greedy.eps_prob = 1.0
     self.calc_loss_single_batch()
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_reporter(self):
     self.model.encoder.reporter = SegmentPLLogger("test/tmp/seg-report.log", self.model.src_reader.vocab)
     self.calc_loss_single_batch()
 
+@unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
 class TestComposing(unittest.TestCase):
   def setUp(self):
     # Seeding

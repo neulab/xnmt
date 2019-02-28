@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 from itertools import islice
 
+import xnmt
 from xnmt.input_readers import PlainTextReader
 from xnmt.modelparts.embedders import PretrainedSimpleWordEmbedder
 from xnmt.param_collections import ParamManager
@@ -16,6 +17,7 @@ class PretrainedSimpleWordEmbedderSanityTest(unittest.TestCase):
     list(self.input_reader.read_sents('examples/data/head.ja'))
     ParamManager.init_param_col()
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_load(self):
     """
     Checks that the embeddings can be loaded, have the right dimension, and that one line matches.

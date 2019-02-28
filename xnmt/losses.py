@@ -72,23 +72,23 @@ class BaseFactoredLossExpr(object):
     def __len__(self):
       return len(self.expr_factors)
 
-    def __mul__(self, scalar):
-      return self.__class__({key: scalar*value for key, value in self.expr_factors.items()})
+  def __mul__(self, scalar):
+    return self.__class__({key: scalar*value for key, value in self.expr_factors.items()})
 
-    def __add__(self, other):
-      typ = type(other)
-      if typ == float or typ == int:
-        return self.__class__({key: other+value for key, value in self.expr_factors.items()})
-      elif isinstance(typ, BaseFactoredLossExpr):
-        dct = {**self.expr_factors}
-        for key, value in other.expr_factors.items():
-          if key in dct:
-            dct[key] += value
-          else:
-            dct[key] = value
-        return self.__class__(dct)
-      else:
-        raise NotImplementedError("Summing factored loss expr with unknown type:", type(other))
+  def __add__(self, other):
+    typ = type(other)
+    if typ == float or typ == int:
+      return self.__class__({key: other+value for key, value in self.expr_factors.items()})
+    elif isinstance(typ, BaseFactoredLossExpr):
+      dct = {**self.expr_factors}
+      for key, value in other.expr_factors.items():
+        if key in dct:
+          dct[key] += value
+        else:
+          dct[key] = value
+      return self.__class__(dct)
+    else:
+      raise NotImplementedError("Summing factored loss expr with unknown type:", type(other))
 
 
 @xnmt.require_dynet
