@@ -45,14 +45,14 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
     argparser.set_defaults(generate_doc=False)
     args = argparser.parse_args(overwrite_args)
 
-    if args.dynet_seed:
-      random.seed(args.dynet_seed)
-      np.random.seed(args.dynet_seed)
+    if xnmt.backend_dynet and args.dynet_seed: args.seed = args.dynet_seed
+    if args.seed:
+      random.seed(args.seed)
+      np.random.seed(args.seed)
 
-    if args.dynet_gpu:
-      if settings.CHECK_VALIDITY:
-        settings.CHECK_VALIDITY = False
-        log_preamble("disabling CHECK_VALIDITY because it is not supported on GPU currently", logging.WARNING)
+    if (xnmt.backend_torch or args.dynet_gpu) and settings.CHECK_VALIDITY:
+      settings.CHECK_VALIDITY = False
+      log_preamble("disabling CHECK_VALIDITY because it is only supported with DyNet backend on CPU", logging.WARNING)
 
     config_experiment_names = YamlPreloader.experiment_names_from_file(args.experiments_file)
 

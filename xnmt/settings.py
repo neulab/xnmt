@@ -4,8 +4,8 @@ Global settings that control the overall behavior of XNMT.
 Currently, settings control the following:
 
 * ``OVERWRITE_LOG``: whether logs should be overwritten (not overwriting helps when copy-pasting config files and forgetting to change the output location)
-* ``IMMEDIATE_COMPUTE``: whether to execute DyNet in eager mode
-* ``CHECK_VALIDITY``: configure xnmt and DyNet to perform checks of validity
+* ``IMMEDIATE_COMPUTE``: whether to execute DyNet in eager mode (ignored by Torch backend)
+* ``CHECK_VALIDITY``: configure xnmt and DyNet to perform checks of validity (ignored by Torch backend)
 * ``RESOURCE_WARNINGS``: whether to show resource warnings
 * ``LOG_LEVEL_CONSOLE``: verbosity of console output (``DEBUG`` | ``INFO`` | ``WARNING`` | ``ERROR`` | ``CRITICAL``)
 * ``LOG_LEVEL_FILE``: verbosity of file output (``DEBUG`` | ``INFO`` | ``WARNING`` | ``ERROR`` | ``CRITICAL``)

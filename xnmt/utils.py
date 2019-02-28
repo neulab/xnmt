@@ -139,10 +139,12 @@ def cached_file_lines(file_name: str) -> List[str]:
   return ret
 
 def add_backend_argparse(argparser: argparse.ArgumentParser) -> None:
-  # TODO
-  # if xnmt.backend_dynet:
+  if xnmt.backend_torch:
+    argparser.add_argument("--gpu", action='store_true', help="use GPU acceleration")
+    argparser.add_argument("--seed", type=int, help="set random seed for XNMT and DyNet/Torch backend")
+  if xnmt.backend_dynet:
     argparser.add_argument("--dynet-mem", type=str)
-    argparser.add_argument("--dynet-seed", type=int, help="set random seed for DyNet and XNMT.")
+    argparser.add_argument("--dynet-seed", type=int, help="set random seed for XNMT and DyNet/Torch backend")
     argparser.add_argument("--dynet-autobatch", type=int)
     argparser.add_argument("--dynet-devices", type=str)
     argparser.add_argument("--dynet-viz", action='store_true', help="use visualization")
@@ -151,8 +153,6 @@ def add_backend_argparse(argparser: argparse.ArgumentParser) -> None:
     argparser.add_argument("--dynet-gpus", type=int)
     argparser.add_argument("--dynet-weight-decay", type=float)
     argparser.add_argument("--dynet-profiling", type=int)
-  # if xnmt.backend_torch:
-    argparser.add_argument("--gpu", action='store_true', help="use GPU acceleration")
 
 def has_cython() -> bool:
   try:
