@@ -26,16 +26,13 @@ class TrainingRegimen(object):
     """
     raise NotImplementedError("")
 
-  def backward(self, loss: tt.Tensor, dynet_profiling: numbers.Integral) -> None:
+  def backward(self, loss: tt.Tensor) -> None:
     """
     Perform backward pass to accumulate gradients.
 
     Args:
       loss: Result of self.training_step(...)
-      dynet_profiling: if > 0, print the computation graph
     """
-    if dynet_profiling and dynet_profiling > 0:
-      utils.print_cg_conditional()
     loss.backward()
 
   def update(self, trainer: optimizers.XnmtOptimizer) -> None:
@@ -135,7 +132,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                      max_trg_len=max_trg_len)
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
-    self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
     self.train_loss_tracker = loss_trackers.TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
@@ -156,7 +152,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
             event_trigger.set_train(True)
             loss_builder = self.training_step(src, trg)
             loss = loss_builder.compute()
-            self.backward(loss, self.dynet_profiling)
+            self.backward(loss)
             self.update(self.trainer)
           self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
         if self.checkpoint_needed():
@@ -274,7 +270,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
       raise ValueError("AutobatchTrainingRegimen forces the batcher to have batch_size 1. Use update_every to set the actual batch size in this regimen.")
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
-    self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
     self.train_loss_tracker = loss_trackers.TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
@@ -302,7 +297,7 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
             # num_updates_skipped is incremented in update but
             # we need to call backward before update
             if self.num_updates_skipped == self.update_every - 1:
-              self.backward(total_loss.compute(), self.dynet_profiling)
+              self.backward(total_loss.compute())
             self.update(self.trainer)
           if self.num_updates_skipped == 0:
             total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
@@ -315,7 +310,7 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
           # Do a last update before checkpoint
           # Force forward-backward for the last batch even if it's smaller than update_every
           self.num_updates_skipped = self.update_every - 1
-          self.backward(total_loss.compute(), self.dynet_profiling)
+          self.backward(total_loss.compute())
           self.update(self.trainer)
           total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
           reported_trg = batchers.ListBatch(total_trg)
@@ -348,7 +343,6 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
                update_every: numbers.Integral = 1,
                commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
     super().__init__()
-    self.dynet_profiling = commandline_args.get("dynet_profiling", 0) if commandline_args else 0
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
     self.trainer = trainer
@@ -456,12 +450,12 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
               loss_builder = task.training_step(src, trg)
               task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
               if self.per_task_backward:
-                self.backward(loss_builder.compute(), self.dynet_profiling)
+                self.backward(loss_builder.compute())
                 tt.reset_graph()
               else:
                 task_losses.append(loss_builder.compute())
           if not self.per_task_backward:
-            self.backward(sum(task_losses), self.dynet_profiling)
+            self.backward(sum(task_losses))
           self.update(self.trainer)
         for task, (trg, stats) in task_trg_loss_stats.items():
           self.train_loss_trackers[task].report(trg, stats)
@@ -540,7 +534,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
             src, trg = next(task_gen)
             self.trigger_train_event(True)
             loss_builder = cur_task.training_step(src, trg)
-            self.backward(loss=loss_builder.compute(), dynet_profiling=self.dynet_profiling)
+            self.backward(loss=loss_builder.compute())
           self.update(trainer=self.trainer)
         cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
         self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
@@ -603,7 +597,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             self.trigger_train_event(True)
             loss_builder = cur_task.training_step(src, trg)
             task_loss = loss_builder.compute()
-            self.backward(task_loss, self.dynet_profiling)
+            self.backward(task_loss)
             self.update(self.trainer)
           cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
           self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
