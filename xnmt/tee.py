@@ -72,7 +72,8 @@ class TensorboardCustomWriter(object):
   def add_scalars(self, name: str, *args, **kwargs):
     return self.writer.add_scalars(f"{self.exp_name}/{name}", *args, **kwargs)
 
-tensorboard_writer = TensorboardCustomWriter()
+if settings.USE_TENSORBOARD:
+  tensorboard_writer = TensorboardCustomWriter()
 
 _preamble_content = []
 def log_preamble(log_line: str, level: numbers.Integral = logging.INFO) -> None:
@@ -108,7 +109,8 @@ def set_out_file(out_file: str, exp_name: str) -> None:
   yaml_fh.setFormatter(YamlFormatter())
   yaml_fh.setLevel(logging.DEBUG)
   yaml_logger.addHandler(yaml_fh)
-  tensorboard_writer.set_out_file(f"{out_file}.tb", exp_name=exp_name)
+  if settings.USE_TENSORBOARD:
+    tensorboard_writer.set_out_file(f"{out_file}.tb", exp_name=exp_name)
 
 def unset_out_file() -> None:
   """
@@ -125,7 +127,8 @@ def unset_out_file() -> None:
   for hdlr in list(logger_file.handlers):
     hdlr.close()
     logger_file.removeHandler(hdlr)
-  tensorboard_writer.unset_out_file()
+  if settings.USE_TENSORBOARD:
+    tensorboard_writer.unset_out_file()
 
 class Tee(object):
   def __init__(self, indent: numbers.Integral = 0, error: bool = False) -> None:
