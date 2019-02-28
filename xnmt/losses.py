@@ -6,8 +6,6 @@ import xnmt.tensor_tools as tt
 
 if xnmt.backend_dynet:
   import dynet as dy
-if xnmt.backend_torch:
-  import torch
 
 class BaseFactoredLossExpr(object):
   """
@@ -79,7 +77,7 @@ class BaseFactoredLossExpr(object):
     typ = type(other)
     if typ == float or typ == int:
       return self.__class__({key: other+value for key, value in self.expr_factors.items()})
-    elif isinstance(typ, BaseFactoredLossExpr):
+    elif isinstance(other, BaseFactoredLossExpr):
       dct = {**self.expr_factors}
       for key, value in other.expr_factors.items():
         if key in dct:
@@ -88,7 +86,7 @@ class BaseFactoredLossExpr(object):
           dct[key] = value
       return self.__class__(dct)
     else:
-      raise NotImplementedError("Summing factored loss expr with unknown type:", type(other))
+      raise NotImplementedError("Summing factored loss expr with unknown type:", type(other), other.__class__.__bases__)
 
 
 @xnmt.require_dynet

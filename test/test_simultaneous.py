@@ -1,33 +1,28 @@
 import unittest
 
-# import dynet_config
-# dynet_config.set(random_seed=3)
-
 import numpy
 import random
 import dynet as dy
 
+import xnmt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt.modelparts.bridges import NoBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
 import xnmt.events
-from xnmt.eval import metrics
 from xnmt import batchers, event_trigger
 from xnmt.param_collections import ParamManager
 from xnmt.input_readers import PlainTextReader
-from xnmt.input_readers import CharFromWordTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer
 from xnmt.simultaneous.simult_translators import SimultaneousTranslator
 from xnmt.simultaneous.simult_search_strategies import SimultaneousGreedySearch
 from xnmt.loss_calculators import MLELoss
-from xnmt.modelparts.transforms import AuxNonLinear, Linear
+from xnmt.modelparts.transforms import AuxNonLinear
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
-from xnmt.utils import has_cython
 
-
+@unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
 class TestSimultaneousTranslation(unittest.TestCase):
   
   def setUp(self):
