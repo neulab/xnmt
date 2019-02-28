@@ -173,3 +173,7 @@ def get_git_revision() -> Optional[str]:
   except (CalledProcessError, OSError):
     rev = None
   return rev
+
+def disconnect():
+  sys.stdout = sys_std_out
+  sys.stderr = sys_std_err

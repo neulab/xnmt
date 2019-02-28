@@ -4,11 +4,20 @@ import os, shutil
 from xnmt.utils import has_cython
 import xnmt.xnmt_run_experiments as run
 import xnmt.events
+import xnmt.tee
 
 class TestRunningConfig(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
+
+  def tearDown(self):
+    xnmt.tee.disconnect()
+    try:
+      if os.path.isdir("test/tmp"):
+        shutil.rmtree("test/tmp")
+    except:
+      pass
 
   def test_assemble(self):
     run.main(["test/config/assemble.yaml"])
@@ -115,12 +124,7 @@ class TestRunningConfig(unittest.TestCase):
   def test_search_strategy_minrisk(self):
     run.main(["test/config/minrisk.yaml"])
 
-  def tearDown(self):
-    try:
-      if os.path.isdir("test/tmp"):
-        shutil.rmtree("test/tmp")
-    except:
-      pass
+
 
 if __name__ == "__main__":
   unittest.main()

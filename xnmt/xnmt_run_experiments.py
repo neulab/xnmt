@@ -46,7 +46,7 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
     args = argparser.parse_args(overwrite_args)
 
     if xnmt.backend_dynet and args.dynet_seed: args.seed = args.dynet_seed
-    if args.seed:
+    if getattr(args, "seed", None):
       random.seed(args.seed)
       np.random.seed(args.seed)
 
