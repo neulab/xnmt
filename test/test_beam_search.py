@@ -1,7 +1,6 @@
 import unittest
 
-import dynet as dy
-
+import xnmt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt import batchers, event_trigger, events
 from xnmt.modelparts.bridges import CopyBridge
@@ -16,6 +15,9 @@ from xnmt.search_strategies import BeamSearch, GreedySearch
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import LoadSerialized, initialize_if_needed, YamlPreloader
 from xnmt.vocabs import Vocab
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 class TestFreeDecodingLoss(unittest.TestCase):
 
@@ -46,6 +48,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_single(self):
     dy.renew_cg()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch())
@@ -91,6 +94,7 @@ class TestGreedyVsBeam(unittest.TestCase):
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
 
+  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_greedy_vs_beam(self):
     dy.renew_cg()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch(beam_size=1))

@@ -35,7 +35,6 @@ exp_global: !ExpGlobal
   param_init: !GlorotInitializer {gain: 1.0}
   placeholders: {}
   save_num_checkpoints: 1
-  truncate_dec_batches: false
   weight_noise: 0.0
 model: !DefaultTranslator
   attender: !MlpAttender
@@ -44,7 +43,6 @@ model: !DefaultTranslator
     input_dim: 32
     param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
     state_dim: 32
-    truncate_dec_batches: false
     xnmt_subcol_name: MlpAttender.dd4040ad
   decoder: !AutoRegressiveDecoder
     bridge: !CopyBridge {dec_dim: 32, dec_layers: 1}
@@ -97,7 +95,6 @@ model: !DefaultTranslator
       output_dim: 32
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
       xnmt_subcol_name: AuxNonLinear.63afb176
-    truncate_dec_batches: false
     xnmt_subcol_name: AutoRegressiveDecoder.45b88e09
   encoder: !BiLSTMSeqTransducer
     backward_layers:
@@ -189,7 +186,6 @@ model: !DefaultTranslator
         shouldn, satirical, day, work, five, want, me, please, '@-@', can, <unk>]
       sentencepiece_vocab: false
       vocab_file: null
-  truncate_dec_batches: false
 name: exp.fwd
 preproc: null
 random_search_report: null

@@ -33,13 +33,15 @@ else:
 
 import yaml
 
-def no_init(*wrong, **backend): raise ValueError("wrong backend")
+def no_init(self, *wrong, **backend):
+  raise ValueError(f"'{self.__class__.__name__}' is not supported by this backend.")
 def require_dynet(x):
   x.xnmt_backend = "dynet"
   if backend_torch:
     x.__init__ = no_init
     if hasattr(x, "yaml_tag"):
       delattr(x, "yaml_tag")
+  x.backend_matches = backend_dynet
   return x
 def require_torch(x):
   x.xnmt_backend = "torch"
@@ -47,6 +49,7 @@ def require_torch(x):
     x.__init__ = no_init
     if hasattr(x, "yaml_tag"):
       delattr(x, "yaml_tag")
+  x.backend_matches = backend_torch
   return x
 def resolve_backend(a, b):
   expected_backend = "dynet" if backend_dynet else "torch"

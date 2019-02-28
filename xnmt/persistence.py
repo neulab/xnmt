@@ -475,6 +475,9 @@ def _check_serializable_args_valid(node):
       raise ValueError(
         f"'{name}' is not a accepted argument of {type(node).__name__}.__init__(). Valid are {list(init_args.keys())}")
 
+def _check_backend(node):
+  if not getattr(node, "backend_matches", True):
+    raise ValueError(f"'{node.__class__.__name__}' is not supported by this backend.")
 
 @singledispatch
 def _name_serializable_children(node):
@@ -1184,6 +1187,7 @@ class _YamlDeserializer(object):
   def check_args(self, root):
     for _, node in _traverse_tree(root):
       if isinstance(node, Serializable):
+        _check_backend(node)
         _check_serializable_args_valid(node)
 
   def resolve_ref_default_args(self, root):
