@@ -59,7 +59,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_lattice(self):
     run.main(["test/config/lattice.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_lm(self):
     run.main(["test/config/lm.yaml"])
 

@@ -78,7 +78,7 @@ class UniLSTMState(object):
                         h=[hi[item] for hi in self._h])
 
 @xnmt.require_dynet
-class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
+class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
   """
   This implements a single LSTM layer based on the memory-friendly dedicated DyNet nodes.
   It works similar to DyNet's CompactVanillaLSTMBuilder, but in addition supports
@@ -251,7 +251,7 @@ class UniLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
 
 @xnmt.require_dynet
-class BiLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
+class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
   than DyNet's CompactVanillaLSTMBuilder due to avoiding concat operations.
@@ -282,21 +282,21 @@ class BiLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
                weightnoise_std: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
-               forward_layers : Optional[Sequence[UniLSTMSeqTransducer]] = None,
-               backward_layers: Optional[Sequence[UniLSTMSeqTransducer]] = None) -> None:
+               forward_layers : Optional[Sequence[UniLSTMSeqTransducerDynet]] = None,
+               backward_layers: Optional[Sequence[UniLSTMSeqTransducerDynet]] = None) -> None:
     self.num_layers = layers
     self.hidden_dim = hidden_dim
     self.dropout_rate = dropout
     self.weightnoise_std = weightnoise_std
     assert hidden_dim % 2 == 0
     self.forward_layers = self.add_serializable_component("forward_layers", forward_layers, lambda: [
-      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, dropout=dropout,
+      UniLSTMSeqTransducerDynet(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, dropout=dropout,
                            weightnoise_std=weightnoise_std,
                            param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
                            bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init) for i in
       range(layers)])
     self.backward_layers = self.add_serializable_component("backward_layers", backward_layers, lambda: [
-      UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, dropout=dropout,
+      UniLSTMSeqTransducerDynet(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, dropout=dropout,
                            weightnoise_std=weightnoise_std,
                            param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
                            bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init) for i in
@@ -397,45 +397,46 @@ class CustomLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     return h
 
 @xnmt.require_torch
-class BiLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
+class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
-  This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
-  than DyNet's CompactVanillaLSTMBuilder due to avoiding concat operations.
-  It uses 2 :class:`xnmt.lstm.UniLSTMSeqTransducer` objects in each layer.
+  An LSTM using CuDNN acceleration, potentially stacked and bidirectional.
+
+  Because CuDNN is used, only basic (vertical) dropout is supported.
 
   Args:
-    layers (int): number of layers
-    input_dim (int): input dimension
-    hidden_dim (int): hidden dimension
-    dropout (float): dropout probability
-    weightnoise_std (float): weight noise standard deviation
-    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
-                specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
-    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
-               specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
-    forward_layers: set automatically
-    backward_layers: set automatically
+    layers: number of layers
+    bidirectional: whether two use uni- or bidirectional LSTM
+    input_dim: input dimension
+    hidden_dim: hidden dimension
+    dropout: dropout probability
+    param_init: How to initialize weight matrices.
+    bias_init: How to initialize bias vectors
   """
-  yaml_tag = '!BiLSTMSeqTransducer'
+  yaml_tag = '!CudnnLSTMSeqTransducer'
 
   @register_xnmt_handler
   @serializable_init
   def __init__(self,
                layers: numbers.Integral = 1,
+               bidirectional: bool = False,
                input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
-               weightnoise_std: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
-    # TODO: handle unused params
     self.num_layers = layers
     self.hidden_dim = hidden_dim
-    assert hidden_dim % 2 == 0
+    if bidirectional: assert hidden_dim % 2 == 0
+    self.num_dir = 2 if bidirectional else 1
 
     # for recurrent dropout implementations, see here:
     # https://towardsdatascience.com/learning-note-dropout-in-recurrent-networks-part-2-f209222481f8
-    self.lstm = nn.LSTM(input_dim, self.hidden_dim//2, num_layers=self.num_layers, bidirectional=True, batch_first=True).to(xnmt.device)
+    self.lstm = nn.LSTM(input_size=input_dim,
+                        hidden_size=self.hidden_dim//self.num_dir,
+                        num_layers=self.num_layers,
+                        bidirectional=bidirectional,
+                        dropout=dropout if self.num_layers>1 else 0,
+                        batch_first=True).to(xnmt.device)
     my_params = param_collections.ParamManager.my_params(self)
     my_params.append(self.lstm)
     for name, param in self.lstm.named_parameters():
@@ -464,7 +465,7 @@ class BiLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
 
     # apply LSTM
     packed_x = nn.utils.rnn.pack_padded_sequence(sorted_x, sorted_lens, batch_first=True)
-    state_size = 2 * self.num_layers, batch_size, self.hidden_dim//2
+    state_size = self.num_dir * self.num_layers, batch_size, self.hidden_dim//self.num_dir
     h0 = sorted_x.new_zeros(*state_size)
     c0 = sorted_x.new_zeros(*state_size)
     packed_outs, (final_hiddens, final_cells) = self.lstm(packed_x, (h0, c0))
@@ -474,7 +475,7 @@ class BiLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     unsorted_outputs = torch.index_select(x, dim=0, index=torch.autograd.Variable(unsorted_idx))
     unsorted_hidden = torch.index_select(final_hiddens, dim=1, index=torch.autograd.Variable(unsorted_idx))
 
-    unsorted_hidden = unsorted_hidden.view(self.num_layers, 2, batch_size, self.hidden_dim//2)
+    unsorted_hidden = unsorted_hidden.view(self.num_layers, self.num_dir, batch_size, self.hidden_dim//self.num_dir)
     self._final_states = []
     for layer_i in range(self.num_layers):
       final_hidden = unsorted_hidden[layer_i,:,:,:].transpose(0,1).contiguous().view(batch_size, self.hidden_dim)
@@ -482,4 +483,94 @@ class BiLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
 
     return expression_seqs.ExpressionSequence(expr_tensor=unsorted_outputs, mask=es.mask)
 
-BiLSTMSeqTransducer = xnmt.resolve_backend(BiLSTMSeqTransducerDynet, BiLSTMSeqTransducerTorch)
+
+
+
+# TODO: for now, just copying the CudnnLSTMSeqTransducer, but should replace this with an iterative version
+@xnmt.require_torch
+class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
+  """
+  An LSTM using CuDNN acceleration, potentially stacked and bidirectional.
+
+  Because CuDNN is used, only basic (vertical) dropout is supported.
+
+  Args:
+    layers: number of layers
+    bidirectional: whether two use uni- or bidirectional LSTM
+    input_dim: input dimension
+    hidden_dim: hidden dimension
+    dropout: dropout probability
+    param_init: How to initialize weight matrices.
+    bias_init: How to initialize bias vectors
+  """
+  yaml_tag = '!UniLSTMSeqTransducer'
+
+  @register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               layers: numbers.Integral = 1,
+               bidirectional: bool = False,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
+    self.num_layers = layers
+    self.hidden_dim = hidden_dim
+    if bidirectional: assert hidden_dim % 2 == 0
+
+    # for recurrent dropout implementations, see here:
+    # https://towardsdatascience.com/learning-note-dropout-in-recurrent-networks-part-2-f209222481f8
+    self.lstm = nn.LSTM(input_size=input_dim,
+                        hidden_size=self.hidden_dim,
+                        num_layers=self.num_layers,
+                        bidirectional=bidirectional,
+                        dropout=dropout if self.num_layers>1 else 0,
+                        batch_first=True).to(xnmt.device)
+    my_params = param_collections.ParamManager.my_params(self)
+    my_params.append(self.lstm)
+    for name, param in self.lstm.named_parameters():
+      if 'weight' in name:
+        param_init.initialize(param)
+      if 'bias' in name:
+        bias_init.initialize(param)
+
+  @handle_xnmt_event
+  def on_start_sent(self, src):
+    self._final_states = None
+
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
+    return self._final_states
+
+  def transduce(self, es: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
+    batch_size = tt.batch_size(es.as_tensor())
+
+    # length sorting / unsorting according to:
+    # https://github.com/pytorch/pytorch/issues/4927
+    sorted_lens, sorted_idx = torch.sort(torch.autograd.Variable(torch.LongTensor(es.mask.seq_lengths())), 0, descending=True)
+    sorted_lens = sorted_lens.cpu().data.numpy().tolist()
+    sorted_x = torch.index_select(torch.autograd.Variable(es.as_tensor()), dim=0, index=sorted_idx)
+    unsorted_idx = torch.zeros(sorted_idx.size()).long() \
+      .scatter_(0, sorted_idx.cpu().data, torch.LongTensor(list(range(batch_size))))
+
+    # apply LSTM
+    packed_x = nn.utils.rnn.pack_padded_sequence(sorted_x, sorted_lens, batch_first=True)
+    state_size = self.num_layers, batch_size, self.hidden_dim
+    h0 = sorted_x.new_zeros(*state_size)
+    c0 = sorted_x.new_zeros(*state_size)
+    packed_outs, (final_hiddens, final_cells) = self.lstm(packed_x, (h0, c0))
+    x, _ = nn.utils.rnn.pad_packed_sequence(packed_outs, padding_value=0.0, batch_first=True)
+
+    # undo sorting
+    unsorted_outputs = torch.index_select(x, dim=0, index=torch.autograd.Variable(unsorted_idx))
+    unsorted_hidden = torch.index_select(final_hiddens, dim=1, index=torch.autograd.Variable(unsorted_idx))
+
+    unsorted_hidden = unsorted_hidden.view(self.num_layers, 1, batch_size, self.hidden_dim)
+    self._final_states = []
+    for layer_i in range(self.num_layers):
+      final_hidden = unsorted_hidden[layer_i,:,:,:].transpose(0,1).contiguous().view(batch_size, self.hidden_dim)
+      self._final_states.append(transducers.FinalTransducerState(final_hidden))
+
+    return expression_seqs.ExpressionSequence(expr_tensor=unsorted_outputs, mask=es.mask)
+
+UniLSTMSeqTransducer = xnmt.resolve_backend(UniLSTMSeqTransducerDynet, UniLSTMSeqTransducerTorch)
