@@ -551,7 +551,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       seq_lengths = es.mask.seq_lengths()
     else:
       seq_lengths = [tt.sent_len(es.as_tensor())] * batch_size
-    sorted_lens, sorted_idx = torch.sort(torch.autograd.Variable(torch.LongTensor(seq_lengths)), 0, descending=True)
+    sorted_lens, sorted_idx = torch.sort(torch.autograd.Variable(torch.LongTensor(seq_lengths).to(xnmt.device)), 0, descending=True)
     sorted_lens = sorted_lens.cpu().data.numpy().tolist()
     sorted_x = torch.index_select(torch.autograd.Variable(es.as_tensor()), dim=0, index=sorted_idx)
     unsorted_idx = torch.zeros(sorted_idx.size()).long() \
@@ -566,8 +566,8 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     x, _ = nn.utils.rnn.pad_packed_sequence(packed_outs, padding_value=0.0, batch_first=True)
 
     # undo sorting
-    unsorted_outputs = torch.index_select(x, dim=0, index=torch.autograd.Variable(unsorted_idx))
-    unsorted_hidden = torch.index_select(final_hiddens, dim=1, index=torch.autograd.Variable(unsorted_idx))
+    unsorted_outputs = torch.index_select(x, dim=0, index=torch.autograd.Variable(unsorted_idx).to(xnmt.device))
+    unsorted_hidden = torch.index_select(final_hiddens, dim=1, index=torch.autograd.Variable(unsorted_idx).to(xnmt.device))
 
     unsorted_hidden = unsorted_hidden.view(self.num_layers, 1, batch_size, self.hidden_dim)
     self._final_states = []
