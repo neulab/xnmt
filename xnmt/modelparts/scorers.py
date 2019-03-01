@@ -14,6 +14,7 @@ if xnmt.backend_dynet:
 if xnmt.backend_torch:
   import torch
   import torch.nn.functional as F
+  import torch.nn
 
 def find_best_k(scores: np.ndarray, k: numbers.Integral) -> Tuple[np.ndarray, np.ndarray]:
   """
@@ -470,8 +471,7 @@ class SoftmaxTorch(Scorer, Serializable):
 
   def calc_loss(self, x: tt.Tensor, y: Union[numbers.Integral, List[numbers.Integral]]) -> tt.Tensor:
     if self.can_loss_be_derived_from_scores():
-      scores = self.calc_scores(x)
-      # TODO: device?
+      scores = torch.nn.LogSoftmax()(self.calc_scores(x))
       return F.nll_loss(input=scores, target=torch.tensor(y).to(xnmt.device), reduction='none')
     else:
       raise NotImplementedError()

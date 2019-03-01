@@ -75,6 +75,7 @@ def unmerge_time_batch_dims(x, batch_size_):
   if xnmt.backend_dynet:
     seq_len = x.dim()[1] // batch_size_
     hidden_dim = x.dim()[0]
+    if hidden_dim == (1,): hidden_dim = tuple()
     return dy.reshape(x, hidden_dim + (seq_len,), batch_size=batch_size_)
   else:
     seq_len = x.size()[0] // batch_size_
