@@ -27,5 +27,7 @@ examples/preproc/
 .settings/
 dist/
 docs/_build/
+docs/_pycharm_build/
 docs/examples
 .history
+venv_*
