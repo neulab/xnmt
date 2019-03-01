@@ -143,6 +143,7 @@ class XnmtOptimizerTorch(XnmtOptimizer):
     if self.clip_threshold > 0.0:
       torch.nn.utils.clip_grad_norm_(ParamManager.global_collection().parameters(), self.clip_threshold)
     self.scheduler.step()
+    self.optimizer.step()
 
   def restart(self) -> None:
     # https://discuss.pytorch.org/t/reset-adaptive-optimizer-state/14654/3
