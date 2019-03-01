@@ -1,6 +1,6 @@
-import dynet as dy
 import numbers
 
+import xnmt.tensor_tools as tt
 import xnmt.modelparts.decoders as decoders
 import xnmt.transducers.recurrent as recurrent
 import xnmt.transducers.base as transducers_base
@@ -15,7 +15,7 @@ class SimultaneousState(decoders.AutoRegressiveDecoderState):
                model,
                encoder_state: recurrent.UniLSTMState,
                context_state: decoders.AutoRegressiveDecoderState,
-               output_embed: dy.Expression,
+               output_embed: tt.Tensor,
                to_read:int = 0,
                to_write:int = 0,
                prev_written_word: numbers.Integral = None,

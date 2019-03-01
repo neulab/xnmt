@@ -9,7 +9,7 @@ seq-labeler: !Experiment
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 512
-    encoder: !BiLSTMSeqTransducer
+    encoder: !UniLSTMSeqTransducer
       layers: 1
     scorer: !Softmax
       vocab: !Vocab {vocab_file: examples/data/head.en.vocab}

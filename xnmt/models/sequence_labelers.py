@@ -3,7 +3,6 @@ import numbers
 
 import numpy as np
 
-import xnmt
 import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger, events, inferences, input_readers, reports, sent, vocabs
 from xnmt.modelparts import attenders, embedders, scorers, transforms
@@ -11,10 +10,6 @@ from xnmt.models import base as models
 from xnmt.transducers import recurrent, base as transducers
 from xnmt.persistence import serializable_init, Serializable, bare
 
-if xnmt.backend_dynet:
-  import dynet as dy
-
-@xnmt.require_dynet
 class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, reports.Reportable):
   """
   A simple sequence labeler based on an encoder and an output softmax layer.
@@ -61,10 +56,9 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     encodings_tensor = encodings.as_tensor()
-    ((hidden_dim, seq_len), batch_size) = encodings.dim()
-    encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size * seq_len)
+    encoding_reshaped = tt.merge_time_batch_dims(encodings_tensor)
     outputs = self.transform.transform(encoding_reshaped)
-    return batch_size, encodings, outputs, seq_len
+    return tt.batch_size(encodings_tensor), encodings, outputs, tt.sent_len(encodings_tensor)
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
           -> tt.Tensor:
@@ -79,11 +73,8 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
 
     ref_action = np.asarray([trg_sent.words for trg_sent in trg]).reshape((seq_len * batch_size,))
     loss_expr_perstep = self.scorer.calc_loss(outputs, batchers.mark_as_batch(ref_action))
-    # loss_expr_perstep = dy.pickneglogsoftmax_batch(outputs, ref_action)
-    loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
-    if trg.mask:
-      loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-trg.mask.np_arr.T, batched=True))
-    loss_expr = dy.sum_elems(loss_expr_perstep)
+    loss_expr_perstep = tt.unmerge_time_batch_dims(loss_expr_perstep, batch_size)
+    loss_expr = tt.aggregate_masked_loss(loss_expr_perstep, trg.mask)
 
     return loss_expr
 
