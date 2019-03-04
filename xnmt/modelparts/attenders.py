@@ -171,7 +171,7 @@ class CoverageAttender(Attender, Serializable):
     I = self.curr_sent.as_tensor()
     self.I = I
     self.WI = safe_affine_transform([self.b, self.W, I])
-    return dy.zeros((self.coverage_dim, len(sent)))
+    return dy.zeros((self.coverage_dim, len(sent)), batch_size=sent.dim()[1])
 
   def calc_attention(self, dec_state: dy.Expression, att_state: AttenderState = None) -> dy.Expression:
     assert att_state is not None
