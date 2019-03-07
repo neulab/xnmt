@@ -444,6 +444,11 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
         param_init.initialize(param)
       if 'bias' in name:
         bias_init.initialize(param)
+    for name, param in self.lstm.named_parameters():
+      if 'bias' in name:
+        n = param.size(0)
+        start, end = n // 4, n // 2
+        param.data[start:end].fill_(1.)
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -534,6 +539,12 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
         param_init.initialize(param)
       if 'bias' in name:
         bias_init.initialize(param)
+
+    for name, param in self.lstm.named_parameters():
+      if 'bias' in name:
+        n = param.size(0)
+        start, end = n // 4, n // 2
+        param.data[start:end].fill_(1.)
 
   @handle_xnmt_event
   def on_start_sent(self, src):

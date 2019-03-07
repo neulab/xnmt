@@ -22,10 +22,7 @@ from xnmt.reports import Reportable
 
 from xnmt.models.translators import auto_regressive
 
-if xnmt.backend_dynet:
-  import dynet as dy
 
-@xnmt.require_dynet
 class DefaultTranslator(auto_regressive.AutoRegressiveTranslator, Serializable, Reportable):
   """
   A default translator based on attentional sequence-to-sequence models.
@@ -108,7 +105,7 @@ class DefaultTranslator(auto_regressive.AutoRegressiveTranslator, Serializable, 
       cur_losses.append(word_loss)
       input_word = ref_word
 
-    loss_expr = dy.esum(cur_losses)
+    loss_expr = tt.esum(cur_losses)
     return loss_expr
 
   @staticmethod

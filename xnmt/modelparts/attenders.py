@@ -12,6 +12,10 @@ from xnmt.persistence import serializable_init, Serializable, Ref, bare
 if xnmt.backend_dynet:
   import dynet as dy
 
+if xnmt.backend_torch:
+  import torch.nn as nn
+  import torch.nn.functional as F
+
 class Attender(object):
   """
   A template class for functions implementing attention.
@@ -45,7 +49,7 @@ class Attender(object):
     return I * attention
 
 @xnmt.require_dynet
-class MlpAttender(Attender, Serializable):
+class MlpAttenderDynet(Attender, Serializable):
   """
   Implements the attention model of Bahdanau et. al (2014)
 
@@ -70,11 +74,11 @@ class MlpAttender(Attender, Serializable):
     self.input_dim = input_dim
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
-    param_collection = param_collections.ParamManager.my_params(self)
-    self.pW = param_collection.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
-    self.pV = param_collection.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
-    self.pb = param_collection.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
-    self.pU = param_collection.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
+    my_params = param_collections.ParamManager.my_params(self)
+    self.pW = my_params.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
+    self.pV = my_params.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
+    self.pb = my_params.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
+    self.pU = my_params.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
     self.curr_sent = None
     self.attention_vecs = None
     self.WI = None
@@ -105,6 +109,68 @@ class MlpAttender(Attender, Serializable):
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
+
+@xnmt.require_torch
+class MlpAttenderTorch(Attender, Serializable):
+  """
+  Implements the attention model of Bahdanau et. al (2014)
+
+  Args:
+    input_dim: input dimension
+    state_dim: dimension of state inputs
+    hidden_dim: hidden MLP dimension
+    param_init: how to initialize weight matrices
+    bias_init: how to initialize bias vectors
+  """
+
+  yaml_tag = '!MlpAttender'
+
+
+  @serializable_init
+  def __init__(self,
+               input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               state_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer))) -> None:
+    self.input_dim = input_dim
+    self.state_dim = state_dim
+    self.hidden_dim = hidden_dim
+    my_params = param_collections.ParamManager.my_params(self)
+    self.linear_context = nn.Linear(input_dim, hidden_dim, bias=False)
+    self.linear_query = nn.Linear(state_dim, hidden_dim, bias=True)
+    self.pU = nn.Linear(hidden_dim, 1, bias=False)
+    my_params.append(self.linear_context)
+    my_params.append(self.linear_query)
+    my_params.append(self.pU)
+    param_init.initialize(self.linear_context.weight)
+    param_init.initialize(self.linear_query.weight)
+    bias_init.initialize(self.linear_query.bias)
+    param_init.initialize(self.pU.weight)
+
+    self.curr_sent = None
+    self.attention_vecs = None
+    self.WI = None
+
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
+    self.attention_vecs = []
+    self.curr_sent = sent
+    I = self.curr_sent.as_tensor()
+    self.WI = self.linear_context(I)
+
+  def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
+    WI = self.WI
+    curr_sent_mask = self.curr_sent.mask
+    h = F.tanh(WI + self.linear_query(state))
+    scores = self.pU(h).t
+    if curr_sent_mask is not None:
+      scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
+    normalized = F.softmax(scores)
+    self.attention_vecs.append(normalized)
+    return normalized
+
+MlpAttender = xnmt.resolve_backend(MlpAttenderDynet, MlpAttenderTorch)
+
 
 @xnmt.require_dynet
 class DotAttender(Attender, Serializable):

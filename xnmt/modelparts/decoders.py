@@ -63,7 +63,7 @@ class AutoRegressiveDecoderState(DecoderState):
   def context(self, value):
     self._context = value
 
-@xnmt.require_dynet
+# @xnmt.require_dynet
 class AutoRegressiveDecoder(Decoder, Serializable):
   """
   Standard autoregressive-decoder.
@@ -163,4 +163,3 @@ class AutoRegressiveDecoder(Decoder, Serializable):
 
   def calc_loss(self, mlp_dec_state, ref_action):
     return self.scorer.calc_loss(self._calc_transform(mlp_dec_state), ref_action)
-

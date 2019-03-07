@@ -91,3 +91,9 @@ def aggregate_masked_loss(x, mask=None):
     if mask:
       x = torch.mul(x, torch.as_tensor(1.0 - mask.np_arr, dtype=x.dtype, device=xnmt.device))
     return torch.sum(x, dim=tuple(range(1, len(x.size())))) # sum over all but batch elems
+
+def esum(x):
+  if xnmt.backend_dynet:
+    return dy.esum(x)
+  else:
+    return sum(x)
