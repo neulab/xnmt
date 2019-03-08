@@ -15,6 +15,8 @@ from xnmt import tensor_tools as tt
 
 if xnmt.backend_dynet:
   import dynet as dy
+if xnmt.backend_torch:
+  import torch
 
 class Batch(ABC):
   """
@@ -165,7 +167,26 @@ class MaskDynet(BaseMask):
     return dy.cmult(expr, mask_exp)
 
 @xnmt.require_torch
-class MaskTorch(BaseMask): pass
+class MaskTorch(BaseMask):
+  def cmult_by_timestep_expr(self, expr: tt.Tensor, timestep: numbers.Integral,
+                             inverse: bool = False) -> tt.Tensor:
+    """
+    Args:
+      expr: a Tensor corresponding to one timestep
+      timestep: index of current timestep
+      inverse: True will keep the unmasked parts, False will zero out the unmasked parts
+    """
+    # TODO
+    if inverse:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == 0:
+        return expr
+      mask_exp = torch.as_tensor((1.0 - self.np_arr)[:, timestep:timestep + 1], dtype=expr.dtype, device=xnmt.device)
+    else:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == self.np_arr[:, timestep:timestep + 1].size:
+        return expr
+      mask_exp = torch.as_tensor(self.np_arr[:, timestep:timestep + 1], dtype=expr.dtype, device=xnmt.device)
+    return torch.mul(expr, mask_exp)
+
 
 Mask = xnmt.resolve_backend(MaskDynet, MaskTorch)
 

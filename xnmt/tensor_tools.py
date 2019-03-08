@@ -97,3 +97,9 @@ def esum(x):
     return dy.esum(x)
   else:
     return sum(x)
+
+def zeroes(hidden_dim, batch_size=1):
+  if xnmt.backend_dynet:
+    return dy.zeroes((hidden_dim,), batch_size=batch_size)
+  else:
+    return torch.zeros(size=(batch_size, hidden_dim,), device=xnmt.device)
