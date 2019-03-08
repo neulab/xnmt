@@ -657,10 +657,14 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
 
   def transduce(self, es: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
     batch_size = tt.batch_size(es.as_tensor())
+    if es.mask:
+      seq_lengths = es.mask.seq_lengths()
+    else:
+      seq_lengths = [tt.sent_len(es.as_tensor())] * batch_size
 
     # length sorting / unsorting according to:
     # https://github.com/pytorch/pytorch/issues/4927
-    sorted_lens, sorted_idx = torch.sort(torch.autograd.Variable(torch.LongTensor(es.mask.seq_lengths())), 0, descending=True)
+    sorted_lens, sorted_idx = torch.sort(torch.autograd.Variable(torch.LongTensor(seq_lengths)), 0, descending=True)
     sorted_lens = sorted_lens.cpu().data.numpy().tolist()
     sorted_x = torch.index_select(torch.autograd.Variable(es.as_tensor()), dim=0, index=sorted_idx)
     unsorted_idx = torch.zeros(sorted_idx.size()).long() \
