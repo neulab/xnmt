@@ -109,7 +109,7 @@ class BaseMask(object):
     return self.np_arr.shape[0]
 
   def reversed(self) -> 'Mask':
-    return Mask(self.np_arr[:,::-1])
+    return Mask(np.copy(self.np_arr[:,::-1]))
 
   def lin_subsampled(self, reduce_factor: Optional[numbers.Integral] = None, trg_len: Optional[numbers.Integral]=None) -> 'Mask':
     if reduce_factor:

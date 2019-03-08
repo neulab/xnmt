@@ -404,9 +404,8 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
 
     return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=expr_seq.mask)
 
+UniLSTMSeqTransducer = xnmt.resolve_backend(UniLSTMSeqTransducerDynet, UniLSTMSeqTransducerTorch)
 
-
-@xnmt.require_dynet
 class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   This implements a bidirectional LSTM and requires about 8.5% less memory per timestep
@@ -418,7 +417,6 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     input_dim (int): input dimension
     hidden_dim (int): hidden dimension
     var_dropout (float): dropout probability (variational recurrent + vertical dropout)
-    weightnoise_std (float): weight noise standard deviation
     param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
     bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
@@ -435,28 +433,30 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                var_dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
-               weightnoise_std: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
-               forward_layers : Optional[Sequence[UniLSTMSeqTransducerDynet]] = None,
-               backward_layers: Optional[Sequence[UniLSTMSeqTransducerDynet]] = None) -> None:
+               forward_layers : Optional[Sequence[UniLSTMSeqTransducer]] = None,
+               backward_layers: Optional[Sequence[UniLSTMSeqTransducer]] = None) -> None:
     self.num_layers = layers
     self.hidden_dim = hidden_dim
     self.dropout_rate = var_dropout
-    self.weightnoise_std = weightnoise_std
     assert hidden_dim % 2 == 0
-    self.forward_layers = self.add_serializable_component("forward_layers", forward_layers, lambda: [
-      UniLSTMSeqTransducerDynet(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout,
-                           weightnoise_std=weightnoise_std,
-                           param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
-                           bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init) for i in
-      range(layers)])
-    self.backward_layers = self.add_serializable_component("backward_layers", backward_layers, lambda: [
-      UniLSTMSeqTransducerDynet(input_dim=input_dim if i == 0 else hidden_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout,
-                           weightnoise_std=weightnoise_std,
-                           param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
-                           bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init) for i in
-      range(layers)])
+    self.forward_layers = self.add_serializable_component("forward_layers",
+                                                          forward_layers,
+                                                          lambda: [UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim,
+                                                                                        hidden_dim=hidden_dim // 2,
+                                                                                        var_dropout=var_dropout,
+                                                                                        param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
+                                                                                        bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init)
+                                                                   for i in range(layers)])
+    self.backward_layers = self.add_serializable_component("backward_layers",
+                                                           backward_layers,
+                                                           lambda: [UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim,
+                                                                                         hidden_dim=hidden_dim // 2,
+                                                                                         var_dropout=var_dropout,
+                                                                                         param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
+                                                                                         bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init)
+                                                                    for i in range(layers)])
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -479,14 +479,12 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
       forward_es = new_forward_es
 
     self._final_states = [
-      transducers.FinalTransducerState(dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
-                                                       self.backward_layers[layer_i].get_final_states()[
-                                                         0].main_expr()]),
-                                       dy.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
-                                                       self.backward_layers[layer_i].get_final_states()[
-                                                         0].cell_expr()])) \
+      transducers.FinalTransducerState(tt.concatenate([self.forward_layers[layer_i].get_final_states()[0].main_expr(),
+                                                       self.backward_layers[layer_i].get_final_states()[0].main_expr()]),
+                                       tt.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
+                                                       self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \
       for layer_i in range(len(self.forward_layers))]
-    return expression_seqs.ExpressionSequence(expr_list=[dy.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
+    return expression_seqs.ExpressionSequence(expr_list=[tt.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
 
 @xnmt.require_dynet
 class CustomLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
@@ -658,4 +656,3 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
 
     return expression_seqs.ExpressionSequence(expr_tensor=unsorted_outputs, mask=es.mask)
 
-UniLSTMSeqTransducer = xnmt.resolve_backend(UniLSTMSeqTransducerDynet, UniLSTMSeqTransducerTorch)
