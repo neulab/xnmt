@@ -312,6 +312,12 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
         param_init.initialize(param)
       if 'bias' in name:
         bias_init.initialize(param)
+    # init forget gate biases to 1
+    for name, param in self.layers.named_parameters():
+      if 'bias' in name:
+        n = param.size(0)
+        start, end = n // 4, n // 2
+        param.data[start:end].fill_(1.)
 
 
     # self.dropout_mask_x = None
@@ -630,6 +636,7 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
         param_init.initialize(param)
       if 'bias' in name:
         bias_init.initialize(param)
+    # init forget gate biases to 1
     for name, param in self.lstm.named_parameters():
       if 'bias' in name:
         n = param.size(0)
