@@ -261,7 +261,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     layers: number of layers
     input_dim: input dimension
     hidden_dim: hidden dimension
-    vert_dropout: dropout probability (outputs only)
+    var_dropout: dropout probability (variational recurrent + vertical dropout)
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
     yaml_path:
@@ -276,7 +276,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
                layers: numbers.Integral = 1,
                input_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
-               vert_dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
+               var_dropout: numbers.Real = Ref("exp_global.dropout", default=0.0),
                weightnoise_std: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
@@ -285,18 +285,13 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
                decoder_input_feeding: bool = True) -> None:
     self.num_layers = layers
     self.hidden_dim = hidden_dim
-    self.dropout_rate = vert_dropout
+    self.dropout_rate = var_dropout
     self.weightnoise_std = weightnoise_std
     self.input_dim = input_dim
     self.total_input_dim = input_dim
     if yaml_path is not None and "decoder" in yaml_path:
       if decoder_input_feeding:
         self.total_input_dim += decoder_input_dim
-
-    # if not isinstance(param_init, collections.abc.Sequence):
-    #   param_init = [param_init] * layers
-    # if not isinstance(bias_init, collections.abc.Sequence):
-    #   bias_init = [bias_init] * layers
 
     my_params = param_collections.ParamManager.my_params(self)
     self.layers = nn.ModuleList([
@@ -319,9 +314,8 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
         start, end = n // 4, n // 2
         param.data[start:end].fill_(1.)
 
-
-    # self.dropout_mask_x = None
-    # self.dropout_mask_h = None
+    self.dropout_mask_x = None
+    self.dropout_mask_h = None
 
   @handle_xnmt_event
   def on_set_train(self, val):
@@ -330,8 +324,8 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
   @handle_xnmt_event
   def on_start_sent(self, src):
     self._final_states = None
-    # self.dropout_mask_x = None
-    # self.dropout_mask_h = None
+    self.dropout_mask_x = None
+    self.dropout_mask_h = None
 
   def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
@@ -339,43 +333,33 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
   def initial_state(self) -> UniLSTMState:
     return UniLSTMState(self)
 
-  # def set_dropout(self, dropout: numbers.Real) -> None:
-  #   self.dropout_rate = dropout
+  def set_dropout(self, dropout: numbers.Real) -> None:
+    self.dropout_rate = dropout
 
-  # def set_dropout_masks(self, batch_size: numbers.Integral = 1) -> None:
-  #   if self.dropout_rate > 0.0 and self.train:
-  #     retention_rate = 1.0 - self.dropout_rate
-  #     scale = 1.0 / retention_rate
-  #     self.dropout_mask_x = [dy.random_bernoulli((self.total_input_dim,), retention_rate, scale, batch_size=batch_size)]
-  #     self.dropout_mask_x += [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(1, self.num_layers)]
-  #     self.dropout_mask_h = [dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size) for _ in range(self.num_layers)]
+  def set_dropout_masks(self, batch_size: numbers.Integral = 1) -> None:
+    if self.dropout_rate > 0.0 and self.train:
+      retention_rate = 1.0 - self.dropout_rate
+      scale = 1.0 / retention_rate
+
+      self.dropout_mask_x = [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.total_input_dim)).fill_(retention_rate))) * scale]
+      self.dropout_mask_x += [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.hidden_dim)).fill_(retention_rate))) * scale for _ in range(1, self.num_layers)]
+      self.dropout_mask_h = [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.hidden_dim)).fill_(retention_rate))) * scale for _ in range(self.num_layers)]
 
   def add_input_to_prev(self, prev_state: UniLSTMState, x: tt.Tensor) \
           -> Tuple[Sequence[tt.Tensor]]:
     assert isinstance(x, tt.Tensor)
-    #   x = [x]
-    # elif type(x) != list:
-    #   x = list(x)
 
-    # if self.dropout_rate > 0.0 and self.train and self.dropout_mask_x is None:
-    #   self.set_dropout_masks()
+    if self.dropout_rate > 0.0 and self.train and self.dropout_mask_x is None:
+      self.set_dropout_masks()
 
     new_c, new_h = [], []
     for layer_i in range(self.num_layers):
-      # if self.dropout_rate > 0.0 and self.train:
-      #   # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
-      #   gates = dy.vanilla_lstm_gates_dropout_concat(
-      #     x, prev_state._h[layer_i], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i],
-      #     self.dropout_mask_x[layer_i], self.dropout_mask_h[layer_i],
-      #     self.weightnoise_std if self.train else 0.0)
-      # else:
-      #   gates = dy.vanilla_lstm_gates_concat(
-      #     x, prev_state._h[layer_i], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i],
-      #     self.weightnoise_std if self.train else 0.0)
-      # new_c.append(dy.vanilla_lstm_c(prev_state._c[layer_i], gates))
-      # new_h.append(dy.vanilla_lstm_h(new_c[-1], gates))
-      # x = [new_h[-1]]
+      if self.dropout_rate > 0.0 and self.train:
+        x = torch.mul(x, self.dropout_mask_x[layer_i])
+        # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
       c_t, h_t = self.layers[layer_i](x, (prev_state._h[layer_i], prev_state.c[layer_i]))
+      if self.dropout_rate > 0.0 and self.train:
+        h_t = torch.mul(h_t, self.dropout_mask_h[layer_i])
       new_c.append(c_t)
       new_h.append(h_t)
 
@@ -390,13 +374,11 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     Returns:
       expression sequence
     """
-    # if isinstance(expr_seq, expression_seqs.ExpressionSequence):
-    #   expr_seq = [expr_seq]
     batch_size = tt.batch_size(expr_seq[0])
     seq_len = len(expr_seq)
 
-    # if self.dropout_rate > 0.0 and self.train:
-    #   self.set_dropout_masks(batch_size=batch_size)
+    if self.dropout_rate > 0.0 and self.train:
+      self.set_dropout_masks(batch_size=batch_size)
 
     cur_input = expr_seq
     self._final_states = []
@@ -405,29 +387,12 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       c = [tt.zeroes(hidden_dim=self.hidden_dim, batch_size=batch_size)]
       for pos_i in range(seq_len):
         x_t = cur_input[pos_i]
-        # x_t = [cur_input[j][pos_i] for j in range(len(cur_input))]
-        # if isinstance(x_t, dy.Expression):
-        #   x_t = [x_t]
-        # elif type(x_t) != list:
-        #   x_t = list(x_t)
-        # if sum([x_t_i.dim()[0][0] for x_t_i in x_t]) != self.total_input_dim:
-        #   found_dim = sum([x_t_i.dim()[0][0] for x_t_i in x_t])
-        #   raise ValueError(f"VanillaLSTMGates: x_t has inconsistent dimension {found_dim}, expecting {self.total_input_dim}")
-        # if self.dropout_rate > 0.0 and self.train:
-        #   # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
-        #   gates_t = dy.vanilla_lstm_gates_dropout_concat(x_t,
-        #                                                  h[-1],
-        #                                                  self.Wx[layer_i],
-        #                                                  self.Wh[layer_i],
-        #                                                  self.b[layer_i],
-        #                                                  self.dropout_mask_x[layer_i],
-        #                                                  self.dropout_mask_h[layer_i],
-        #                                                  self.weightnoise_std if self.train else 0.0)
-        # else:
-        #   gates_t = dy.vanilla_lstm_gates_concat(x_t, h[-1], self.Wx[layer_i], self.Wh[layer_i], self.b[layer_i], self.weightnoise_std if self.train else 0.0)
-        # c_t = dy.vanilla_lstm_c(c[-1], gates_t)
-        # h_t = dy.vanilla_lstm_h(c_t, gates_t)
+        if self.dropout_rate > 0.0 and self.train:
+          x_t = torch.mul(x_t, self.dropout_mask_x[layer_i])
+          # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
         h_t, c_t = self.layers[layer_i](x_t, (h[-1], c[-1]))
+        if self.dropout_rate > 0.0 and self.train:
+          h_t = torch.mul(h_t, self.dropout_mask_h[layer_i])
         if expr_seq.mask is None or np.isclose(np.sum(expr_seq.mask.np_arr[:,pos_i:pos_i+1]), 0.0):
           c.append(c_t)
           h.append(h_t)
@@ -666,7 +631,10 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     # https://github.com/pytorch/pytorch/issues/4927
     sorted_lens, sorted_idx = torch.sort(torch.autograd.Variable(torch.LongTensor(seq_lengths).to(xnmt.device)), 0, descending=True)
     sorted_lens = sorted_lens.cpu().data.numpy().tolist()
-    sorted_x = torch.index_select(torch.autograd.Variable(es.as_tensor()), dim=0, index=sorted_idx)
+    es_tensor = es.as_tensor()
+    if self.train and self.dropout_op:
+      es_tensor = self.dropout_op(es_tensor)
+    sorted_x = torch.index_select(torch.autograd.Variable(es_tensor), dim=0, index=sorted_idx)
     unsorted_idx = torch.zeros(sorted_idx.size()).long() \
       .scatter_(0, sorted_idx.cpu().data, torch.LongTensor(list(range(batch_size))))
 
@@ -680,8 +648,6 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
 
     # undo sorting
     unsorted_outputs = torch.index_select(x, dim=0, index=torch.autograd.Variable(unsorted_idx).to(xnmt.device))
-    if self.train and self.dropout_op:
-      unsorted_outputs = self.dropout_op(unsorted_outputs)
     unsorted_hidden = torch.index_select(final_hiddens, dim=1, index=torch.autograd.Variable(unsorted_idx).to(xnmt.device))
 
     unsorted_hidden = unsorted_hidden.view(self.num_layers, self.num_dir, batch_size, self.hidden_dim//self.num_dir)
