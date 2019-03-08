@@ -435,7 +435,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
           c.append(expr_seq.mask.cmult_by_timestep_expr(c_t,pos_i,True) + expr_seq.mask.cmult_by_timestep_expr(c[-1],pos_i,False))
           h.append(expr_seq.mask.cmult_by_timestep_expr(h_t,pos_i,True) + expr_seq.mask.cmult_by_timestep_expr(h[-1],pos_i,False))
       self._final_states.append(transducers.FinalTransducerState(h[-1], c[-1]))
-      cur_input = [h[1:]]
+      cur_input = h[1:]
 
     return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=expr_seq.mask)
 
