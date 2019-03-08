@@ -305,7 +305,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
         hidden_size=hidden_dim,
       )
       for layer in range(layers)
-    ])
+    ]).to(xnmt.device)
     my_params.append(self.layers)
     for name, param in self.layers.named_parameters():
       if 'weight' in name:
