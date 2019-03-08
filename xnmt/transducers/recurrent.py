@@ -341,9 +341,9 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       retention_rate = 1.0 - self.dropout_rate
       scale = 1.0 / retention_rate
 
-      self.dropout_mask_x = [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.total_input_dim)).fill_(retention_rate))) * scale]
-      self.dropout_mask_x += [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.hidden_dim)).fill_(retention_rate))) * scale for _ in range(1, self.num_layers)]
-      self.dropout_mask_h = [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.hidden_dim)).fill_(retention_rate))) * scale for _ in range(self.num_layers)]
+      self.dropout_mask_x = [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.total_input_dim), device=xnmt.device).fill_(retention_rate))) * scale]
+      self.dropout_mask_x += [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.hidden_dim), device=xnmt.device).fill_(retention_rate))) * scale for _ in range(1, self.num_layers)]
+      self.dropout_mask_h = [torch.autograd.Variable(torch.bernoulli(torch.empty((batch_size, self.hidden_dim), device=xnmt.device).fill_(retention_rate))) * scale for _ in range(self.num_layers)]
 
   def add_input_to_prev(self, prev_state: UniLSTMState, x: tt.Tensor) \
           -> Tuple[Sequence[tt.Tensor]]:
