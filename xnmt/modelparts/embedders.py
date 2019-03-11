@@ -311,6 +311,7 @@ class DenseWordEmbedderTorch(SentEmbedder, transforms.Linear, Serializable):
     self.save_processed_arg("vocab_size", self.vocab_size)
     self.linear = torch.nn.Linear(in_features=emb_dim, out_features=self.vocab_size, bias=True).to(xnmt.device)
     my_params.append(self.linear)
+    # TODO: init
     # self.embeddings = my_params.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
     # self.bias = my_params.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
 
@@ -329,7 +330,7 @@ class DenseWordEmbedderTorch(SentEmbedder, transforms.Linear, Serializable):
     # single mode
     if not batchers.is_batched(x):
       if self.train and self.word_id_mask and x in self.word_id_mask[0]:
-        ret = dy.zeros((self.emb_dim,))
+        ret = tt.zeroes(hidden_dim=self.emb_dim)
       else:
         ret = torch.index_select(self.linear.weight, dim=0, index=x).unsqueeze(0)
         # ret = dy.pick(emb_e, index=x)
