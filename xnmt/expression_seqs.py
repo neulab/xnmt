@@ -402,7 +402,7 @@ class ReversedExpressionSequenceDynet(BaseReversedExpressionSequence, Expression
     return self.expr_tensor
 
 @xnmt.require_torch
-class ReversedExpressionSequenceTorch(BaseReversedExpressionSequence, ExpressionSequenceDynet):
+class ReversedExpressionSequenceTorch(BaseReversedExpressionSequence, ExpressionSequenceTorch):
   """
   A reversed expression sequences, where expressions are created in a lazy fashion
   """

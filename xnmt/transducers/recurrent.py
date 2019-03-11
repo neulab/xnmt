@@ -373,8 +373,15 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     Returns:
       expression sequence
     """
-    batch_size = tt.batch_size(expr_seq[0])
-    seq_len = len(expr_seq)
+    list_of_inputs = not isinstance(expr_seq, expression_seqs.ExpressionSequence)
+    if list_of_inputs:
+      batch_size = tt.batch_size(expr_seq[0][0])
+      seq_len = len(expr_seq[0])
+      mask = expr_seq[0].mask
+    else:
+      batch_size = tt.batch_size(expr_seq[0])
+      seq_len = len(expr_seq)
+      mask = expr_seq.mask
 
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
@@ -385,23 +392,26 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       h = [tt.zeroes(hidden_dim=self.hidden_dim, batch_size=batch_size)]
       c = [tt.zeroes(hidden_dim=self.hidden_dim, batch_size=batch_size)]
       for pos_i in range(seq_len):
-        x_t = cur_input[pos_i]
+        if list_of_inputs and layer_i==0:
+          x_t = tt.concatenate([cur_input[0][pos_i], cur_input[1][pos_i]])
+        else:
+          x_t = cur_input[pos_i]
         if self.dropout_rate > 0.0 and self.train:
           x_t = torch.mul(x_t, self.dropout_mask_x[layer_i])
           # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
         h_t, c_t = self.layers[layer_i](x_t, (h[-1], c[-1]))
         if self.dropout_rate > 0.0 and self.train:
           h_t = torch.mul(h_t, self.dropout_mask_h[layer_i])
-        if expr_seq.mask is None or np.isclose(np.sum(expr_seq.mask.np_arr[:,pos_i:pos_i+1]), 0.0):
+        if mask is None or np.isclose(np.sum(mask.np_arr[:,pos_i:pos_i+1]), 0.0):
           c.append(c_t)
           h.append(h_t)
         else:
-          c.append(expr_seq.mask.cmult_by_timestep_expr(c_t,pos_i,True) + expr_seq.mask.cmult_by_timestep_expr(c[-1],pos_i,False))
-          h.append(expr_seq.mask.cmult_by_timestep_expr(h_t,pos_i,True) + expr_seq.mask.cmult_by_timestep_expr(h[-1],pos_i,False))
+          c.append(mask.cmult_by_timestep_expr(c_t,pos_i,True) + mask.cmult_by_timestep_expr(c[-1],pos_i,False))
+          h.append(mask.cmult_by_timestep_expr(h_t,pos_i,True) + mask.cmult_by_timestep_expr(h[-1],pos_i,False))
       self._final_states.append(transducers.FinalTransducerState(h[-1], c[-1]))
       cur_input = h[1:]
 
-    return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=expr_seq.mask)
+    return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=mask)
 
 UniLSTMSeqTransducer = xnmt.resolve_backend(UniLSTMSeqTransducerDynet, UniLSTMSeqTransducerTorch)
 

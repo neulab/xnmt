@@ -382,9 +382,6 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
                yaml_path: Path = Path(),
                src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
                trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
-    assert not weight_noise
-    assert not word_dropout
-    assert not fix_norm
     self.emb_dim = emb_dim
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
@@ -407,9 +404,26 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
     self.word_id_mask = None
 
   def embed(self, x: Union[numbers.Integral, batchers.Batch]) -> tt.Tensor:
-    emb = self.embeddings(torch.tensor(x).to(xnmt.device))
-    if emb.dim()==1: emb = emb.unsqueeze(0)
-    return emb
+    if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
+      batch_size = x.batch_size() if batchers.is_batched(x) else 1
+      self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
+    ret = self.embeddings(torch.tensor(x).to(xnmt.device))
+    if ret.dim()==1: ret = ret.unsqueeze(0)
+    if self.fix_norm is not None:
+      ret = torch.div(ret, torch.norm(ret))
+      if self.fix_norm != 1:
+        ret = torch.mul(self.fix_norm)
+    if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(x.batch_size())):
+      dropout_mask = torch.tensor([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(x.batch_size())], device=xnmt.device)
+      ret = torch.mult(ret, dropout_mask)
+    if self.train and self.weight_noise > 0.0:
+      noise = torch.autograd.Variable(ret.data.new(ret.size(), device=xnmt.device).normal_(0.0, self.weight_noise))
+      ret = ret + noise
+    return ret
+
+
+
+
 
 SimpleWordEmbedder = xnmt.resolve_backend(SimpleWordEmbedderDynet, SimpleWordEmbedderTorch)
 
