@@ -340,7 +340,7 @@ class DenseWordEmbedderTorch(SentEmbedder, transforms.Linear, Serializable):
             ret *= self.fix_norm
     # minibatch mode
     else:
-      ret = torch.index_select(self.linear.weight, dim=0, index=torch.tensor(x))
+      ret = torch.index_select(self.linear.weight, dim=0, index=torch.tensor(x, device=xnmt.device))
       if self.fix_norm is not None:
         ret = torch.div(ret, torch.norm(ret))
         if self.fix_norm != 1:
