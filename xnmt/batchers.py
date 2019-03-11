@@ -187,6 +187,16 @@ class MaskTorch(BaseMask):
       mask_exp = torch.as_tensor(self.np_arr[:, timestep:timestep + 1], dtype=expr.dtype, device=xnmt.device)
     return torch.mul(expr, mask_exp)
 
+  def add_to_tensor_expr(self, tensor_expr: tt.Tensor,
+                         multiplicator: Optional[numbers.Real] = None) -> tt.Tensor:
+    if np.count_nonzero(self.np_arr) == 0:
+      return tensor_expr
+    else:
+      if multiplicator is not None:
+        mask_expr = torch.as_tensor(np.expand_dims(self.np_arr, axis=1) * multiplicator, dtype=tensor_expr.dtype,device=xnmt.device)
+      else:
+        mask_expr = torch.as_tensor(np.expand_dims(self.np_arr, axis=1), dtype=tensor_expr.dtype,device=xnmt.device)
+      return tensor_expr + mask_expr
 
 Mask = xnmt.resolve_backend(MaskDynet, MaskTorch)
 

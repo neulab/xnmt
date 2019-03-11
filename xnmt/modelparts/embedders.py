@@ -407,7 +407,9 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
     self.word_id_mask = None
 
   def embed(self, x: Union[numbers.Integral, batchers.Batch]) -> tt.Tensor:
-    return self.embeddings(torch.tensor(x).to(xnmt.device))
+    emb = self.embeddings(torch.tensor(x).to(xnmt.device))
+    if emb.dim()==1: emb = emb.unsqueeze(0)
+    return emb
 
 SimpleWordEmbedder = xnmt.resolve_backend(SimpleWordEmbedderDynet, SimpleWordEmbedderTorch)
 

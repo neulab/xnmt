@@ -13,6 +13,7 @@ if xnmt.backend_dynet:
   import dynet as dy
 
 if xnmt.backend_torch:
+  import torch
   import torch.nn as nn
   import torch.nn.functional as F
 
@@ -44,9 +45,12 @@ class Attender(object):
       state: the current decoder state, aka query, for which to compute the weighted sum.
       attention: the attention vector to use. if not given it is calculated from the state.
     """
-    attention = attention or self.calc_attention(state)
+    attention = attention if attention is not None else self.calc_attention(state)
     I = self.curr_sent.as_tensor()
-    return I * attention
+    if xnmt.backend_dynet:
+      return I * attention
+    else:
+      return torch.matmul(attention,I).squeeze(1)
 
 @xnmt.require_dynet
 class MlpAttenderDynet(Attender, Serializable):
@@ -161,11 +165,11 @@ class MlpAttenderTorch(Attender, Serializable):
   def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
     WI = self.WI
     curr_sent_mask = self.curr_sent.mask
-    h = F.tanh(WI + self.linear_query(state))
-    scores = self.pU(h).t
+    h = torch.tanh(WI + self.linear_query(state).unsqueeze(1))
+    scores = self.pU(h).transpose(1,2)
     if curr_sent_mask is not None:
       scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
-    normalized = F.softmax(scores)
+    normalized = F.softmax(scores,dim=-1)
     self.attention_vecs.append(normalized)
     return normalized
 

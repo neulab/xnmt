@@ -439,6 +439,7 @@ class SoftmaxTorch(Scorer, Serializable):
   def best_k(self, x: tt.Tensor, k: numbers.Integral, normalize_scores: bool = False):
     scores_expr = self.calc_log_probs(x) if normalize_scores else self.calc_scores(x)
     scores = scores_expr.cpu().transpose(0,1).data.numpy()
+    if scores.shape[1]==1: scores.resize((scores.shape[0],))
     return find_best_k(scores, k)
 
   def sample(self, x: tt.Tensor, n: numbers.Integral, temperature: numbers.Real=1.0):
@@ -471,7 +472,7 @@ class SoftmaxTorch(Scorer, Serializable):
 
   def calc_loss(self, x: tt.Tensor, y: Union[numbers.Integral, List[numbers.Integral]]) -> tt.Tensor:
     if self.can_loss_be_derived_from_scores():
-      scores = torch.nn.LogSoftmax()(self.calc_scores(x))
+      scores = torch.nn.LogSoftmax(dim=-1)(self.calc_scores(x))
       return F.nll_loss(input=scores, target=torch.tensor(y).to(xnmt.device), reduction='none')
     else:
       raise NotImplementedError()
@@ -479,9 +480,9 @@ class SoftmaxTorch(Scorer, Serializable):
     return loss
 
   def calc_probs(self, x: tt.Tensor) -> tt.Tensor:
-    return dy.softmax(self.calc_scores(x))
+    return torch.nn.Softmax(dim=-1)(self.calc_scores(x))
 
   def calc_log_probs(self, x: tt.Tensor) -> tt.Tensor:
-    return dy.log_softmax(self.calc_scores(x))
+    return torch.nn.LogSoftmax(dim=-1)(self.calc_scores(x))
 
 Softmax = xnmt.resolve_backend(SoftmaxDynet, SoftmaxTorch)

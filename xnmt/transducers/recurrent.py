@@ -17,7 +17,6 @@ if xnmt.backend_torch:
   import torch
   import torch.nn as nn
 
-@xnmt.require_dynet
 class UniLSTMState(object):
   """
   State object for UniLSTMSeqTransducer.
@@ -357,7 +356,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       if self.dropout_rate > 0.0 and self.train:
         x = torch.mul(x, self.dropout_mask_x[layer_i])
         # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
-      c_t, h_t = self.layers[layer_i](x, (prev_state._h[layer_i], prev_state.c[layer_i]))
+      c_t, h_t = self.layers[layer_i](x, (prev_state._h[layer_i], prev_state._c[layer_i]))
       if self.dropout_rate > 0.0 and self.train:
         h_t = torch.mul(h_t, self.dropout_mask_h[layer_i])
       new_c.append(c_t)
