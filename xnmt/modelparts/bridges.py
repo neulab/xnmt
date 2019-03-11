@@ -24,7 +24,6 @@ class Bridge(object):
     """
     raise NotImplementedError("decoder_init() must be implemented by Bridge subclasses")
 
-@xnmt.require_dynet
 class NoBridge(Bridge, Serializable):
   """
   This bridge initializes the decoder with zero vectors, disregarding the encoder final states.
@@ -42,8 +41,8 @@ class NoBridge(Bridge, Serializable):
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
   def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[tt.Tensor]:
-    batch_size = enc_final_states[0].main_expr().dim()[1]
-    z = dy.zeros(self.dec_dim, batch_size)
+    batch_size = tt.batch_size(enc_final_states[0].main_expr())
+    z = tt.zeroes(hidden_dim=self.dec_dim, batch_size=batch_size)
     return [z] * (self.dec_layers * 2)
 
 class CopyBridge(Bridge, Serializable):
