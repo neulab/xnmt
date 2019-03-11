@@ -309,7 +309,7 @@ class DenseWordEmbedderTorch(SentEmbedder, transforms.Linear, Serializable):
     my_params = param_collections.ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.save_processed_arg("vocab_size", self.vocab_size)
-    self.linear = torch.nn.Linear(in_features=emb_dim, out_features=self.vocab_size, bias=True)
+    self.linear = torch.nn.Linear(in_features=emb_dim, out_features=self.vocab_size, bias=True).to(xnmt.device)
     my_params.append(self.linear)
     # self.embeddings = my_params.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
     # self.bias = my_params.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
