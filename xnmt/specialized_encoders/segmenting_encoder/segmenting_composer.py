@@ -102,10 +102,10 @@ class ConvolutionComposer(SingleComposer, Serializable):
                bias_init=Ref("exp_global.param_init", default=bare(ZeroInitializer)),
                embed_dim=Ref("exp_global.default_layer_dim"),
                hidden_dim=Ref("exp_global.default_layer_dim")):
-    model = ParamManager.my_params(self)
+    my_params = ParamManager.my_params(self)
     dim = (1, ngram_size, embed_dim, hidden_dim)
-    self.filter = model.add_parameters(dim=dim, init=param_init.initializer(dim))
-    self.bias = model.add_parameters(dim=(embed_dim,), init=bias_init.initializer(dim))
+    self.filter = my_params.add_parameters(dim=dim, init=param_init.initializer(dim))
+    self.bias = my_params.add_parameters(dim=(embed_dim,), init=bias_init.initializer(dim))
     self.ngram_size = ngram_size
     self.embed_dim = embed_dim
 

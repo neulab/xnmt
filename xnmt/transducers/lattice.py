@@ -37,15 +37,15 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     self.dropout_rate = dropout
     self.input_dim = input_dim
     self.hidden_dim = hidden_dim
-    model = param_collections.ParamManager.my_params(self)
+    my_params = param_collections.ParamManager.my_params(self)
 
     # [i; o; g]
-    self.p_Wx_iog = model.add_parameters(dim=(hidden_dim * 3, input_dim))
-    self.p_Wh_iog = model.add_parameters(dim=(hidden_dim * 3, hidden_dim))
-    self.p_b_iog = model.add_parameters(dim=(hidden_dim * 3,), init=dy.ConstInitializer(0.0))
-    self.p_Wx_f = model.add_parameters(dim=(hidden_dim, input_dim))
-    self.p_Wh_f = model.add_parameters(dim=(hidden_dim, hidden_dim))
-    self.p_b_f = model.add_parameters(dim=(hidden_dim,), init=dy.ConstInitializer(1.0))
+    self.p_Wx_iog = my_params.add_parameters(dim=(hidden_dim * 3, input_dim))
+    self.p_Wh_iog = my_params.add_parameters(dim=(hidden_dim * 3, hidden_dim))
+    self.p_b_iog = my_params.add_parameters(dim=(hidden_dim * 3,), init=dy.ConstInitializer(0.0))
+    self.p_Wx_f = my_params.add_parameters(dim=(hidden_dim, input_dim))
+    self.p_Wh_f = my_params.add_parameters(dim=(hidden_dim, hidden_dim))
+    self.p_b_f = my_params.add_parameters(dim=(hidden_dim,), init=dy.ConstInitializer(1.0))
 
     self.dropout_mask_x = None
     self.dropout_mask_h = None

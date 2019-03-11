@@ -179,7 +179,7 @@ class SentEmbedderTorch(Embedder):
 SentEmbedder = xnmt.resolve_backend(SentEmbedderDy, SentEmbedderTorch)
 
 @xnmt.require_dynet
-class DenseWordEmbedder(SentEmbedder, transforms.Linear, Serializable):
+class DenseWordEmbedderDynet(SentEmbedder, transforms.Linear, Serializable):
   """
   Word embeddings via full matrix.
 
@@ -218,11 +218,11 @@ class DenseWordEmbedder(SentEmbedder, transforms.Linear, Serializable):
     self.weight_noise = weight_noise
     self.word_dropout = word_dropout
     self.emb_dim = emb_dim
-    param_collection = param_collections.ParamManager.my_params(self)
+    my_params = param_collections.ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.save_processed_arg("vocab_size", self.vocab_size)
-    self.embeddings = param_collection.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
-    self.bias = param_collection.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
+    self.embeddings = my_params.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
+    self.bias = my_params.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
 
   @events.handle_xnmt_event
   def on_start_sent(self, *args, **kwargs) -> None:
@@ -266,6 +266,97 @@ class DenseWordEmbedder(SentEmbedder, transforms.Linear, Serializable):
     b1 = dy.parameter(self.bias)
     return dy.affine_transform([b1, W1, input_expr])
 
+@xnmt.require_torch
+class DenseWordEmbedderTorch(SentEmbedder, transforms.Linear, Serializable):
+  """
+  Word embeddings via full matrix.
+
+  Args:
+    emb_dim: embedding dimension
+    weight_noise: apply Gaussian noise with given standard deviation to embeddings
+    word_dropout: drop out word types with a certain probability, sampling word types on a per-sentence level, see https://arxiv.org/abs/1512.05287
+    fix_norm: fix the norm of word vectors to be radius r, see https://arxiv.org/abs/1710.01329
+    param_init: how to initialize weight matrices
+    bias_init: how to initialize bias vectors
+    vocab_size: vocab size or None
+    vocab: vocab or None
+    yaml_path: Path of this embedder in the component hierarchy. Automatically set by the YAML deserializer.
+    src_reader: A reader for the source side. Automatically set by the YAML deserializer.
+    trg_reader: A reader for the target side. Automatically set by the YAML deserializer.
+  """
+  yaml_tag = "!DenseWordEmbedder"
+
+  @events.register_xnmt_handler
+  @serializable_init
+  def __init__(self,
+               emb_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
+               weight_noise: numbers.Real = Ref("exp_global.weight_noise", default=0.0),
+               word_dropout: numbers.Real = 0.0,
+               fix_norm: Optional[numbers.Real] = None,
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(
+                 param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init",
+                                                                    default=bare(param_initializers.ZeroInitializer)),
+               vocab_size: Optional[numbers.Integral] = None,
+               vocab: Optional[vocabs.Vocab] = None,
+               yaml_path: Path = '',
+               src_reader: Optional[input_readers.InputReader] = Ref("model.src_reader", default=None),
+               trg_reader: Optional[input_readers.InputReader] = Ref("model.trg_reader", default=None)) -> None:
+    self.fix_norm = fix_norm
+    self.weight_noise = weight_noise
+    self.word_dropout = word_dropout
+    self.emb_dim = emb_dim
+    my_params = param_collections.ParamManager.my_params(self)
+    self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
+    self.save_processed_arg("vocab_size", self.vocab_size)
+    self.linear = torch.nn.Linear(in_features=emb_dim, out_features=self.vocab_size, bias=True)
+    my_params.append(self.linear)
+    # self.embeddings = my_params.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
+    # self.bias = my_params.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
+
+  @events.handle_xnmt_event
+  def on_start_sent(self, *args, **kwargs) -> None:
+    self.word_id_mask = None
+
+  @events.handle_xnmt_event
+  def on_set_train(self, val: bool) -> None:
+    self.train = val
+
+  def embed(self, x: Union[batchers.Batch, numbers.Integral]) -> tt.Tensor:
+    if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
+      batch_size = x.batch_size() if batchers.is_batched(x) else 1
+      self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
+    # single mode
+    if not batchers.is_batched(x):
+      if self.train and self.word_id_mask and x in self.word_id_mask[0]:
+        ret = dy.zeros((self.emb_dim,))
+      else:
+        ret = torch.index_select(self.linear.weight, dim=0, index=x).unsqueeze(0)
+        # ret = dy.pick(emb_e, index=x)
+        if self.fix_norm is not None:
+          ret = torch.div(ret, torch.norm(ret))
+          if self.fix_norm != 1:
+            ret *= self.fix_norm
+    # minibatch mode
+    else:
+      ret = torch.index_select(self.linear.weight, dim=0, index=torch.tensor(x))
+      if self.fix_norm is not None:
+        ret = torch.div(ret, torch.norm(ret))
+        if self.fix_norm != 1:
+          ret *= self.fix_norm
+      if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(x.batch_size())):
+        dropout_mask = torch.tensor([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(x.batch_size())], device=xnmt.device)
+        ret = torch.mult(ret, dropout_mask)
+    if self.train and self.weight_noise > 0.0:
+      noise = torch.autograd.Variable(ret.data.new(ret.size(), device=xnmt.device).normal_(0.0, self.weight_noise))
+      ret = ret + noise
+    return ret
+
+  def transform(self, input_expr: tt.Tensor) -> tt.Tensor:
+    return self.linear(input_expr)
+
+DenseWordEmbedder = xnmt.resolve_backend(DenseWordEmbedderDynet, DenseWordEmbedderTorch)
+
 @xnmt.require_dynet
 class SimpleWordEmbedderDynet(SentEmbedder, Serializable):
   """
@@ -306,10 +397,10 @@ class SimpleWordEmbedderDynet(SentEmbedder, Serializable):
     self.fix_norm = fix_norm
     self.word_id_mask = None
     self.train = False
-    param_collection = param_collections.ParamManager.my_params(self)
+    my_params = param_collections.ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.save_processed_arg("vocab_size", self.vocab_size)
-    self.embeddings = param_collection.add_lookup_parameters((self.vocab_size, self.emb_dim),
+    self.embeddings = my_params.add_lookup_parameters((self.vocab_size, self.emb_dim),
                              init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
 
   @events.handle_xnmt_event
@@ -407,15 +498,27 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
     if self.train and self.word_dropout > 0.0 and self.word_id_mask is None:
       batch_size = x.batch_size() if batchers.is_batched(x) else 1
       self.word_id_mask = [set(np.random.choice(self.vocab_size, int(self.vocab_size * self.word_dropout), replace=False)) for _ in range(batch_size)]
-    ret = self.embeddings(torch.tensor(x).to(xnmt.device))
-    if ret.dim()==1: ret = ret.unsqueeze(0)
-    if self.fix_norm is not None:
-      ret = torch.div(ret, torch.norm(ret))
-      if self.fix_norm != 1:
-        ret = torch.mul(self.fix_norm)
-    if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(x.batch_size())):
-      dropout_mask = torch.tensor([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(x.batch_size())], device=xnmt.device)
-      ret = torch.mult(ret, dropout_mask)
+    # single mode
+    if not batchers.is_batched(x):
+      if self.train and self.word_id_mask and x in self.word_id_mask[0]:
+        ret = tt.zeroes(hidden_dim=self.emb_dim)
+      else:
+        ret = self.embeddings(torch.tensor(x).to(xnmt.device))
+        ret = ret.unsqueeze(0)
+        if self.fix_norm is not None:
+          ret = torch.div(ret, torch.norm(ret))
+          if self.fix_norm != 1:
+            ret = torch.mul(ret, self.fix_norm)
+    # minibatch mode
+    else:
+      ret = self.embeddings(torch.tensor(x).to(xnmt.device))
+      if self.fix_norm is not None:
+        ret = torch.div(ret, torch.norm(ret))
+        if self.fix_norm != 1:
+          ret = torch.mul(self.fix_norm)
+      if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(x.batch_size())):
+        dropout_mask = torch.tensor([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(x.batch_size())], device=xnmt.device)
+        ret = torch.mult(ret, dropout_mask)
     if self.train and self.weight_noise > 0.0:
       noise = torch.autograd.Variable(ret.data.new(ret.size(), device=xnmt.device).normal_(0.0, self.weight_noise))
       ret = ret + noise
@@ -505,13 +608,13 @@ class PretrainedSimpleWordEmbedder(SimpleWordEmbedder, Serializable):
     self.train = False
     self.fix_norm = fix_norm
     self.pretrained_filename = filename
-    param_collection = param_collections.ParamManager.my_params(self)
+    my_params = param_collections.ParamManager.my_params(self)
     self.vocab = self.choose_vocab(vocab, yaml_path, src_reader, trg_reader)
     self.vocab_size = len(vocab)
     self.save_processed_arg("vocab", self.vocab)
     with open(self.pretrained_filename, encoding='utf-8') as embeddings_file:
       total_embs, in_vocab, missing, initial_embeddings = self._read_fasttext_embeddings(vocab, embeddings_file)
-    self.embeddings = param_collection.lookup_parameters_from_numpy(initial_embeddings)
+    self.embeddings = my_params.lookup_parameters_from_numpy(initial_embeddings)
 
     logger.info(f"{in_vocab} vocabulary matches out of {total_embs} total embeddings; "
                 f"{missing} vocabulary words without a pretrained embedding out of {self.vocab_size}")
@@ -577,10 +680,10 @@ class PositionEmbedder(SentEmbedder, Serializable):
     """
     self.max_pos = max_pos
     self.emb_dim = emb_dim
-    param_collection = param_collections.ParamManager.my_params(self)
+    my_params = param_collections.ParamManager.my_params(self)
     param_init = param_init
     dim = (self.emb_dim, max_pos)
-    self.embeddings = param_collection.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
+    self.embeddings = my_params.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
 
   def embed(self, word): raise NotImplementedError("Position-embedding for individual words not implemented yet.")
   def embed_sent(self, sent_len: numbers.Integral) -> expression_seqs.ExpressionSequence:

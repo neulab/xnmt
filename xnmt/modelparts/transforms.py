@@ -54,10 +54,10 @@ class LinearDynet(Transform, Serializable):
     self.input_dim = input_dim
     self.output_dim = output_dim
 
-    model = param_collections.ParamManager.my_params(self)
-    self.W1 = model.add_parameters((output_dim, input_dim), init=param_init.initializer((output_dim, input_dim)))
+    my_params = param_collections.ParamManager.my_params(self)
+    self.W1 = my_params.add_parameters((output_dim, input_dim), init=param_init.initializer((output_dim, input_dim)))
     if self.bias:
-      self.b1 = model.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))
+      self.b1 = my_params.add_parameters((output_dim,), init=bias_init.initializer((output_dim,)))
 
   def transform(self, input_expr: tt.Tensor) -> tt.Tensor:
     W1 = dy.parameter(self.W1)
@@ -153,10 +153,10 @@ class NonLinearDynet(Transform, Serializable):
     else:
       raise ValueError(f"Unknown activation {activation}")
 
-    model = param_collections.ParamManager.my_params(self)
-    self.W1 = model.add_parameters((self.output_dim, self.input_dim), init=param_init.initializer((self.output_dim, self.input_dim)))
+    my_params = param_collections.ParamManager.my_params(self)
+    self.W1 = my_params.add_parameters((self.output_dim, self.input_dim), init=param_init.initializer((self.output_dim, self.input_dim)))
     if self.bias:
-      self.b1 = model.add_parameters((self.output_dim,), init=bias_init.initializer((self.output_dim,)))
+      self.b1 = my_params.add_parameters((self.output_dim,), init=bias_init.initializer((self.output_dim,)))
 
   def transform(self, input_expr: tt.Tensor) -> tt.Tensor:
     W1 = dy.parameter(self.W1)

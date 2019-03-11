@@ -89,7 +89,6 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
                transform: transforms.Transform = bare(transforms.AuxNonLinear),
                scorer: scorers.Scorer = bare(scorers.Softmax)) -> None:
-    self.param_col = param_collections.ParamManager.my_params(self)
     self.input_dim = input_dim
     self.embedder = embedder
     self.bridge = bridge

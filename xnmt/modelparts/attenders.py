@@ -231,8 +231,8 @@ class BilinearAttender(Attender, Serializable):
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer))) -> None:
     self.input_dim = input_dim
     self.state_dim = state_dim
-    param_collection = param_collections.ParamManager.my_params(self)
-    self.pWa = param_collection.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
+    my_params = param_collections.ParamManager.my_params(self)
+    self.pWa = my_params.add_parameters((input_dim, state_dim), init=param_init.initializer((input_dim, state_dim)))
     self.curr_sent = None
 
   def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:

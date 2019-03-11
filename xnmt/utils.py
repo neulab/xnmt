@@ -20,8 +20,8 @@ def print_cg_conditional() -> None:
       import dynet as dy
       dy.print_text_graphviz()
     else:
-      raise NotImplementedError() # TODO
-      # https://discuss.pytorch.org/t/print-autograd-graph/692/6
+      logger.warning("CG printing not implemented with Torch backup")
+      # TODO: https://discuss.pytorch.org/t/print-autograd-graph/692/6
 
 
 def make_parent_dir(filename: str) -> None:

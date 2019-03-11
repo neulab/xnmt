@@ -42,8 +42,8 @@ class PositionalSeqTransducer(transducers.SeqTransducer, Serializable):
     self.emb_type = emb_type
     param_init = param_init
     dim = (self.input_dim, max_pos)
-    param_collection = param_collections.ParamManager.my_params(self)
-    self.embedder = param_collection.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
+    my_params = param_collections.ParamManager.my_params(self)
+    self.embedder = my_params.add_parameters(dim, init=param_init.initializer(dim, is_lookup=True))
 
   @ events.handle_xnmt_event
   def on_set_train(self, val):

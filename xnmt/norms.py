@@ -22,9 +22,9 @@ class LayerNorm(Serializable, transforms.Transform):
 
   @serializable_init
   def __init__(self, d_hid: numbers.Integral) -> None:
-    subcol = param_collections.ParamManager.my_params(self)
-    self.p_g = subcol.add_parameters(dim=d_hid, init=dy.ConstInitializer(1.0))
-    self.p_b = subcol.add_parameters(dim=d_hid, init=dy.ConstInitializer(0.0))
+    my_params = param_collections.ParamManager.my_params(self)
+    self.p_g = my_params.add_parameters(dim=d_hid, init=dy.ConstInitializer(1.0))
+    self.p_b = my_params.add_parameters(dim=d_hid, init=dy.ConstInitializer(0.0))
 
   def transform(self, x: tt.Tensor) -> tt.Tensor:
     g = dy.parameter(self.p_g)
@@ -68,12 +68,12 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
                time_first: bool = False,
                population_running_mean: Optional[np.ndarray] = None,
                population_running_std: Optional[np.ndarray] = None) -> None:
-    model = param_collections.ParamManager.my_params(self)
+    my_params = param_collections.ParamManager.my_params(self)
     self.hidden_dim = hidden_dim
     self.num_dim = num_dim
     self.time_first = time_first
-    self.gamma = model.add_parameters(dim=self.get_normalizer_dimensionality(), init=dy.ConstInitializer(1.0))
-    self.beta = model.add_parameters(dim=self.get_normalizer_dimensionality(), init=dy.ConstInitializer(0.0))
+    self.gamma = my_params.add_parameters(dim=self.get_normalizer_dimensionality(), init=dy.ConstInitializer(1.0))
+    self.beta = my_params.add_parameters(dim=self.get_normalizer_dimensionality(), init=dy.ConstInitializer(0.0))
     if population_running_mean is None:
       self.population_running_mean = np.zeros((hidden_dim,))
     else:

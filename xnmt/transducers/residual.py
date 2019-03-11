@@ -32,9 +32,9 @@ class ResidualSeqTransducer(transducers.SeqTransducer, Serializable):
     self.input_dim = input_dim
     self.layer_norm = layer_norm
     if layer_norm:
-      model = param_collections.ParamManager.my_params(self)
-      self.ln_g = model.add_parameters(dim=(input_dim,))
-      self.ln_b = model.add_parameters(dim=(input_dim,))
+      my_params = param_collections.ParamManager.my_params(self)
+      self.ln_g = my_params.add_parameters(dim=(input_dim,))
+      self.ln_b = my_params.add_parameters(dim=(input_dim,))
 
   @ events.handle_xnmt_event
   def on_set_train(self, val):

@@ -36,7 +36,7 @@ class ConvConnectedSeqTransducer(transducers.SeqTransducer, Serializable):
       non_linearity: Non linearity to apply between layers
       """
 
-    model = param_collections.ParamManager.my_params(self)
+    my_params = param_collections.ParamManager.my_params(self)
     self.input_dim = input_dim
     self.window_receptor = window_receptor
     self.internal_dim = internal_dim
@@ -53,16 +53,16 @@ class ConvConnectedSeqTransducer(transducers.SeqTransducer, Serializable):
 
     normalInit=dy.NormalInitializer(0, 0.1)
 
-    self.pConv1 = model.add_parameters(dim = (self.input_dim,self.window_receptor,1,self.internal_dim),init=normalInit)
-    self.pBias1 = model.add_parameters(dim = (self.internal_dim,))
+    self.pConv1 = my_params.add_parameters(dim = (self.input_dim,self.window_receptor,1,self.internal_dim),init=normalInit)
+    self.pBias1 = my_params.add_parameters(dim = (self.internal_dim,))
     self.builder_layers = []
     for _ in range(num_layers):
-        conv = model.add_parameters(dim = (self.internal_dim,1,1,self.internal_dim),init=normalInit)
-        bias = model.add_parameters(dim = (self.internal_dim,))
+        conv = my_params.add_parameters(dim = (self.internal_dim,1,1,self.internal_dim),init=normalInit)
+        bias = my_params.add_parameters(dim = (self.internal_dim,))
         self.builder_layers.append((conv,bias))
 
-    self.last_conv = model.add_parameters(dim = (self.internal_dim,1,1,self.output_dim),init=normalInit)
-    self.last_bias = model.add_parameters(dim = (self.output_dim,))
+    self.last_conv = my_params.add_parameters(dim = (self.internal_dim,1,1,self.output_dim),init=normalInit)
+    self.last_bias = my_params.add_parameters(dim = (self.output_dim,))
 
   def get_final_states(self) -> List[transducers.FinalTransducerState]:
     return self._final_states
