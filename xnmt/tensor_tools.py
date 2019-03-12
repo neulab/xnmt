@@ -109,3 +109,12 @@ def concatenate(l):
     return dy.concatenate(l)
   else:
     return torch.cat(l, dim=1)
+
+def npvalue(t):
+  if xnmt.backend_dynet:
+    return t.npvalue()
+  else:
+    ret = t.cpu().data.numpy()
+    if batch_size(t)==1:
+      ret = ret.squeeze(0)
+    return ret.T

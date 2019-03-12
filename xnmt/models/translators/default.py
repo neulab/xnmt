@@ -167,7 +167,7 @@ class DefaultTranslator(auto_regressive.AutoRegressiveTranslator, Serializable, 
         outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=src[0].idx))
 
     if self.is_reporting():
-      attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
+      attentions = np.concatenate([tt.npvalue(x) for x in attentions], axis=1)
       self.report_sent_info({"attentions": attentions,
                              "src": src[0],
                              "output": outputs[0]})
