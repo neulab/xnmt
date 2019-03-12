@@ -118,3 +118,9 @@ def npvalue(t):
     if batch_size(t)==1:
       ret = ret.squeeze(0)
     return ret.T
+
+def average(l):
+  if xnmt.backend_dynet:
+    return dy.average(l)
+  else:
+    return sum(l) / len(l)

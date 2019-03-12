@@ -20,7 +20,6 @@ from xnmt.persistence import Serializable, bare, serializable_init
 if xnmt.backend_dynet:
   import dynet as dy
 
-@xnmt.require_dynet
 class EnsembleTranslator(translators_auto_regressive.AutoRegressiveTranslator, Serializable):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
@@ -72,14 +71,13 @@ class EnsembleTranslator(translators_auto_regressive.AutoRegressiveTranslator, S
     self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> tt.Tensor:
-    return dy.average([model.calc_nll(src, trg) for model in self.models])
+    return tt.average([model.calc_nll(src, trg) for model in self.models])
 
   def generate(self,
                src: batchers.Batch,
                search_strategy: search_strategies.SearchStrategy) -> Sequence[sent.Sentence]:
     return self._proxy.generate(src, search_strategy)
 
-@xnmt.require_dynet
 class EnsembleListDelegate(object):
   """
   Auxiliary object to wrap a list of objects for ensembling.
@@ -149,7 +147,6 @@ class EnsembleListDelegate(object):
   def __repr__(self):
     return "EnsembleListDelegate([" + ', '.join(repr(elem) for elem in self._objects) + "])"
 
-@xnmt.require_dynet
 class EnsembleDecoder(EnsembleListDelegate):
   """
   Auxiliary object to wrap a list of decoders for ensembling.
@@ -159,8 +156,8 @@ class EnsembleDecoder(EnsembleListDelegate):
   """
   def calc_log_probs(self, mlp_dec_states):
     scores = [obj.scorer.calc_log_probs(dec_state.as_vector()) for obj, dec_state in zip(self._objects, mlp_dec_states)]
-    return dy.average(scores)
+    return tt.average(scores)
 
   def best_k(self, mlp_dec_states, k: numbers.Integral, normalize_scores: bool = False):
     logprobs = self.calc_log_probs(mlp_dec_states)
-    return scorers.find_best_k(logprobs.npvalue(), k)
+    return scorers.find_best_k(tt.npvalue(logprobs), k)
