@@ -312,7 +312,6 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
 
 ExpressionSequence = xnmt.resolve_backend(ExpressionSequenceDynet, ExpressionSequenceTorch)
 
-@xnmt.require_dynet
 class LazyNumpyExpressionSequence(ExpressionSequenceDynet):
   """
   This is initialized via numpy arrays, and dynet expressions are only created
@@ -341,17 +340,25 @@ class LazyNumpyExpressionSequence(ExpressionSequenceDynet):
     if self.expr_list or self.expr_tensor:
       return super(LazyNumpyExpressionSequence, self).__getitem__(key)
     else:
-      if batchers.is_batched(self.lazy_data):
-        return dy.inputTensor(
-          [self.lazy_data[batch].get_array()[:, key] for batch in range(self.lazy_data.batch_size())], batched=True)
+      if xnmt.backend_torch:
+        return torch.tensor(
+          np.array([self.lazy_data[batch].get_array()[:, key] for batch in range(self.lazy_data.batch_size())]),
+          device=xnmt.device)
       else:
-        return dy.inputTensor(self.lazy_data.get_array()[:,key], batched=False)
+        if batchers.is_batched(self.lazy_data):
+          return dy.inputTensor(
+            [self.lazy_data[batch].get_array()[:, key] for batch in range(self.lazy_data.batch_size())], batched=True)
+        else:
+          return dy.inputTensor(self.lazy_data.get_array()[:,key], batched=False)
   def as_tensor(self) -> tt.Tensor:
     if not (self.expr_list or self.expr_tensor):
       if not batchers.is_batched(self.lazy_data):
         raise NotImplementedError()
       array = np.concatenate([d.get_array().reshape(d.get_array().shape + (1,)) for d in self.lazy_data], axis=2)
-      self.expr_tensor = dy.inputTensor(array, batched=batchers.is_batched(self.lazy_data))
+      if xnmt.backend_dynet:
+        self.expr_tensor = dy.inputTensor(array, batched=batchers.is_batched(self.lazy_data))
+      else:
+        self.expr_tensor = torch.tensor(array, device=xnmt.device)
     return super(LazyNumpyExpressionSequence, self).as_tensor()
 
 class BaseReversedExpressionSequence(BaseExpressionSequence):

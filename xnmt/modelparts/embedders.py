@@ -531,7 +531,6 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
 
 SimpleWordEmbedder = xnmt.resolve_backend(SimpleWordEmbedderDynet, SimpleWordEmbedderTorch)
 
-@xnmt.require_dynet
 class NoopEmbedder(SentEmbedder, Serializable):
   """
   This embedder performs no lookups but only passes through the inputs.
@@ -549,10 +548,12 @@ class NoopEmbedder(SentEmbedder, Serializable):
     self.emb_dim = emb_dim
 
   def embed(self, x: Union[np.ndarray, list]) -> tt.Tensor:
-    return dy.inputTensor(x, batched=batchers.is_batched(x))
+    if xnmt.backend_dynet:
+      return dy.inputTensor(x, batched=batchers.is_batched(x))
+    else:
+      return torch.tensor(x.T, device=xnmt.device)
 
   def embed_sent(self, x: sent.Sentence) -> expression_seqs.ExpressionSequence:
-    # TODO refactor: seems a bit too many special cases that need to be distinguished
     batched = batchers.is_batched(x)
     first_sent = x[0] if batched else x
     if hasattr(first_sent, "get_array"):

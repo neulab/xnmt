@@ -373,15 +373,12 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     Returns:
       expression sequence
     """
-    list_of_inputs = not isinstance(expr_seq, expression_seqs.ExpressionSequence)
-    if list_of_inputs:
-      batch_size = tt.batch_size(expr_seq[0][0])
-      seq_len = len(expr_seq[0])
-      mask = expr_seq[0].mask
-    else:
-      batch_size = tt.batch_size(expr_seq[0])
-      seq_len = len(expr_seq)
-      mask = expr_seq.mask
+    if isinstance(expr_seq, expression_seqs.ExpressionSequence):
+      expr_seq = [expr_seq]
+    concat_inputs = len(expr_seq)>=2
+    batch_size = tt.batch_size(expr_seq[0][0])
+    seq_len = len(expr_seq[0])
+    mask = expr_seq[0].mask
 
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
@@ -392,10 +389,10 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       h = [tt.zeroes(hidden_dim=self.hidden_dim, batch_size=batch_size)]
       c = [tt.zeroes(hidden_dim=self.hidden_dim, batch_size=batch_size)]
       for pos_i in range(seq_len):
-        if list_of_inputs and layer_i==0:
-          x_t = tt.concatenate([cur_input[0][pos_i], cur_input[1][pos_i]])
+        if concat_inputs and layer_i==0:
+          x_t = tt.concatenate([cur_input[i][pos_i] for i in range(len(cur_input))])
         else:
-          x_t = cur_input[pos_i]
+          x_t = cur_input[0][pos_i]
         if self.dropout_rate > 0.0 and self.train:
           x_t = torch.mul(x_t, self.dropout_mask_x[layer_i])
           # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)

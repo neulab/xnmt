@@ -2,6 +2,7 @@ from typing import Any, List, Sequence, Union
 import numbers
 
 import xnmt
+import xnmt.tensor_tools as tt
 from xnmt.transducers import recurrent
 from xnmt import expression_seqs, events
 from xnmt.persistence import serializable_init, Serializable, Ref
@@ -10,7 +11,6 @@ from xnmt.transducers import base as transducers
 if xnmt.backend_dynet:
   import dynet as dy
 
-@xnmt.require_dynet
 class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
   Builder for pyramidal RNNs that delegates to ``UniLSTMSeqTransducer`` objects and wires them together.
@@ -24,7 +24,7 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     hidden_dim: hidden dimension
     downsampling_method: how to perform downsampling (concat|skip)
     reduce_factor: integer, or list of ints (different skip for each layer)
-    dropout: dropout probability; if None, use exp_global.dropout
+    var_dropout: dropout probability; if None, use exp_global.dropout
     builder_layers: set automatically
   """
   yaml_tag = '!PyramidalLSTMSeqTransducer'
@@ -37,9 +37,9 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                hidden_dim: numbers.Integral = Ref("exp_global.default_layer_dim"),
                downsampling_method: str = "concat",
                reduce_factor: Union[numbers.Integral, Sequence[numbers.Integral]] = 2,
-               dropout: float = Ref("exp_global.dropout", default=0.0),
+               var_dropout: float = Ref("exp_global.dropout", default=0.0),
                builder_layers: Any = None):
-    self.dropout = dropout
+    self.dropout = var_dropout
     assert layers > 0
     assert hidden_dim % 2 == 0
     assert type(reduce_factor)==int or (type(reduce_factor)==list and len(reduce_factor)==layers-1)
@@ -51,19 +51,19 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     self.hidden_dim = hidden_dim
     self.builder_layers = self.add_serializable_component("builder_layers", builder_layers,
                                                           lambda: self.make_builder_layers(input_dim, hidden_dim,
-                                                                                           layers, dropout,
+                                                                                           layers, var_dropout,
                                                                                            downsampling_method,
                                                                                            reduce_factor))
 
-  def make_builder_layers(self, input_dim, hidden_dim, layers, dropout, downsampling_method, reduce_factor):
+  def make_builder_layers(self, input_dim, hidden_dim, layers, var_dropout, downsampling_method, reduce_factor):
     builder_layers = []
-    f = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
-    b = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
+    f = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout)
+    b = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout)
     builder_layers.append([f, b])
     for _ in range(layers - 1):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
-      b = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, dropout=dropout)
+      f = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout)
+      b = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout)
       builder_layers.append([f, b])
     return builder_layers
 
@@ -127,11 +127,11 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
       else:
         # concat final outputs
         ret_es = expression_seqs.ExpressionSequence(
-          expr_list=[dy.concatenate([f, b]) for f, b in zip(fs, expression_seqs.ReversedExpressionSequence(bs))], mask=mask_out)
+          expr_list=[tt.concatenate([f, b]) for f, b in zip(fs, expression_seqs.ReversedExpressionSequence(bs))], mask=mask_out)
 
-    self._final_states = [transducers.FinalTransducerState(dy.concatenate([fb.get_final_states()[0].main_expr(),
+    self._final_states = [transducers.FinalTransducerState(tt.concatenate([fb.get_final_states()[0].main_expr(),
                                                                            bb.get_final_states()[0].main_expr()]),
-                                                           dy.concatenate([fb.get_final_states()[0].cell_expr(),
+                                                           tt.concatenate([fb.get_final_states()[0].cell_expr(),
                                                                            bb.get_final_states()[0].cell_expr()])) \
                           for (fb, bb) in self.builder_layers]
     return ret_es
