@@ -200,7 +200,7 @@ class MultiHeadAttentionSeqTransducerTorch(transducers.SeqTransducer, Serializab
     # Do scaled dot product [batch*num_heads, length, length], rows are keys, columns are queries
     attn_score = torch.matmul(k.transpose(1,2), q) / sqrt(self.head_dim)
     if expr_seq.mask is not None:
-      mask = torch.Tensor(np.repeat(expr_seq.mask.np_arr, self.num_heads, axis=0) * -1e10, device=xnmt.device)
+      mask = torch.Tensor(np.repeat(expr_seq.mask.np_arr, self.num_heads, axis=0) * -1e10).to(xnmt.device)
       attn_score = attn_score + mask.unsqueeze(2)
     attn_prob = torch.nn.Softmax(dim=1)(attn_score)
     # attn_prob = dy.softmax(attn_score, d=1)
