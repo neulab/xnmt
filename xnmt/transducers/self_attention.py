@@ -147,7 +147,7 @@ class MultiHeadAttentionSeqTransducerTorch(transducers.SeqTransducer, Serializab
     self.num_heads = num_heads
     self.head_dim = input_dim // num_heads
 
-    lins = [nn.Linear(in_features=input_dim, out_features=input_dim, bias=True)
+    lins = [nn.Linear(in_features=input_dim, out_features=input_dim, bias=True).to(xnmt.device)
                                               for _ in range(4)]
     self.lin_q, self.lin_k, self.lin_v, self.lin_o = lins
     for lin in lins:
