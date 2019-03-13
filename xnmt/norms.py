@@ -42,7 +42,7 @@ class LayerNormTorch(Serializable, transforms.Transform):
   @serializable_init
   def __init__(self, d_hid: numbers.Integral) -> None:
     my_params = param_collections.ParamManager.my_params(self)
-    self.layer_norm = nn.LayerNorm(normalized_shape=d_hid)
+    self.layer_norm = nn.LayerNorm(normalized_shape=d_hid).to(xnmt.device)
     my_params.append(self.layer_norm)
 
   def transform(self, x: tt.Tensor) -> tt.Tensor:
