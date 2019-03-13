@@ -261,10 +261,10 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
     else:
       if key < 0: key += len(self)
       if self.expr_tensor is not None:
-        return torch.index_select(self.expr_tensor, dim=1, index=torch.LongTensor([key], device=xnmt.device)).squeeze(1)
+        return torch.index_select(self.expr_tensor, dim=1, index=torch.LongTensor([key])).squeeze(1)
       else:
         raise NotImplementedError()
-        return torch.index_select(self.expr_transposed_tensor, dim=-1, index=torch.LongTensor([key], device=xnmt.device))\
+        return torch.index_select(self.expr_transposed_tensor, dim=-1, index=torch.LongTensor([key]))\
                     .resize_(self.expr_transposed_tensor.size()[0:-1])
 
   def as_list(self) -> List[tt.Tensor]:
