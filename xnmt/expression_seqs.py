@@ -67,7 +67,7 @@ class BaseExpressionSequence(object):
       length of sequence
     """
     if self.expr_list: return len(self.expr_list)
-    elif self.expr_tensor: return tt.sent_len(self.expr_tensor)
+    elif self.expr_tensor is not None: return tt.sent_len(self.expr_tensor)
     else: return tt.sent_len_transp(self.expr_transposed_tensor)
 
   def __iter__(self):
@@ -260,11 +260,11 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
     if self.expr_list: return self.expr_list[key]
     else:
       if key < 0: key += len(self)
-      if self.expr_tensor:
-        return torch.index_select(self.expr_tensor, dim=1, key=key)\
-                    .resize_((self.expr_tensor.size()[0],) + self.expr_tensor.size()[2:])
+      if self.expr_tensor is not None:
+        return torch.index_select(self.expr_tensor, dim=1, index=torch.LongTensor([key], device=xnmt.device)).squeeze(1)
       else:
-        return torch.index_select(self.expr_transposed_tensor, dim=-1, key=key)\
+        raise NotImplementedError()
+        return torch.index_select(self.expr_transposed_tensor, dim=-1, index=torch.LongTensor([key], device=xnmt.device))\
                     .resize_(self.expr_transposed_tensor.size()[0:-1])
 
   def as_list(self) -> List[tt.Tensor]:
@@ -295,7 +295,7 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
       the whole sequence as a tensor expression where each row is one of the embeddings.
     """
     if self.expr_transposed_tensor is None:
-      self.expr_transposed_tensor = torch.t(self.as_tensor())
+      self.expr_transposed_tensor = self.as_tensor().transpose(1,2)
     return self.expr_transposed_tensor
 
   # should get rid of this:

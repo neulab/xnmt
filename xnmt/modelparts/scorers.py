@@ -441,7 +441,7 @@ class SoftmaxTorch(Scorer, Serializable):
     return find_best_k(scores, k)
 
   def sample(self, x: tt.Tensor, n: numbers.Integral, temperature: numbers.Real=1.0):
-    raise NotImplementedError("this has not been sufficiently tested")
+    raise NotImplementedError()
     assert temperature != 0.0
     scores_expr = self.calc_log_probs(x)
     if temperature != 1.0:

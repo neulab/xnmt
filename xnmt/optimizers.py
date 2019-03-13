@@ -315,7 +315,7 @@ AdamTrainer = xnmt.resolve_backend(AdamTrainerDynet, AdamTrainerTorch)
 
 
 @xnmt.require_dynet
-class NoamTrainer(XnmtOptimizerDynet, Serializable):
+class NoamTrainerDynet(XnmtOptimizerDynet, Serializable):
   """
   Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
   In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
@@ -363,7 +363,53 @@ class NoamTrainer(XnmtOptimizerDynet, Serializable):
 
     if self.steps % 200 == 0:
       logger.info('> Optimizer Logging')
-      logger.info('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))
+      logger.info(f'  Steps={self.steps}, learning_rate={self.optimizer.learning_rate:.2e}')
+
+@xnmt.require_torch
+class NoamTrainerTorch(XnmtOptimizerTorch, Serializable):
+  """
+  Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
+  In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
+
+  Args:
+    alpha:
+    dim:
+    warmup_steps:
+    beta_1:
+    beta_2:
+    eps:
+  """
+  yaml_tag = '!NoamTrainer'
+
+  @serializable_init
+  def __init__(self,
+               alpha: numbers.Real = 1.0,
+               dim: numbers.Integral = 512,
+               warmup_steps: Optional[numbers.Integral] = 4000,
+               beta_1: numbers.Real = 0.9,
+               beta_2: numbers.Real = 0.98,
+               eps: numbers.Real = 1e-9) -> None:
+    super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
+                                                lr=alpha, betas=(beta_1, beta_2), eps=eps)
+                     )
+    self.dim = dim
+    self.warmup_steps = warmup_steps
+    self.steps = 0
+
+  def update(self) -> None:
+    self.steps += 1
+    if self.warmup_steps:
+      decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
+    else:
+      decay = (self.dim ** (-0.5)) * self.steps ** (-0.5)
+    self.lr_factor = 1. * decay
+    super().update()
+
+    if self.steps % 200 == 0:
+      logger.info('> Optimizer Logging')
+      logger.info(f'  Steps={self.steps}, learning_rate={self.lr_factor:.2e}')
+
+NoamTrainer = xnmt.resolve_backend(NoamTrainerDynet, NoamTrainerTorch)
 
 
 class DummyTrainer(XnmtOptimizer, Serializable):

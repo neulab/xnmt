@@ -16,8 +16,11 @@ from xnmt.persistence import Serializable, serializable_init
 if xnmt.backend_dynet:
   import dynet as dy
 
+if xnmt.backend_torch:
+  import torch.nn as nn
+
 @xnmt.require_dynet
-class LayerNorm(Serializable, transforms.Transform):
+class LayerNormDynet(Serializable, transforms.Transform):
   yaml_tag = "!LayerNorm"
 
   @serializable_init
@@ -32,6 +35,20 @@ class LayerNorm(Serializable, transforms.Transform):
     return dy.layer_norm(x, g, b)
 
 
+@xnmt.require_torch
+class LayerNormTorch(Serializable, transforms.Transform):
+  yaml_tag = "!LayerNorm"
+
+  @serializable_init
+  def __init__(self, d_hid: numbers.Integral) -> None:
+    my_params = param_collections.ParamManager.my_params(self)
+    self.layer_norm = nn.LayerNorm(normalized_shape=d_hid)
+    my_params.append(self.layer_norm)
+
+  def transform(self, x: tt.Tensor) -> tt.Tensor:
+    return self.layer_norm(x)
+
+LayerNorm = xnmt.resolve_backend(LayerNormDynet, LayerNormTorch)
 
 
 

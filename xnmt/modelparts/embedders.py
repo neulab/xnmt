@@ -311,9 +311,8 @@ class DenseWordEmbedderTorch(SentEmbedder, transforms.Linear, Serializable):
     self.save_processed_arg("vocab_size", self.vocab_size)
     self.linear = torch.nn.Linear(in_features=emb_dim, out_features=self.vocab_size, bias=True).to(xnmt.device)
     my_params.append(self.linear)
-    # TODO: init
-    # self.embeddings = my_params.add_parameters((self.vocab_size, self.emb_dim), init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
-    # self.bias = my_params.add_parameters((self.vocab_size,), init=bias_init.initializer((self.vocab_size,)))
+    param_init.initialize(self.linear.weight)
+    bias_init.initialize(self.linear.bias)
 
   @events.handle_xnmt_event
   def on_start_sent(self, *args, **kwargs) -> None:

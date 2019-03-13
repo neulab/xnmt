@@ -21,6 +21,7 @@ if xnmt.backend_dynet:
   Tensor.register(dy.Expression)
 if xnmt.backend_torch:
   import torch
+  import torch.nn as nn
   Tensor.register(torch.Tensor)
 
 def reset_graph():
@@ -79,7 +80,7 @@ def unmerge_time_batch_dims(x, batch_size_):
     return dy.reshape(x, hidden_dim + (seq_len,), batch_size=batch_size_)
   else:
     seq_len = x.size()[0] // batch_size_
-    hidden_dim = x.size()[2:]
+    hidden_dim = x.size()[1:]
     return x.view((batch_size_, seq_len) + hidden_dim)
 
 def aggregate_masked_loss(x, mask=None):
@@ -124,3 +125,9 @@ def average(l):
     return dy.average(l)
   else:
     return sum(l) / len(l)
+
+def dropout(t, p):
+  if xnmt.backend_dynet:
+    return dy.dropout(t, p)
+  else:
+    return nn.Dropout(p=p)(t)
