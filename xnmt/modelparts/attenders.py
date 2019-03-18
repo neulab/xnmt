@@ -21,6 +21,8 @@ class Attender(object):
   def init_sent(self, sent: expression_seqs.ExpressionSequence) -> AttenderState:
     """Args:
          sent: the encoder states, aka keys and values. Usually but not necessarily an :class:`expression_seqs.ExpressionSequence`
+       Returns:
+        An attender state representing having attended to nothing yet
     """
     raise NotImplementedError('init_sent must be implemented for Attender subclasses')
 
@@ -47,7 +49,16 @@ class Attender(object):
     I = self.curr_sent.as_tensor()
     return I * attention
 
-  def update(self, dec_state: decoders.DecoderState, att_state: AttenderState, attention: dy.Expression):
+  def update(self, dec_state: decoders.DecoderState, att_state: AttenderState, attention: dy.Expression) -> AttenderState:
+    """ Update the attender, making it aware of the attention vector from the previous time step.
+
+    Args:
+      dec_state: the decoder state from which the attention vector was predicted
+      att_state: the attender state from which the attention vector was predicted
+      attention: the attention vector from the most recent time step
+    Returns:
+      A new AttenderState which takes the most recent attention vector into consideration.
+    """
     return None
 
 def safe_affine_transform(xs):
@@ -165,7 +176,7 @@ class CoverageAttender(Attender, Serializable):
             param_init=param_init,
             bias_init=bias_init))
 
-  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> AttenderState:
     self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
