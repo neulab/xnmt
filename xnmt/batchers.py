@@ -176,7 +176,6 @@ class MaskTorch(BaseMask):
       timestep: index of current timestep
       inverse: True will keep the unmasked parts, False will zero out the unmasked parts
     """
-    # TODO
     if inverse:
       if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == 0:
         return expr

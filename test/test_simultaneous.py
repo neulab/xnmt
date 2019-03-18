@@ -2,7 +2,6 @@ import unittest
 
 import numpy
 import random
-import dynet as dy
 
 import xnmt
 from xnmt.modelparts.attenders import MlpAttender
@@ -21,6 +20,9 @@ from xnmt.modelparts.transforms import AuxNonLinear
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
+
+if xnmt.backend_dynet:
+  import dynet as dy
 
 @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
 class TestSimultaneousTranslation(unittest.TestCase):

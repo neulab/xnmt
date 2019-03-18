@@ -11,20 +11,20 @@ configuration files (see :doc:`experiment_config_files`) with a few exceptions:
 
 * Saved model files hold only one experiment (in contrast, config files contain dictionaries of several named
   experiments).
-* Saved models are accompanied by a ``.data`` directory holding trained DyNet weights.
+* Saved models are accompanied by a ``.data`` directory holding trained network weights.
 * Some components replace the originally specified arguments with updated contents. For instance, the vocabulary is
   usually stored as an explicit list in saved model files, whereas config files typically refer to an external vocab
   file.
 
 .data sub-directory
 -------------------
-This directory contains a list of DyNet subcollections with names such as ``Linear.98dc700f`` or
-``UniLSTMSeqTransducer.519cfb41``. Every ``Serializable`` class that allocates DyNet parameters using
+This directory contains a list of per-component trained network weights with names such as ``Linear-98dc700f`` or
+``UniLSTMSeqTransducer-519cfb41``. Every ``Serializable`` class that allocates trainable parameters using
 ``xnmt.param_collection.ParamManager.my_params(self)`` (see :doc:`writing_xnmt_classes`) will have one such
 subcollection written to disk. The file names correspond to the component's ``xnmt_subcol_name``, consisting of the
 component name and a unique identifier. The ``xnmt_subcol_name`` is also stored in the saved model's YAML file to
-establish the correspondence. Each subcollection is stored using DyNet's serialization format which is a readable text
-file.
+establish the correspondence. Each subcollection is stored using the selected backend's native serialization format
+(readable text file in the DyNet case).
 
 In case several checkpoints are saved, there will be additional ``.data.1``, ``.data.2`` etc. files. It is worth
 mentioning that ``xnmt_subcol_name`` does not change between checkpoints, and only one YAML file is written out. Also

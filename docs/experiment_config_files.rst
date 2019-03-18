@@ -136,7 +136,7 @@ If specified, the model is tested after training finished.
 Config files vs. saved model files
 ----------------------------------
 Saved model files are written out in the exact same YAML format as the config files (with the addition
-of some .data directories that contain DyNet weights). This means that it is possible to specify a
+of some .data directories that contain trained network weights). This means that it is possible to specify a
 saved model as the configuration file. There is one subtle difference: In a config file, placeholders
 such as ``{EXP_DIR}`` are resolved based on the current context, which will be different when directly
 specifying the saved model file as config file. For this purpose a ``--resume`` option exists that

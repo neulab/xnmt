@@ -4,7 +4,7 @@ Writing XNMT classes
 ====================
 
 In order to write new components that can be created both from YAML config files as well as programmatically, support
-sharing of DyNet parameters, etc., one must adhere to the Serializable interface including a few simple conventions:
+sharing of network parameters, etc., one must adhere to the Serializable interface including a few simple conventions:
 
 .. note:: XNMT will perform automatic checks and raise an informative error in case these conventions are violated,
   so there is no need to worry about these too much.
@@ -24,16 +24,30 @@ method. The ``__init__`` is required to be decorated with ``@xnmt.persistence.se
 Note that sub-objects are initialized before being passed to ``__init__``, and in the order in which they are
 specified in ``__init__``.
 
-Using DyNet parameters
-""""""""""""""""""""""
-If the component uses DyNet parameters, the calls to ``dynet_model.add_parameters()`` etc. must take place in
-``__init__`` (or a helper called from within ``__init__``). It is not possible to allocate parameters after
-``__init__`` has returned.
-The component will get assigned its own unique DyNet parameter collection, which can be requested using
-``xnmt.param_collection.ParamManager.my_params(self)``. Subcollections should never be passed to sub-objects
-that are ``Serializable``. Behind the scenes, components will get assigned a unique subcollection id which ensures
+Using trainable parameters
+""""""""""""""""""""""""""
+
+If the component uses trainable parameters, it must first request its own unique parameter collection using
+``my_params = xnmt.param_collection.ParamManager.my_params(self)``. The ``my_params`` object should only be requested
+and used within the ``__init__()`` method and never be passed to sub-objects that are ``Serializable``.
+It is not possible to allocate parameters after ``__init__`` has returned.
+
+Behind the scenes, components will get assigned a unique subcollection id which ensures
 that they can be loaded later along with their pretrained weights, and even combined with components trained from
 a different config file.
+
+The syntax then depends on the backend:
+
+DyNet backend:
+``````
+
+``my_params`` is an instance of ``dy.ParameterCollection``. Therefore, we can use ``my_params.add_parameters()`` etc.
+
+Pytorch backend:
+````````
+
+``my_params`` is an instance of ``torch.nn.ModuleList``. To register trainable parameters, we there create a module
+as ``mod = torch.nn.SomeModule()`` and then use ``my_params.append(mod)``.
 
 Using Serializable subcomponents
 """"""""""""""""""""""""""""""""

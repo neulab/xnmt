@@ -9,7 +9,7 @@
 #   It can be combined with the << operator that allows copying parts of a dictionary, but overwriting other parts.
 #   More info is found here: http://yaml.readthedocs.io/en/latest/example.html
 # - XNMT's !Ref object creates a reference, meaning both places will point to the exact same Python object,
-#   and that DyNet parameters will be shared.
+#   and that trainable network parameters will be shared.
 #   References can be made by path or by name, as illustrated below. The name refers to a _xnmt_id that can
 #   be set in any component and must be unique.
 #   Note that references do not work across experiments (e.g. we cannot refer to exp2.load from within exp1.pretrain)
@@ -28,7 +28,7 @@ exp1.pretrain: !Experiment
     encoder: !BiLSTMSeqTransducer
       layers: 1
     attender: !MlpAttender {}
-    # reference-sharing between softmax projection and target embedder. This means both layers share DyNet parameters!
+    # reference-sharing between softmax projection and target embedder. This means both layers share trainable network parameters!
     decoder: !AutoRegressiveDecoder
       embedder: !DenseWordEmbedder
         _xnmt_id: trg_emb # this id must be unique and is needed to create a reference-by-name below.

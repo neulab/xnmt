@@ -3,6 +3,8 @@
 API Doc
 =======
 
+The *xnmt* interface is documented below, with features not supported by the selected backend marked accordingly.
+
 Experiment
 ----------
 

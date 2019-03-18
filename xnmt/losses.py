@@ -6,6 +6,8 @@ import xnmt.tensor_tools as tt
 
 if xnmt.backend_dynet:
   import dynet as dy
+if xnmt.backend_torch:
+  import torch
 
 class BaseFactoredLossExpr(object):
   """
@@ -18,7 +20,8 @@ class BaseFactoredLossExpr(object):
   """
 
   def __init__(self, init_loss: Optional[Dict[str, tt.Tensor]] = None) -> None:
-    self.expr_factors = collections.defaultdict(lambda: dy.scalarInput(0))
+    self.expr_factors = collections.defaultdict(lambda: dy.scalarInput(0) if xnmt.backend_dynet
+                                                        else torch.Tensor([0.0]).to(xnmt.device))
     if init_loss is not None:
       for key, val in init_loss.items():
         self.expr_factors[key] = val

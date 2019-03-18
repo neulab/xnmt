@@ -2,7 +2,6 @@ import os
 import sys
 import argparse
 
-# No support for python2
 if sys.version_info[0] == 2:
   raise RuntimeError("XNMT does not support python2 any longer.")
 
@@ -35,20 +34,28 @@ import yaml
 
 def no_init(self, *wrong, **backend):
   raise ValueError(f"'{self.__class__.__name__}' is not supported by this backend.")
+DOCSTR_TORCH_ONLY = "This class is only available with the Torch backend."
+DOCSTR_DYNET_ONLY = "This class is only available with the DyNet backend."
+class Dummy(object): pass
+dummy = Dummy()
 def require_dynet(x):
   x.xnmt_backend = "dynet"
   if backend_torch:
-    x.__init__ = no_init
     if hasattr(x, "yaml_tag"):
       delattr(x, "yaml_tag")
+    # mark appropriately in documentation:
+    x.__init__ = no_init
+    x.__doc__ = DOCSTR_DYNET_ONLY
   x.backend_matches = backend_dynet
   return x
 def require_torch(x):
   x.xnmt_backend = "torch"
   if backend_dynet:
-    x.__init__ = no_init
     if hasattr(x, "yaml_tag"):
       delattr(x, "yaml_tag")
+    # mark appropriately in documentation:
+    x.__init__ = no_init
+    x.__doc__ = DOCSTR_TORCH_ONLY
   x.backend_matches = backend_torch
   return x
 def resolve_backend(a, b):

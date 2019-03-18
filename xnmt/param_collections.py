@@ -185,7 +185,7 @@ class ParamCollectionDynet(object):
     try:
       dir_contents = os.listdir(data_dir)
       for old_file in dir_contents:
-        spl = old_file.split(".")
+        spl = old_file.split("-")
         # make sure we're only deleting files with the expected filenames
         if len(spl)==2:
           if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
@@ -289,7 +289,7 @@ class ParamCollectionTorch(object):
     try:
       dir_contents = os.listdir(data_dir)
       for old_file in dir_contents:
-        spl = old_file.split(".")
+        spl = old_file.split("-")
         # make sure we're only deleting files with the expected filenames
         if len(spl) == 2:
           if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
