@@ -25,9 +25,6 @@ kftt.en-ja: !Experiment
       vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.ja'}
     src_embedder: !SimpleWordEmbedder   # Embed source words as 256 dimensional vectors
       emb_dim: 512
-#    encoder: !ResidualLSTMSeqTransducer
-#      layers: 2
-#      residual_to_output: True
     encoder: !ResidualSeqTransducer
       child: !BiLSTMSeqTransducer
         layers: 2
