@@ -174,5 +174,5 @@ def get_git_revision() -> Optional[str]:
     command = 'git rev-parse --short HEAD'
     rev = check_output(command.split(u' '), cwd=os.path.dirname(__file__)).decode('ascii').strip()
   except (CalledProcessError, OSError):
-    rev = None
+    rev = '-1'
   return rev

@@ -10,6 +10,8 @@ from xnmt.transducers import base as transducers
 
 if xnmt.backend_dynet:
   import dynet as dy
+if xnmt.backend_torch:
+  import torch.nn.functional as F
 
 class Bridge(object):
   """
@@ -72,7 +74,6 @@ class CopyBridge(Bridge, Serializable):
     return [enc_state.cell_expr() for enc_state in enc_final_states[-self.dec_layers:]] \
          + [enc_state.main_expr() for enc_state in enc_final_states[-self.dec_layers:]]
 
-@xnmt.require_dynet
 class LinearBridge(Bridge, Serializable):
   """
   This bridge does a linear transform of final states from the encoder to the decoder initial states.
@@ -88,15 +89,6 @@ class LinearBridge(Bridge, Serializable):
   """
   yaml_tag = '!LinearBridge'
 
-  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[tt.Tensor]:
-    if self.dec_layers > len(enc_final_states):
-      raise RuntimeError(
-        f"LinearBridge requires dec_layers <= len(enc_final_states), but got {self.dec_layers} and {len(enc_final_states)}")
-    if enc_final_states[0].main_expr().dim()[0][0] != self.enc_dim:
-      raise RuntimeError(
-        f"LinearBridge requires enc_dim == {self.enc_dim}, but got {enc_final_states[0].main_expr().dim()[0][0]}")
-    decoder_init = [self.projector.transform(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
-    return decoder_init + [dy.tanh(dec) for dec in decoder_init]
   @serializable_init
   def __init__(self,
                dec_layers: numbers.Integral = 1,
@@ -114,3 +106,16 @@ class LinearBridge(Bridge, Serializable):
                                                                                output_dim=self.dec_dim,
                                                                                param_init=param_init,
                                                                                bias_init=bias_init))
+
+  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[tt.Tensor]:
+    if self.dec_layers > len(enc_final_states):
+      raise RuntimeError(
+        f"LinearBridge requires dec_layers <= len(enc_final_states), but got {self.dec_layers} and {len(enc_final_states)}")
+    if enc_final_states[0].main_expr().dim()[0][0] != self.enc_dim:
+      raise RuntimeError(
+        f"LinearBridge requires enc_dim == {self.enc_dim}, but got {enc_final_states[0].main_expr().dim()[0][0]}")
+    decoder_init = [self.projector.transform(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
+    if xnmt.backend_dynet:
+      return decoder_init + [dy.tanh(dec) for dec in decoder_init]
+    else:
+      return decoder_init + [F.tanh(dec) for dec in decoder_init]

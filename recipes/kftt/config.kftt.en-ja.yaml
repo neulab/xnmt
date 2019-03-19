@@ -15,8 +15,8 @@ kftt.en-ja: !Experiment
       - '{EXP_DIR}/vocab.ja'
       specs:
       - filenum: all
-        spec:
-        - type: rank
+        filters:
+        - !VocabFiltererRank
           max_rank: 40000 # Limit the vocabulary size to the 40k most frequent words
   model: !DefaultTranslator
     src_reader: !PlainTextReader
@@ -25,15 +25,18 @@ kftt.en-ja: !Experiment
       vocab: !Vocab {vocab_file: '{EXP_DIR}/vocab.ja'}
     src_embedder: !SimpleWordEmbedder   # Embed source words as 256 dimensional vectors
       emb_dim: 512
-    encoder: !ResidualLSTMSeqTransducer
-      layers: 2
-      residual_to_output: True
+#    encoder: !ResidualLSTMSeqTransducer
+#      layers: 2
+#      residual_to_output: True
+    encoder: !ResidualSeqTransducer
+      child: !BiLSTMSeqTransducer
+        layers: 2
     attender: !MlpAttender {}
     decoder: !AutoRegressiveDecoder
-      embedder: !DenseWordEmbedder    # Represent target words as a 40000x256 matrix
+      embedder: !DenseWordEmbedder      # Represent target words as a 40000x256 matrix
         emb_dim: 512
       bridge: !LinearBridge {}          # Initialize the first state of the decoder with an affine transform of the last state of the encoder
-      rnn_layer: !UniLSTMSeqTransducer  # Just your standard LSTM decoder
+      rnn: !UniLSTMSeqTransducer        # Just your standard LSTM decoder
         layers: 2                       # With 2 layers
       transform: !AuxNonLinear
         output_dim: !Ref
@@ -42,7 +45,7 @@ kftt.en-ja: !Experiment
       scorer: !Softmax
         output_projector: !Ref
           path: model.decoder.embedder      # Tie the softmax output to the target word embeddings
-      label_smoothing: 0.1              # Smooth the output labels with the uniform distribution
+        label_smoothing: 0.1              # Smooth the output labels with the uniform distribution
     inference: !AutoRegressiveInference
       search_strategy: !BeamSearch
         beam_size: 5

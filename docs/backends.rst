@@ -32,7 +32,8 @@ Writing backend-specific code
 The backend is determined first thing during start up. It can be queried in the code using various mechanisms:
 
 * ``xnmt.backend_dynet`` or ``xnmt.backend_torch`` boolean variables. This is for example used for conditionally
-  importing backend-specific packages.
+  importing backend-specific packages, or when making a class work for the other backend requires only a minor change
+  that doesn't warrant duplicating the code for the complete class.
 * ``@xnmt.require_dynet`` or ``@xnmt.require_torch`` class decorators. For implementing backend-specific versions of
   classes, per convention one would implement two classes  ``@xnmt.require_dynet class MyClassDynet:`` and
   ``@xnmt.require_torch class MyClassTorch:``. The implementation to be used is then selected by writing

@@ -13,7 +13,7 @@ class ResidualSeqTransducer(transducers.SeqTransducer, Serializable):
   connection, and optionally performs some variety of normalization.
 
   Args:
-    child the child transducer to wrap
+    child: the child transducer to wrap
     layer_norm: whether to perform layer normalization
     dropout: whether to apply residual dropout
   """

@@ -203,7 +203,7 @@ class SoftmaxDynet(Scorer, Serializable):
       r.append((word, dy.pick(scores_expr, word)))
     return r
 
-  def can_loss_be_derived_from_scores(self):
+  def _can_loss_be_derived_from_scores(self):
     """
     This method can be used to determine whether dy.pickneglogsoftmax can be used to quickly calculate the loss value.
     If False, then the calc_loss method should (1) calc log_softmax, (2) perform necessary modification, (3) pick the loss
@@ -211,7 +211,7 @@ class SoftmaxDynet(Scorer, Serializable):
     return self.label_smoothing == 0.0
 
   def calc_loss(self, x: tt.Tensor, y: Union[numbers.Integral, List[numbers.Integral]]) -> tt.Tensor:
-    if self.can_loss_be_derived_from_scores():
+    if self._can_loss_be_derived_from_scores():
       scores = self.calc_scores(x)
       # single mode
       if not batchers.is_batched(y):
@@ -385,8 +385,8 @@ class LexiconSoftmax(SoftmaxDynet, Serializable):
     else:
       return dy.log_softmax(self.calc_scores(x))
 
-  def can_loss_be_derived_from_scores(self):
-    return self.lexicon_type == 'bias' and super().can_loss_be_derived_from_scores()
+  def _can_loss_be_derived_from_scores(self):
+    return self.lexicon_type == 'bias' and super()._can_loss_be_derived_from_scores()
 
 @xnmt.require_torch
 class SoftmaxTorch(Scorer, Serializable):
@@ -461,7 +461,7 @@ class SoftmaxTorch(Scorer, Serializable):
       r.append((word, dy.pick(scores_expr, word)))
     return r
 
-  def can_loss_be_derived_from_scores(self):
+  def _can_loss_be_derived_from_scores(self):
     """
     This method can be used to determine whether dy.pickneglogsoftmax can be used to quickly calculate the loss value.
     If False, then the calc_loss method should (1) calc log_softmax, (2) perform necessary modification, (3) pick the loss
@@ -469,7 +469,7 @@ class SoftmaxTorch(Scorer, Serializable):
     return self.label_smoothing == 0.0
 
   def calc_loss(self, x: tt.Tensor, y: Union[numbers.Integral, List[numbers.Integral]]) -> tt.Tensor:
-    if self.can_loss_be_derived_from_scores():
+    if self._can_loss_be_derived_from_scores():
       scores = torch.nn.LogSoftmax(dim=-1)(self.calc_scores(x))
       return F.nll_loss(input=scores, target=torch.tensor(y).to(xnmt.device), reduction='none')
     else:
