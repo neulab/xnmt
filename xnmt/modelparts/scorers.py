@@ -422,7 +422,6 @@ class SoftmaxTorch(Scorer, Serializable):
                param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
                bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                output_projector: transforms.Linear = None) -> None:
-    assert label_smoothing==0.0
     self.input_dim = input_dim
     self.output_dim = self._choose_vocab_size(vocab_size, vocab, trg_reader)
     self.label_smoothing = label_smoothing
@@ -442,40 +441,23 @@ class SoftmaxTorch(Scorer, Serializable):
 
   def sample(self, x: tt.Tensor, n: numbers.Integral, temperature: numbers.Real=1.0):
     raise NotImplementedError()
-    assert temperature != 0.0
-    scores_expr = self.calc_log_probs(x)
-    if temperature != 1.0:
-      scores_expr *= 1.0 / temperature
-      scores = dy.softmax(scores_expr).cpu().data.numpy()
-    else:
-      scores = dy.exp(scores_expr).cpu().data.numpy()
-
-    # Numpy is very picky. If the sum is off even by 1e-8 it complains.
-    scores /= sum(scores)
-
-    a = range(scores.shape[0])
-    samples = np.random.choice(a, (n,), replace=True, p=scores)
-
-    r = []
-    for word in samples:
-      r.append((word, dy.pick(scores_expr, word)))
-    return r
-
-  def _can_loss_be_derived_from_scores(self):
-    """
-    This method can be used to determine whether dy.pickneglogsoftmax can be used to quickly calculate the loss value.
-    If False, then the calc_loss method should (1) calc log_softmax, (2) perform necessary modification, (3) pick the loss
-    """
-    return self.label_smoothing == 0.0
 
   def calc_loss(self, x: tt.Tensor, y: Union[numbers.Integral, List[numbers.Integral]]) -> tt.Tensor:
-    if self._can_loss_be_derived_from_scores():
-      scores = torch.nn.LogSoftmax(dim=-1)(self.calc_scores(x))
-      return F.nll_loss(input=scores, target=torch.tensor(y).to(xnmt.device), reduction='none')
+    if self.label_smoothing:
+      # following this implementation:
+      # https://github.com/jadore801120/attention-is-all-you-need-pytorch/blob/master/train.py
+      pred = self.calc_scores(x)
+      eps = self.label_smoothing
+      n_class = self.output_dim
+      gold = torch.tensor(y).to(xnmt.device)
+      one_hot = torch.zeros_like(pred).scatter(1, gold.view(-1,1), 1)
+      one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / n_class
+      log_prb = F.log_softmax(pred, dim=1)
+      return -(one_hot * log_prb)
     else:
-      raise NotImplementedError()
-
-    return loss
+      # scores = torch.nn.LogSoftmax(dim=-1)(self.calc_scores(x))
+      # return F.nll_loss(input=scores, target=torch.tensor(y).to(xnmt.device), reduction='none')
+      return F.cross_entropy(self.calc_scores(x), target=torch.tensor(y).to(xnmt.device), reduction='none')
 
   def calc_probs(self, x: tt.Tensor) -> tt.Tensor:
     return torch.nn.Softmax(dim=-1)(self.calc_scores(x))
