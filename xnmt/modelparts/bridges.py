@@ -11,7 +11,7 @@ from xnmt.transducers import base as transducers
 if xnmt.backend_dynet:
   import dynet as dy
 if xnmt.backend_torch:
-  import torch.nn.functional as F
+  import torch
 
 class Bridge(object):
   """
@@ -118,4 +118,4 @@ class LinearBridge(Bridge, Serializable):
     if xnmt.backend_dynet:
       return decoder_init + [dy.tanh(dec) for dec in decoder_init]
     else:
-      return decoder_init + [F.tanh(dec) for dec in decoder_init]
+      return decoder_init + [torch.tanh(dec) for dec in decoder_init]
