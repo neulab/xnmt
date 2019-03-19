@@ -361,6 +361,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
         h_t = torch.mul(h_t, self.dropout_mask_h[layer_i])
       new_c.append(c_t)
       new_h.append(h_t)
+      x = h_t
 
     return new_c, new_h
 

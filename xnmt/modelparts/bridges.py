@@ -111,9 +111,9 @@ class LinearBridge(Bridge, Serializable):
     if self.dec_layers > len(enc_final_states):
       raise RuntimeError(
         f"LinearBridge requires dec_layers <= len(enc_final_states), but got {self.dec_layers} and {len(enc_final_states)}")
-    if enc_final_states[0].main_expr().dim()[0][0] != self.enc_dim:
+    if tt.hidden_size(enc_final_states[0].main_expr()) != self.enc_dim:
       raise RuntimeError(
-        f"LinearBridge requires enc_dim == {self.enc_dim}, but got {enc_final_states[0].main_expr().dim()[0][0]}")
+        f"LinearBridge requires enc_dim == {self.enc_dim}, but got {tt.hidden_size(enc_final_states[0].main_expr())}")
     decoder_init = [self.projector.transform(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
     if xnmt.backend_dynet:
       return decoder_init + [dy.tanh(dec) for dec in decoder_init]
