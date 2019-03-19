@@ -70,8 +70,8 @@ class BaseFactoredLossExpr(object):
       Factored loss values.
     """
     raise NotImplementedError()
-    def __len__(self):
-      return len(self.expr_factors)
+  def __len__(self):
+    return len(self.expr_factors)
 
   def __mul__(self, scalar):
     return self.__class__({key: scalar*value for key, value in self.expr_factors.items()})

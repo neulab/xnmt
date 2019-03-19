@@ -184,7 +184,10 @@ class MaskTorch(BaseMask):
       if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == self.np_arr[:, timestep:timestep + 1].size:
         return expr
       mask_exp = torch.as_tensor(self.np_arr[:, timestep:timestep + 1], dtype=expr.dtype, device=xnmt.device)
-    return torch.mul(expr, mask_exp)
+    if expr.dim()==1: mask_exp = mask_exp.view(expr.size())
+    ret = torch.mul(expr, mask_exp)
+    assert ret.size() == expr.size()
+    return ret
 
   def add_to_tensor_expr(self, tensor_expr: tt.Tensor,
                          multiplicator: Optional[numbers.Real] = None) -> tt.Tensor:
