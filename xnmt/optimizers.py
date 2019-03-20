@@ -298,6 +298,7 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
     beta_1: Moving average parameter for the mean
     beta_2: Moving average parameter for the variance
     eps: Epsilon parameter to prevent numerical instability
+    amsgrad: whether to use the AMSGrad variant of this algorithm from the paper `On the Convergence of Adam and Beyond`
   """
   yaml_tag = '!AdamTrainer'
 
@@ -306,9 +307,10 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
                alpha: numbers.Real = 0.001,
                beta_1: numbers.Real = 0.9,
                beta_2: numbers.Real = 0.999,
-               eps: numbers.Real = 1e-8) -> None:
+               eps: numbers.Real = 1e-8,
+               amsgrad: bool = False) -> None:
     super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
-                                                lr=alpha, betas=(beta_1, beta_2), eps=eps)
+                                                lr=alpha, betas=(beta_1, beta_2), eps=eps, amsgrad=amsgrad)
                      )
 
 AdamTrainer = xnmt.resolve_backend(AdamTrainerDynet, AdamTrainerTorch)
