@@ -134,24 +134,7 @@ class NonLinearDynet(Transform, Serializable):
     self.bias = bias
     self.output_dim = output_dim
     self.input_dim = input_dim
-    if activation == 'tanh':
-      self.activation = dy.tanh
-    elif activation == 'relu':
-      self.activation = dy.rectify
-    elif activation == 'sigmoid':
-      self.activation = dy.sigmoid
-    elif activation == 'elu':
-      self.activation = dy.elu
-    elif activation == 'selu':
-      self.activation = dy.selu
-    elif activation == 'asinh':
-      self.activation = dy.asinh
-    elif activation == 'identity':
-      def identity(x):
-        return x
-      self.activation = identity
-    else:
-      raise ValueError(f"Unknown activation {activation}")
+    self.activation = activation_by_name(activation)
 
     my_params = param_collections.ParamManager.my_params(self)
     self.W1 = my_params.add_parameters((self.output_dim, self.input_dim), init=param_init.initializer((self.output_dim, self.input_dim)))
@@ -193,23 +176,7 @@ class NonLinearTorch(Transform, Serializable):
     self.bias = bias
     self.output_dim = output_dim
     self.input_dim = input_dim
-    if activation == 'tanh':
-      self.activation = torch.tanh
-    elif activation == 'relu':
-      self.activation = torch.relu
-    elif activation == 'sigmoid':
-      self.activation = torch.sigmoid
-    elif activation == 'elu':
-      self.activation = torch.elu
-    elif activation == 'selu':
-      self.activation = torch.selu
-    elif activation == 'identity':
-      def identity(x):
-        return x
-      self.activation = identity
-    else:
-      raise ValueError(f"Unknown activation {activation}")
-
+    self.activation = activation_by_name(activation)
     self.linear = nn.Linear(in_features=self.input_dim,
                             out_features=self.output_dim,
                             bias=self.bias).to(xnmt.device)
@@ -275,7 +242,6 @@ class MLP(Transform, Serializable):
       expr = layer.transform(expr)
     return expr
 
-@xnmt.require_dynet
 class Cwise(Transform, Serializable):
   """
   A component-wise transformation that can be an arbitrary unary DyNet operation.
@@ -286,9 +252,7 @@ class Cwise(Transform, Serializable):
   yaml_tag = "!Cwise"
   @serializable_init
   def __init__(self, op: str = "rectify") -> None:
-    self.op = getattr(dy, op, None)
-    if not self.op:
-      raise ValueError(f"DyNet does not have an operation '{op}'.")
+    self.op = activation_by_name(op)
 
   def transform(self, input_expr: tt.Tensor) -> tt.Tensor:
     return self.op(input_expr)
@@ -334,3 +298,27 @@ class AuxNonLinear(NonLinear, Serializable):
       bias_init=bias_init
     )
     self.save_processed_arg("input_dim", original_input_dim)
+
+
+def identity(x):
+  return x
+def activation_by_name(activation):
+  if activation == 'tanh':
+    return dy.tanh if xnmt.backend_dynet else torch.tanh
+  elif activation in ['rectify','relu']:
+    return dy.rectify if xnmt.backend_dynet else torch.relu
+  elif activation == 'sigmoid':
+    return dy.sigmoid if xnmt.backend_dynet else torch.sigmoid
+  elif activation == 'elu':
+    return dy.elu if xnmt.backend_dynet else torch.elu
+  elif activation == 'selu':
+    return dy.selu if xnmt.backend_dynet else torch.selu
+  elif activation == 'asinh':
+    if xnmt.backend_dynet:
+      return dy.asinh
+    else:
+      raise ValueError(f"Unknown activation {activation}")
+  elif activation == 'identity':
+    return identity
+  else:
+    raise ValueError(f"Unknown activation {activation}")
