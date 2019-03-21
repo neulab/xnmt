@@ -150,7 +150,8 @@ class BeamSearch(Serializable, SearchStrategy):
           prev_word = None
           prev_state = initial_state
         # We have a complete hyp ending with </s>
-        if generator.finish_generating(prev_word, prev_state):
+        done = generator.finish_generating(prev_word, prev_state)
+        if all(done):
           completed_hyp.append(hyp)
           continue
         # Find the k best words at the next time step

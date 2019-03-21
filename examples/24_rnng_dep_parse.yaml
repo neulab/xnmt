@@ -48,4 +48,4 @@ dep_parse: !Experiment
       src_file: examples/data/dep_tree.en
       hyp_file: examples/output/{EXP}.test_hyp
       inference: !AutoRegressiveInference
-        search_strategy: !GreedySearch {}
+        search_strategy: !BeamSearch {}
