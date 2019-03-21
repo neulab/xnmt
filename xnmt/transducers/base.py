@@ -182,7 +182,7 @@ class TransformSeqTransducerTorch(SeqTransducer, Serializable):
     if self.downsample_by > 1:
       assert src_tensor.dim()==3, \
         f"Downsampling only supported for tensors of order two (+ batch). Found dims {src_tensor.size()}"
-      batch_size , hidden_dim, seq_len = src_tensor.size()
+      batch_size , seq_len, hidden_dim = src_tensor.size()
       if seq_len % self.downsample_by != 0:
         raise ValueError(
           "For downsampling, sequence lengths must be multiples of the total reduce factor. "
