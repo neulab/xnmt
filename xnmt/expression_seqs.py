@@ -312,7 +312,7 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
 
 ExpressionSequence = xnmt.resolve_backend(ExpressionSequenceDynet, ExpressionSequenceTorch)
 
-class LazyNumpyExpressionSequence(ExpressionSequenceDynet):
+class LazyNumpyExpressionSequence(ExpressionSequence):
   """
   This is initialized via numpy arrays, and dynet expressions are only created
   once a consumer requests representation as list or tensor.
@@ -327,7 +327,7 @@ class LazyNumpyExpressionSequence(ExpressionSequenceDynet):
     self.mask = mask
   def __len__(self):
     if self.expr_list or self.expr_tensor:
-      return super(LazyNumpyExpressionSequence, self).__len__()
+      return super().__len__()
     else:
       if batchers.is_batched(self.lazy_data):
         return self.lazy_data[0].get_array().shape[1]
@@ -335,10 +335,10 @@ class LazyNumpyExpressionSequence(ExpressionSequenceDynet):
   def __iter__(self):
     if not (self.expr_list or self.expr_tensor):
       self.expr_list = [self[i] for i in range(len(self))]
-    return super(LazyNumpyExpressionSequence, self).__iter__()
+    return super().__iter__()
   def __getitem__(self, key):
     if self.expr_list or self.expr_tensor:
-      return super(LazyNumpyExpressionSequence, self).__getitem__(key)
+      return super().__getitem__(key)
     else:
       if xnmt.backend_torch:
         return torch.tensor(
@@ -359,7 +359,7 @@ class LazyNumpyExpressionSequence(ExpressionSequenceDynet):
         self.expr_tensor = dy.inputTensor(array, batched=batchers.is_batched(self.lazy_data))
       else:
         self.expr_tensor = torch.tensor(array, device=xnmt.device)
-    return super(LazyNumpyExpressionSequence, self).as_tensor()
+    return super().as_tensor()
 
 class BaseReversedExpressionSequence(BaseExpressionSequence):
   def __init__(self, base_expr_seq):
