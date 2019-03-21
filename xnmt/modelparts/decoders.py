@@ -1,15 +1,10 @@
 from typing import Any
 import numbers
 
-import xnmt
 import xnmt.tensor_tools as tt
-from xnmt import param_collections
 from xnmt.modelparts import bridges, transforms, scorers, embedders
 from xnmt.transducers import recurrent
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
-
-if xnmt.backend_dynet:
-  import dynet as dy
 
 class Decoder(object):
   """
@@ -63,7 +58,6 @@ class AutoRegressiveDecoderState(DecoderState):
   def context(self, value):
     self._context = value
 
-# @xnmt.require_dynet
 class AutoRegressiveDecoder(Decoder, Serializable):
   """
   Standard autoregressive-decoder.
