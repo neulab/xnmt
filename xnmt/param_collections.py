@@ -112,19 +112,9 @@ class ParamManager(object):
 
 class RevertingUnsavedModelException(Exception): pass
 
-@xnmt.require_dynet
-class ParamCollectionDynet(object):
-
+class BaseParamCollection(object):
   def __init__(self) -> None:
     self.reset()
-
-  def reset(self) -> None:
-    self._save_num_checkpoints = 1
-    self._model_file = None
-    self._param_col = dy.Model()
-    self._is_saved = False
-    self.subcols = {}
-    self.all_subcol_owners = set()
 
   @property
   def save_num_checkpoints(self):
@@ -133,6 +123,7 @@ class ParamCollectionDynet(object):
   def save_num_checkpoints(self, value):
     self._save_num_checkpoints = value
     self._update_data_files()
+
   @property
   def model_file(self):
     return self._model_file
@@ -140,6 +131,7 @@ class ParamCollectionDynet(object):
   def model_file(self, value):
     self._model_file = value
     self._update_data_files()
+
   def _update_data_files(self):
     if self._save_num_checkpoints>0 and self._model_file:
       self._data_files = [self.model_file + '.data']
@@ -147,6 +139,45 @@ class ParamCollectionDynet(object):
         self._data_files.append(self.model_file + '.data.' + str(i))
     else:
       self._data_files = []
+  def _remove_existing_history(self):
+    for fname in self._data_files:
+      if os.path.exists(fname):
+        self._remove_data_dir(fname)
+
+  def _remove_data_dir(self, data_dir):
+    assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
+    try:
+      dir_contents = os.listdir(data_dir)
+      for old_file in dir_contents:
+        spl = old_file.split("-")
+        # make sure we're only deleting files with the expected filenames
+        if len(spl) == 2:
+          if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
+            if re.match(r"^[0-9a-f]{8}$", spl[1]):
+              os.remove(os.path.join(data_dir, old_file))
+    except NotADirectoryError:
+      os.remove(data_dir)
+
+  def _shift_saved_checkpoints(self):
+    if os.path.exists(self._data_files[-1]):
+      self._remove_data_dir(self._data_files[-1])
+    for i in range(len(self._data_files) - 1)[::-1]:
+      if os.path.exists(self._data_files[i]):
+        os.rename(self._data_files[i], self._data_files[i + 1])
+
+@xnmt.require_dynet
+class ParamCollectionDynet(BaseParamCollection):
+
+  def __init__(self) -> None:
+    super().__init__()
+
+  def reset(self) -> None:
+    self._save_num_checkpoints = 1
+    self._model_file = None
+    self._param_col = dy.Model()
+    self._is_saved = False
+    self.subcols = {}
+    self.all_subcol_owners = set()
 
   def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> 'dy.ParameterCollection':
     assert subcol_owner not in self.all_subcol_owners
@@ -176,30 +207,6 @@ class ParamCollectionDynet(object):
     for subcol_name, subcol in self.subcols.items():
       subcol.populate(os.path.join(self._data_files[0], subcol_name))
 
-  def _remove_existing_history(self):
-    for fname in self._data_files:
-      if os.path.exists(fname):
-        self._remove_data_dir(fname)
-  def _remove_data_dir(self, data_dir):
-    assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
-    try:
-      dir_contents = os.listdir(data_dir)
-      for old_file in dir_contents:
-        spl = old_file.split("-")
-        # make sure we're only deleting files with the expected filenames
-        if len(spl)==2:
-          if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
-            if re.match(r"^[0-9a-f]{8}$", spl[1]):
-              os.remove(os.path.join(data_dir, old_file))
-    except NotADirectoryError:
-      os.remove(data_dir)
-  def _shift_saved_checkpoints(self):
-    if os.path.exists(self._data_files[-1]):
-      self._remove_data_dir(self._data_files[-1])
-    for i in range(len(self._data_files)-1)[::-1]:
-      if os.path.exists(self._data_files[i]):
-        os.rename(self._data_files[i], self._data_files[i+1])
-
   def global_collection(self):
     return self._param_col
 
@@ -207,7 +214,7 @@ class ParamCollectionDynet(object):
     return self._param_col.parameter_count()
 
 @xnmt.require_torch
-class InitializableModule(nn.ModuleList):
+class InitializableModuleList(nn.ModuleList):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
 
@@ -227,13 +234,11 @@ class InitializableModule(nn.ModuleList):
 
 
 @xnmt.require_torch
-class ParamCollectionTorch(object):
-
-  # TODO: move some code into a BaseParamCollection
+class ParamCollectionTorch(BaseParamCollection):
 
   def __init__(self) -> None:
-    self.reset()
-
+    super().__init__()
+    
   def reset(self) -> None:
     self._save_num_checkpoints = 1
     self._model_file = None
@@ -241,38 +246,12 @@ class ParamCollectionTorch(object):
     self._is_saved = False
     self.all_subcol_owners = set()
 
-  @property
-  def save_num_checkpoints(self):
-    return self._save_num_checkpoints
-
-  @save_num_checkpoints.setter
-  def save_num_checkpoints(self, value):
-    self._save_num_checkpoints = value
-    self._update_data_files()
-
-  @property
-  def model_file(self):
-    return self._model_file
-
-  @model_file.setter
-  def model_file(self, value):
-    self._model_file = value
-    self._update_data_files()
-
-  def _update_data_files(self):
-    if self._save_num_checkpoints > 0 and self._model_file:
-      self._data_files = [self.model_file + '.data']
-      for i in range(1, self._save_num_checkpoints):
-        self._data_files.append(self.model_file + '.data.' + str(i))
-    else:
-      self._data_files = []
-
-  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> InitializableModule:
+  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> InitializableModuleList:
     assert subcol_owner not in self.all_subcol_owners
     self.all_subcol_owners.add(subcol_owner)
     if subcol_name in self.subcols:
       raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
-    new_subcol = InitializableModule()
+    new_subcol = InitializableModuleList()
     self.subcols[subcol_name] = new_subcol
     return new_subcol
 
@@ -299,32 +278,6 @@ class ParamCollectionTorch(object):
       loaded = torch.load(data_file)
       subcol.load_state_dict(loaded.state_dict())
 
-  def _remove_existing_history(self):
-    for fname in self._data_files:
-      if os.path.exists(fname):
-        self._remove_data_dir(fname)
-
-  def _remove_data_dir(self, data_dir):
-    assert data_dir.endswith(".data") or data_dir.split(".")[-2] == "data"
-    try:
-      dir_contents = os.listdir(data_dir)
-      for old_file in dir_contents:
-        spl = old_file.split("-")
-        # make sure we're only deleting files with the expected filenames
-        if len(spl) == 2:
-          if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
-            if re.match(r"^[0-9a-f]{8}$", spl[1]):
-              os.remove(os.path.join(data_dir, old_file))
-    except NotADirectoryError:
-      os.remove(data_dir)
-
-  def _shift_saved_checkpoints(self):
-    if os.path.exists(self._data_files[-1]):
-      self._remove_data_dir(self._data_files[-1])
-    for i in range(len(self._data_files) - 1)[::-1]:
-      if os.path.exists(self._data_files[i]):
-        os.rename(self._data_files[i], self._data_files[i + 1])
-
   def global_collection(self):
     return self.subcols
 
@@ -332,3 +285,4 @@ class ParamCollectionTorch(object):
     return sum(p.numel() for p in self.subcols.parameters())
 
 ParamCollection = xnmt.resolve_backend(ParamCollectionDynet, ParamCollectionTorch)
+
