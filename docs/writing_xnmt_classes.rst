@@ -46,7 +46,7 @@ DyNet backend:
 Pytorch backend:
 ````````
 
-``my_params`` is an instance of ``torch.nn.ModuleList``. To register trainable parameters, we there create a module
+``my_params`` is a subclass of ``torch.nn.ModuleList``. To register trainable parameters, we there create a module
 as ``mod = torch.nn.SomeModule()`` and then use ``my_params.append(mod)``.
 
 Using Serializable subcomponents

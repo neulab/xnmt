@@ -301,11 +301,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       for layer in range(layers)
     ]).to(xnmt.device)
     my_params.append(self.layers)
-    for name, param in self.layers.named_parameters():
-      if 'weight' in name:
-        param_init.initialize(param)
-      if 'bias' in name:
-        bias_init.initialize(param)
+    my_params.init_params(param_init, bias_init)
     # init forget gate biases to 1
     for name, param in self.layers.named_parameters():
       if 'bias' in name:
@@ -601,11 +597,7 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     my_params = param_collections.ParamManager.my_params(self)
     my_params.append(self.lstm)
     self.dropout_op = nn.Dropout(p=vert_dropout) if vert_dropout else None
-    for name, param in self.lstm.named_parameters():
-      if 'weight' in name:
-        param_init.initialize(param)
-      if 'bias' in name:
-        bias_init.initialize(param)
+    my_params.init_params(param_init, bias_init)
     # init forget gate biases to 1
     for name, param in self.lstm.named_parameters():
       if 'bias' in name:

@@ -152,8 +152,7 @@ class MultiHeadAttentionSeqTransducerTorch(transducers.SeqTransducer, Serializab
     self.lin_q, self.lin_k, self.lin_v, self.lin_o = lins
     for lin in lins:
       my_params.append(lin)
-      param_init.initialize(lin.weight)
-      bias_init.initialize(lin.bias)
+    my_params.init_params(param_init, bias_init)
 
   @events.handle_xnmt_event
   def on_start_sent(self, src):

@@ -311,8 +311,7 @@ class DenseWordEmbedderTorch(SentEmbedder, transforms.Linear, Serializable):
     self.save_processed_arg("vocab_size", self.vocab_size)
     self.linear = torch.nn.Linear(in_features=emb_dim, out_features=self.vocab_size, bias=True).to(xnmt.device)
     my_params.append(self.linear)
-    param_init.initialize(self.linear.weight)
-    bias_init.initialize(self.linear.bias)
+    my_params.init_params(param_init, bias_init)
 
   @events.handle_xnmt_event
   def on_start_sent(self, *args, **kwargs) -> None:
@@ -482,9 +481,9 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.save_processed_arg("vocab_size", self.vocab_size)
     self.embeddings = nn.Embedding(self.vocab_size, self.emb_dim).to(xnmt.device)
-    param_init.initialize(self.embeddings.weight)
     my_params = param_collections.ParamManager.my_params(self)
     my_params.append(self.embeddings)
+    my_params.init_params(param_init)
 
   @events.handle_xnmt_event
   def on_set_train(self, val: bool) -> None:

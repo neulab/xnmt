@@ -101,7 +101,7 @@ class PositionalSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     my_params = param_collections.ParamManager.my_params(self)
     self.embeddings = nn.Embedding(self.max_pos, self.input_dim).to(xnmt.device)
     my_params.append(self.embeddings)
-    param_init.initialize(self.embeddings.weight)
+    my_params.init_params(param_init)
 
   @ events.handle_xnmt_event
   def on_set_train(self, val):

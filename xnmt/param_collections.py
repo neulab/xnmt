@@ -207,6 +207,26 @@ class ParamCollectionDynet(object):
     return self._param_col.parameter_count()
 
 @xnmt.require_torch
+class InitializableModule(nn.ModuleList):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+
+  def init_params(self,
+                  param_init: 'xnmt.param_initializers.ParamInitializer',
+                  bias_init: 'xnmt.param_initializers.ParamInitializer' = None):
+    """Initialize all contained parameters
+
+    param_init: initializer to use for params that are named *weight*
+    bias_init: initializer to use for params that are named *bias*
+    """
+    for name, param in self.named_parameters():
+      if 'weight' in name:
+        param_init.initialize(param)
+      if bias_init is not None and 'bias' in name:
+        bias_init.initialize(param)
+
+
+@xnmt.require_torch
 class ParamCollectionTorch(object):
 
   # TODO: move some code into a BaseParamCollection
@@ -247,12 +267,12 @@ class ParamCollectionTorch(object):
     else:
       self._data_files = []
 
-  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> 'nn.Module':
+  def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> InitializableModule:
     assert subcol_owner not in self.all_subcol_owners
     self.all_subcol_owners.add(subcol_owner)
     if subcol_name in self.subcols:
       raise RuntimeError(f'Duplicate subcol_name {subcol_name} found when loading')
-    new_subcol = nn.ModuleList()
+    new_subcol = InitializableModule()
     self.subcols[subcol_name] = new_subcol
     return new_subcol
 

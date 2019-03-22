@@ -147,10 +147,7 @@ class MlpAttenderTorch(Attender, Serializable):
     my_params.append(self.linear_context)
     my_params.append(self.linear_query)
     my_params.append(self.pU)
-    param_init.initialize(self.linear_context.weight)
-    param_init.initialize(self.linear_query.weight)
-    bias_init.initialize(self.linear_query.bias)
-    param_init.initialize(self.pU.weight)
+    my_params.init_params(param_init, bias_init)
 
     self.curr_sent = None
     self.attention_vecs = None
