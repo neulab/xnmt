@@ -986,6 +986,7 @@ class FMeasureEvaluator(SentenceLevelEvaluator, Serializable):
                     false_neg=1 if (ref != hyp) and (hyp != self.pos_token) else 0,
                     false_pos=1 if (ref != hyp) and (hyp == self.pos_token) else 0)
 
+
 class SegmentationFMeasureEvaluator(SentenceLevelEvaluator, Serializable):
   yaml_tag = "!SegmentationFMeasureEvaluator"
   @serializable_init
@@ -1025,3 +1026,23 @@ class SegmentationFMeasureEvaluator(SentenceLevelEvaluator, Serializable):
         fn += 1
     return FMeasure(true_pos=tp, false_neg=fn, false_pos=fp)
 
+
+class RNNGParseFMeasureEvaluator(SentenceLevelEvaluator, Serializable):
+  yaml_tag = "!RNNGParseFMeasureEvaluator"
+  @serializable_init
+  def __init__(self, ignore_word_in_gen=False, write_sentence_scores: Optional[str]=None):
+    super().__init__(write_sentence_scores=write_sentence_scores)
+    self.ignore_word_in_gen = ignore_word_in_gen
+    self.gleu_evalutor = GLEUEvaluator()
+  
+  def evaluate_one_sent(self, ref:Sequence[str], hyp:Sequence[str]):
+    if self.ignore_word_in_gen:
+      for i in range(len(ref)):
+        if ref[i].startswith("GEN"):
+          ref[i] = "SHIFT"
+      for i in range(len(hyp)):
+        if hyp[i].startswith("GEN"):
+          hyp[i] = "SHIFT"
+    
+    return self.gleu_evalutor.evaluate_one_sent(ref, hyp)
+ 

@@ -28,6 +28,7 @@ eval_shortcuts = {
   "accuracy": lambda: metrics.SequenceAccuracyEvaluator(),
   "fmeasure" : lambda: metrics.FMeasureEvaluator(),
   "seg_fmeasure": lambda: metrics.SegmentationFMeasureEvaluator(),
+  "rnng_parse_fmeasure": lambda: metrics.RNNGParseFMeasureEvaluator(),
 }
 
 def xnmt_evaluate(ref_file: Union[str, Sequence[str]],
