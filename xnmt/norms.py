@@ -17,7 +17,7 @@ if xnmt.backend_dynet:
   import dynet as dy
 
 if xnmt.backend_torch:
-  import torch.nn as nn
+  import torch, torch.nn as nn
 
 @xnmt.require_dynet
 class LayerNormDynet(Serializable, transforms.Transform):
@@ -56,7 +56,7 @@ BN_EPS = 0.1
 BN_MOMENTUM = 0.1
 
 @xnmt.require_dynet
-class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
+class BatchNormDynet(Serializable, transforms.Transform, transducers.SeqTransducer):
   """
   Implements batch normalization according to Ioffe and Szegedy, 2015.
 
@@ -156,6 +156,98 @@ class BatchNorm(Serializable, transforms.Transform, transducers.SeqTransducer):
   def on_set_train(self, val):
     self.train = val
 
+
+
+@xnmt.require_torch
+class BatchNormTorch(Serializable, transforms.Transform, transducers.SeqTransducer):
+  """
+  Implements batch normalization according to Ioffe and Szegedy, 2015.
+
+  Supports application to matrices or higher-order tensors, in which case one dimension is interpreted as the time
+  dimension and sequential batch norm is applied.
+
+  A known issue is that the running mean / std is not reverted when reverting the parameters to the best model,
+  though this is unlikely to make any difference in practice.
+
+  Reference: https://arxiv.org/pdf/1502.03167.pdf
+
+  Args:
+    hidden_dim: hidden dimension of the layer to apply batch norm on
+    num_dim: order of tensor
+    population_running_mean: automatically set
+    population_running_std: automatically set
+  """
+  yaml_tag = "!BatchNorm"
+
+  @serializable_init
+  @events.register_xnmt_handler
+  def __init__(self,
+               hidden_dim: numbers.Integral,
+               num_dim: numbers.Integral,
+               population_running_mean: Optional[np.ndarray] = None,
+               population_running_std: Optional[np.ndarray] = None) -> None:
+    my_params = param_collections.ParamManager.my_params(self)
+    self.hidden_dim = hidden_dim
+    self.num_dim = num_dim
+    my_params.register_parameter('weight', nn.parameter.Parameter(torch.Tensor(hidden_dim)))
+    self.gamma = my_params._parameters['weight']
+    my_params.register_parameter('bias', nn.parameter.Parameter(torch.Tensor(hidden_dim)))
+    self.beta = my_params._parameters['bias']
+    nn.init.uniform_(my_params.weight)
+    nn.init.zeros_(my_params.bias)
+    if population_running_mean is None:
+      self.population_running_mean = np.zeros((hidden_dim,))
+    else:
+      self.population_running_mean = population_running_mean
+    if population_running_std is None:
+      self.population_running_std = np.ones((hidden_dim,))
+    else:
+      self.population_running_std = population_running_std
+
+  def transform(self, input_expr: tt.Tensor, mask: Optional[batchers.Mask]=None) -> tt.Tensor:
+    """
+    Apply batch norm.
+
+    Args:
+      input_expr: input
+      mask: compute statistics only over unmasked parts of the input expression
+    """
+    size_in = input_expr.size()
+    if self.train:
+      if mask is None:
+        unmasked_input = input_expr
+      else:
+        mask_expr = torch.ByteTensor(1.0-mask.np_arr).to(xnmt.device)
+        while mask_expr.dim() < input_expr.dim():
+          mask_expr = mask_expr.unsqueeze(-1)
+        unmasked_input = torch.masked_select(input_expr, mask_expr)
+      flat_unmasked_input = unmasked_input.view((-1,self.hidden_dim))
+      bn_mean = torch.mean(flat_unmasked_input, dim=0)
+      neg_bn_mean_reshaped = -bn_mean
+      self.population_running_mean += (-BN_MOMENTUM) * self.population_running_mean + BN_MOMENTUM * tt.npvalue(bn_mean)
+      bn_std = torch.std(flat_unmasked_input, dim=0)
+      self.population_running_std += (-BN_MOMENTUM) * self.population_running_std + BN_MOMENTUM * tt.npvalue(bn_std)
+    else:
+      neg_bn_mean_reshaped = -torch.Tensor(self.population_running_mean).to(xnmt.device)
+      bn_std = torch.Tensor(self.population_running_std).to(xnmt.device)
+    bn_numerator = input_expr + neg_bn_mean_reshaped
+    bn_xhat = torch.div(bn_numerator, bn_std + BN_EPS)
+    bn_y = torch.mul(self.gamma, bn_xhat) + self.beta # y = gamma * xhat + beta
+    size_out = bn_y.size()
+    self.save_processed_arg("population_running_mean", self.population_running_mean)
+    self.save_processed_arg("population_running_std", self.population_running_std)
+    assert size_out == size_in
+    return bn_y
+
+  def transduce(self, es: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
+    output = self.transform(es.as_tensor(), es.mask)
+    return expression_seqs.ExpressionSequence(expr_tensor=output, mask=es.mask)
+
+  @events.handle_xnmt_event
+  def on_set_train(self, val):
+    self.train = val
+
+BatchNorm = xnmt.resolve_backend(BatchNormDynet, BatchNormTorch)
 
 # Batch norm helpers:
 
