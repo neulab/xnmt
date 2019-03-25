@@ -28,10 +28,8 @@ class UniLSTMState(object):
                h: Sequence[tt.Tensor] = None) -> None:
     self._network = network
     if c is None:
-      # c = [dy.zeroes(dim=(network.hidden_dim,)) for _ in range(network.num_layers)]
       c = [tt.zeroes(hidden_dim=network.hidden_dim) for _ in range(network.num_layers)]
     if h is None:
-      # h = [dy.zeroes(dim=(network.hidden_dim,)) for _ in range(network.num_layers)]
       h = [tt.zeroes(hidden_dim=network.hidden_dim) for _ in range(network.num_layers)]
     self._c = tuple(c)
     self._h = tuple(h)
