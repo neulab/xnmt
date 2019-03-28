@@ -385,7 +385,7 @@ class LazyNumpyExpressionSequenceTorch(ExpressionSequence):
         np.array([self.lazy_data[batch].get_array()[key, :] for batch in range(self.lazy_data.batch_size())]),
         device=xnmt.device)
   def as_tensor(self) -> tt.Tensor:
-    if not (self.expr_list or self.expr_tensor):
+    if not (self.expr_list or self.expr_tensor is not None):
       if not batchers.is_batched(self.lazy_data):
         raise NotImplementedError()
       array = np.concatenate([d.get_array().reshape((1,) + d.get_array().shape) for d in self.lazy_data], axis=0)
