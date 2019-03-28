@@ -517,7 +517,7 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
           ret = torch.mul(self.fix_norm)
       if self.train and self.word_id_mask and any(x[i] in self.word_id_mask[i] for i in range(x.batch_size())):
         dropout_mask = torch.tensor([[0.0]*self.emb_dim if x[i] in self.word_id_mask[i] else [1.0]*self.emb_dim for i in range(x.batch_size())], device=xnmt.device)
-        ret = torch.mult(ret, dropout_mask)
+        ret = torch.mul(ret, dropout_mask)
     if self.train and self.weight_noise > 0.0:
       noise = torch.autograd.Variable(ret.data.new(ret.size(), device=xnmt.device).normal_(0.0, self.weight_noise))
       ret = ret + noise
