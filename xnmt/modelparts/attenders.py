@@ -174,7 +174,7 @@ MlpAttender = xnmt.resolve_backend(MlpAttenderDynet, MlpAttenderTorch)
 
 
 @xnmt.require_dynet
-class DotAttender(Attender, Serializable):
+class DotAttenderDynet(Attender, Serializable):
   """
   Implements dot product attention of https://arxiv.org/abs/1508.04025
   Also (optionally) perform scaling of https://arxiv.org/abs/1706.03762
@@ -206,6 +206,44 @@ class DotAttender(Attender, Serializable):
     normalized = dy.softmax(scores)
     self.attention_vecs.append(normalized)
     return normalized
+
+@xnmt.require_torch
+class DotAttenderTorch(Attender, Serializable):
+  """
+  Implements dot product attention of https://arxiv.org/abs/1508.04025
+  Also (optionally) perform scaling of https://arxiv.org/abs/1706.03762
+
+  Args:
+    scale: whether to perform scaling
+  """
+
+  yaml_tag = '!DotAttender'
+
+  @serializable_init
+  def __init__(self,
+               scale: bool = True) -> None:
+    self.curr_sent = None
+    self.scale = scale
+    self.attention_vecs = []
+
+  def init_sent(self, sent: expression_seqs.ExpressionSequence) -> None:
+    self.curr_sent = sent
+    self.attention_vecs = []
+    self.I = self.curr_sent.as_tensor().transpose(1,2)
+
+  def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
+    # https://github.com/espnet/espnet/blob/master/espnet/nets/pytorch_backend/attentions.py#L85
+    scores = torch.matmul(state.unsqueeze(1), self.I)
+    if self.scale:
+      scores /= math.sqrt(tt.hidden_size(state))
+    if self.curr_sent.mask is not None:
+      scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
+    normalized = F.softmax(scores, dim=2)
+    self.attention_vecs.append(normalized)
+    return normalized
+
+DotAttender = xnmt.resolve_backend(DotAttenderDynet, DotAttenderTorch)
+
 
 @xnmt.require_dynet
 class BilinearAttender(Attender, Serializable):

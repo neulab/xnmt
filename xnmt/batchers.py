@@ -198,7 +198,9 @@ class MaskTorch(BaseMask):
         mask_expr = torch.as_tensor(np.expand_dims(self.np_arr, axis=1) * multiplicator, dtype=tensor_expr.dtype,device=xnmt.device)
       else:
         mask_expr = torch.as_tensor(np.expand_dims(self.np_arr, axis=1), dtype=tensor_expr.dtype,device=xnmt.device)
-      return tensor_expr + mask_expr
+      ret = tensor_expr + mask_expr
+      assert ret.size() == tensor_expr.size()
+      return ret
 
 Mask = xnmt.resolve_backend(MaskDynet, MaskTorch)
 
