@@ -165,7 +165,8 @@ class MaxPoolCNNLayer(transducers.SeqTransducer, Serializable):
     expr = self.activation_fct(expr)
     batch_size, out_chn, out_h, seq_len = expr.size()
     expr = expr.view((batch_size, out_chn * out_h, seq_len))
-    output_seq = expression_seqs.ExpressionSequence(expr_transposed_tensor = expr, mask = x.mask)
+    output_seq = expression_seqs.ExpressionSequence(expr_transposed_tensor = expr,
+                                                    mask = x.mask.lin_subsampled(trg_len=seq_len) if x.mask else None)
     self._final_states = [transducers.FinalTransducerState(output_seq[-1])]
     return output_seq
 
