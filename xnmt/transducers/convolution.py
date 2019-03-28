@@ -1,13 +1,16 @@
 from typing import List
 import numbers
 
-import xnmt
+import xnmt, xnmt.tensor_tools as tt
 from xnmt import expression_seqs, param_collections
 from xnmt.transducers import base as transducers
 from xnmt.persistence import Serializable, serializable_init
 
 if xnmt.backend_dynet:
   import dynet as dy
+
+if xnmt.backend_torch:
+  import torch.nn as nn
 
 @xnmt.require_dynet
 class ConvConnectedSeqTransducer(transducers.SeqTransducer, Serializable):
@@ -31,7 +34,7 @@ class ConvConnectedSeqTransducer(transducers.SeqTransducer, Serializable):
       num_layers: num layers after first receptor conv
       input_dim: size of the inputs
       window_receptor: window for the receptor
-      ouput_dim: size of the outputs
+      output_dim: size of the outputs
       internal_dim: size of hidden dimension, internal dimension
       non_linearity: Non linearity to apply between layers
       """
@@ -111,6 +114,58 @@ class ConvConnectedSeqTransducer(transducers.SeqTransducer, Serializable):
     self._final_states = [transducers.FinalTransducerState(output_seq[-1])]
     return output_seq
 
+@xnmt.require_torch
+class MaxPoolCNNLayer(transducers.SeqTransducer, Serializable):
+  """
+  One layer of CNN + (potentially strided) max-pooling.
 
 
+  """
+  yaml_tag = "!MaxPoolCNNLayer"
+  @serializable_init
+  def __init__(self,
+               in_channels: numbers.Integral, # 1 / 128
+               out_channels: numbers.Integral, # 128 / 128
+               kernel_h: numbers.Integral = 1, # 9 / 9
+               kernel_w: numbers.Integral = 1, # 21 / 1
+               pad_cnn_h: bool = False,
+               pad_cnn_w: bool = False,
+               pool_h: numbers.Integral = 1,   # 2
+               pool_w: numbers.Integral = 1,   # 1
+               pad_pool_h: bool = False,
+               pad_pool_w: bool = False,
+               stride_h: numbers.Integral = 1, # 2
+               stride_w: numbers.Integral = 1, # 1
+               activation: str = 'selu'):
+    self.in_channels = in_channels
+    self.out_channels = out_channels
+    self.activation = activation
+    my_params = param_collections.ParamManager.my_params(self)
+    self.cnn_layer = nn.Conv2d(in_channels=in_channels,
+                               out_channels=out_channels,
+                               kernel_size=(kernel_h, kernel_w),
+                               padding=(kernel_h // 2 if pad_cnn_h else 0,
+                                        kernel_w // 2 if pad_cnn_w else 0))
+    self.pooling_layer = nn.MaxPool2d(kernel_size=(pool_h, pool_w),
+                                      stride=(stride_h, stride_w),
+                                      padding=(pool_h // 2 if pad_pool_h else 0,
+                                               pool_w // 2 if pad_pool_w else 0))
+    my_params.append(self.cnn_layer)
+    my_params.append(self.pooling_layer)
+    self.activation_fct = tt.activation_by_name(activation)
 
+  def transduce(self, x: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
+    expr = x.as_transposed_tensor()
+    batch_size, hidden_dim, seq_len = expr.size()
+    expr = expr.view((batch_size, self.in_channels, hidden_dim//self.in_channels, seq_len))
+    expr = self.cnn_layer(expr)
+    expr = self.pooling_layer(expr)
+    expr = self.activation_fct(expr)
+    batch_size, out_chn, out_h, seq_len = expr.size()
+    expr = expr.view((batch_size, out_chn * out_h, seq_len))
+    output_seq = expression_seqs.ExpressionSequence(expr_transposed_tensor = expr, mask = x.mask)
+    self._final_states = [transducers.FinalTransducerState(output_seq[-1])]
+    return output_seq
+
+  def get_final_states(self) -> List[transducers.FinalTransducerState]:
+    return self._final_states

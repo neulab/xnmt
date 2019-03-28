@@ -263,9 +263,7 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
       if self.expr_tensor is not None:
         return torch.index_select(self.expr_tensor, dim=1, index=torch.LongTensor([key]).to(xnmt.device)).squeeze(1)
       else:
-        raise NotImplementedError()
-        return torch.index_select(self.expr_transposed_tensor, dim=-1, index=torch.LongTensor([key]).to(xnmt.device))\
-                    .resize_(self.expr_transposed_tensor.size()[0:-1])
+        return torch.index_select(self.expr_transposed_tensor, dim=-1, index=torch.LongTensor([key])).squeeze(-1)
 
   def as_list(self) -> List[tt.Tensor]:
     """Get a list.
@@ -312,7 +310,8 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
 
 ExpressionSequence = xnmt.resolve_backend(ExpressionSequenceDynet, ExpressionSequenceTorch)
 
-class LazyNumpyExpressionSequence(ExpressionSequence):
+@xnmt.require_dynet
+class LazyNumpyExpressionSequenceDynet(ExpressionSequence):
   """
   This is initialized via numpy arrays, and dynet expressions are only created
   once a consumer requests representation as list or tensor.
@@ -340,26 +339,67 @@ class LazyNumpyExpressionSequence(ExpressionSequence):
     if self.expr_list or self.expr_tensor:
       return super().__getitem__(key)
     else:
-      if xnmt.backend_torch:
-        return torch.tensor(
-          np.array([self.lazy_data[batch].get_array()[:, key] for batch in range(self.lazy_data.batch_size())]),
-          device=xnmt.device)
+      if batchers.is_batched(self.lazy_data):
+        return dy.inputTensor(
+          [self.lazy_data[batch].get_array()[:, key] for batch in range(self.lazy_data.batch_size())], batched=True)
       else:
-        if batchers.is_batched(self.lazy_data):
-          return dy.inputTensor(
-            [self.lazy_data[batch].get_array()[:, key] for batch in range(self.lazy_data.batch_size())], batched=True)
-        else:
-          return dy.inputTensor(self.lazy_data.get_array()[:,key], batched=False)
+        return dy.inputTensor(self.lazy_data.get_array()[:,key], batched=False)
   def as_tensor(self) -> tt.Tensor:
     if not (self.expr_list or self.expr_tensor):
       if not batchers.is_batched(self.lazy_data):
         raise NotImplementedError()
       array = np.concatenate([d.get_array().reshape(d.get_array().shape + (1,)) for d in self.lazy_data], axis=2)
-      if xnmt.backend_dynet:
-        self.expr_tensor = dy.inputTensor(array, batched=batchers.is_batched(self.lazy_data))
-      else:
-        self.expr_tensor = torch.tensor(array, device=xnmt.device)
+      self.expr_tensor = dy.inputTensor(array, batched=batchers.is_batched(self.lazy_data))
     return super().as_tensor()
+
+@xnmt.require_torch
+class LazyNumpyExpressionSequenceTorch(ExpressionSequence):
+  """
+  This is initialized via numpy arrays, and torch tensors are only created
+  once a consumer requests representation as list or tensor.
+  """
+  def __init__(self, lazy_data: np.ndarray, mask: Optional['batchers.Mask'] = None) -> None:
+    """
+    Args:
+      lazy_data: numpy array, or Batcher.Batch of numpy arrays
+    """
+    self.lazy_data = lazy_data
+    self.expr_list, self.expr_tensor = None, None
+    self.mask = mask
+  def __len__(self):
+    if self.expr_list or self.expr_tensor:
+      return super().__len__()
+    else:
+      if batchers.is_batched(self.lazy_data):
+        return self.lazy_data[0].get_array().shape[0]
+      else: return self.lazy_data.get_array().shape[0]
+  def __iter__(self):
+    if not (self.expr_list or self.expr_tensor):
+      self.expr_list = [self[i] for i in range(len(self))]
+    return super().__iter__()
+  def __getitem__(self, key):
+    if self.expr_list or self.expr_tensor:
+      return super().__getitem__(key)
+    else:
+      return torch.tensor(
+        np.array([self.lazy_data[batch].get_array()[key, :] for batch in range(self.lazy_data.batch_size())]),
+        device=xnmt.device)
+  def as_tensor(self) -> tt.Tensor:
+    if not (self.expr_list or self.expr_tensor):
+      if not batchers.is_batched(self.lazy_data):
+        raise NotImplementedError()
+      array = np.concatenate([d.get_array().reshape((1,) + d.get_array().shape) for d in self.lazy_data], axis=0)
+      self.expr_tensor = torch.tensor(array, device=xnmt.device)
+    return super().as_tensor()
+  def as_transposed_tensor(self) -> tt.Tensor:
+    if not batchers.is_batched(self.lazy_data):
+      raise NotImplementedError()
+    array = np.concatenate([d.get_array().T.reshape((1,) + d.get_array().T.shape) for d in self.lazy_data], axis=0)
+    self.expr_transposed_tensor = torch.tensor(array, device=xnmt.device)
+    return super().as_transposed_tensor()
+
+LazyNumpyExpressionSequence = xnmt.resolve_backend(LazyNumpyExpressionSequenceDynet, LazyNumpyExpressionSequenceTorch)
+
 
 class BaseReversedExpressionSequence(BaseExpressionSequence):
   def __init__(self, base_expr_seq):

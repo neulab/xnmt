@@ -12,7 +12,7 @@ with warnings.catch_warnings():
   import h5py
 
 from xnmt import logger
-
+import xnmt
 from xnmt import events, vocabs
 from xnmt.graph import HyperEdge, HyperGraph
 from xnmt.persistence import serializable_init, Serializable
@@ -326,10 +326,14 @@ class H5Reader(InputReader, Serializable):
 
   The data items are assumed to be labeled with integers 0, 1, .. (converted to strings).
 
-  Each data item will be a 2D matrix representing a sequence of vectors. They can
+  Each input data item will be a 2D matrix representing a sequence of vectors. They can
   be in either order, depending on the value of the "transpose" variable:
   * sents[sent_id][feat_ind,timestep] if transpose=False
   * sents[sent_id][timestep,feat_ind] if transpose=True
+
+  The output format will depend on the backend:
+  * sents[sent_id][feat_ind,timestep] for DyNet backend
+  * sents[sent_id][timestep,feat_ind] for Pytorch backend
 
   Args:
     transpose: whether inputs are transposed or not.
@@ -373,6 +377,9 @@ class H5Reader(InputReader, Serializable):
           np.copyto(inp, sub_inp)
         else:
           inp = sub_inp
+
+        if xnmt.backend_torch:
+          inp = inp.T
 
         if sent_no % 1000 == 999:
           logger.info(f"Read {sent_no+1} lines ({float(sent_no+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")

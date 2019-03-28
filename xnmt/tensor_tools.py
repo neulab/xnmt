@@ -131,3 +131,27 @@ def dropout(t, p):
     return dy.dropout(t, p)
   else:
     return nn.Dropout(p=p)(t)
+
+
+def identity(x):
+  return x
+def activation_by_name(activation):
+  if activation == 'tanh':
+    return dy.tanh if xnmt.backend_dynet else torch.tanh
+  elif activation in ['rectify','relu']:
+    return dy.rectify if xnmt.backend_dynet else torch.relu
+  elif activation == 'sigmoid':
+    return dy.sigmoid if xnmt.backend_dynet else torch.sigmoid
+  elif activation == 'elu':
+    return dy.elu if xnmt.backend_dynet else torch.elu
+  elif activation == 'selu':
+    return dy.selu if xnmt.backend_dynet else torch.selu
+  elif activation == 'asinh':
+    if xnmt.backend_dynet:
+      return dy.asinh
+    else:
+      raise ValueError(f"Unknown activation {activation}")
+  elif activation == 'identity':
+    return identity
+  else:
+    raise ValueError(f"Unknown activation {activation}")
