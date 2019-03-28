@@ -1,0 +1,115 @@
+# Zhang LSTM encoder
+# see: https://arxiv.org/abs/1610.03022 and https://arxiv.org/abs/1803.09519
+exp0002a.1: !Experiment
+  exp_global: !ExpGlobal
+    dropout: 0.3
+    default_layer_dim: 512
+    save_num_checkpoints: 3
+    loss_comb_method: avg
+    placeholders:
+#      DATA: /project/data-audio/tedlium-multi/parallel/en
+#      VOCAB: /project/data-audio/tedlium-multi/parallel/en/wsj-vocab
+#      MAX_NUM_TRAIN_SENTS_: &MAX_NUM_TRAIN_SENTS ~
+#      DEV_EVERY_: &DEV_EVERY 0
+#      RUN_FOR_EPOCHS_: &RUN_FOR_EPOCHS 500
+      DATA: examples/data-custom
+      VOCAB: research-configs-baseline/en-de-es-fr.lc.no-numbers-punct.vocab
+      TRAIN_SPEECH: examples/data/LDC94S13A.h5
+      TRAIN_CHAR: examples/data/LDC94S13A.char
+      DEV_SPEECH: examples/data/LDC94S13A.h5
+      DEV_CHAR: examples/data/LDC94S13A.char
+      DEV_WORDS: examples/data/LDC94S13A.words
+      TEST_SPEECH: examples/data/LDC94S13A.h5
+      TEST_CHAR: examples/data/LDC94S13A.char
+      TEST_WORDS: examples/data/LDC94S13A.words
+      MAX_NUM_TRAIN_SENTS_: &MAX_NUM_TRAIN_SENTS 10
+      DEV_EVERY_: &DEV_EVERY 0
+      RUN_FOR_EPOCHS_: &RUN_FOR_EPOCHS 1
+  model: !DefaultTranslator
+    src_embedder: !NoopEmbedder
+      emb_dim: 40
+    encoder: !ZhangSeqTransducer
+      input_dim: 40
+      hidden_dim: 512
+    attender: !MlpAttender
+      hidden_dim: 128
+    decoder: !AutoRegressiveDecoder
+      embedder: !SimpleWordEmbedder
+        _xnmt_id: asr_trg_embedder
+        emb_dim: 64
+        word_dropout: 0.1
+        vocab: !Vocab
+          _xnmt_id: char_vocab
+          vocab_file: '{VOCAB}'
+        fix_norm: 1
+      scorer: !Softmax
+        label_smoothing: 0.1
+        vocab: !Ref { name: char_vocab }
+      bridge: !NoBridge {}
+      transform: !AuxNonLinear {}
+    src_reader: !H5Reader
+      transpose: True
+      feat_to: 40
+    trg_reader: !PlainTextReader
+      vocab: !Ref { name: char_vocab }
+      output_proc: !JoinCharTextOutputProcessor {}
+  train: !SimpleTrainingRegimen
+    trainer: !AdamTrainer
+      alpha: 0.0003
+      # skip_noisy: True # TODO
+      amsgrad: True
+    run_for_epochs: *RUN_FOR_EPOCHS
+    max_num_train_sents: *MAX_NUM_TRAIN_SENTS
+    batcher: !WordSrcBatcher
+      avg_batch_size: 128
+      pad_src_to_multiple: 4
+    lr_decay: 0.5
+    lr_decay_times: 1
+    patience: 5
+    initial_patience: 10
+    dev_every: *DEV_EVERY
+    restart_trainer: True
+    name: '{EXP}.asr'
+    max_src_len: 1500
+    max_trg_len: 350
+    src_file: '{TRAIN_SPEECH}'
+    trg_file: '{TRAIN_CHAR}'
+    dev_tasks:
+      - !AccuracyEvalTask
+        eval_metrics: wer,cer
+        src_file: '{DEV_SPEECH}'
+        ref_file: '{DEV_WORDS}'
+        hyp_file: '{EXP_DIR}/hyp/{EXP}.dev_asr_hyp'
+        inference: !AutoRegressiveInference
+          batcher: !InOrderBatcher { pad_src_to_multiple: 4 }
+          post_process: join-char
+          search_strategy: !BeamSearch
+            max_len: 350
+            beam_size: 15
+            len_norm: !PolynomialNormalization
+              apply_during_search: true
+              m: 1.5
+      - !LossEvalTask
+        src_file: '{DEV_SPEECH}'
+        ref_file: '{DEV_WORDS}'
+        max_num_sents: 1000
+  evaluate:
+    - !AccuracyEvalTask
+      eval_metrics: wer,cer
+      src_file: '{TEST_SPEECH}'
+      ref_file: '{TEST_WORDS}'
+      hyp_file: '{EXP_DIR}/hyp/{EXP}.eval_casc_hyp'
+      inference: !AutoRegressiveInference
+        batcher: !InOrderBatcher { pad_src_to_multiple: 4 }
+        post_process: join-char
+        #max_src_len: 1500
+        search_strategy: !BeamSearch
+          max_len: 350
+          beam_size: 15
+          len_norm: !PolynomialNormalization
+            apply_during_search: true
+            m: 1.5
+    - !LossEvalTask
+      #max_src_len: 1500
+      src_file: '{TEST_SPEECH}'
+      ref_file: '{TEST_CHAR}'

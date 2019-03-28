@@ -146,12 +146,13 @@ class MaxPoolCNNLayer(transducers.SeqTransducer, Serializable):
                                kernel_size=(kernel_h, kernel_w),
                                padding=(kernel_h // 2 if pad_cnn_h else 0,
                                         kernel_w // 2 if pad_cnn_w else 0))
-    self.pooling_layer = nn.MaxPool2d(kernel_size=(pool_h, pool_w),
-                                      stride=(stride_h, stride_w),
-                                      padding=(pool_h // 2 if pad_pool_h else 0,
-                                               pool_w // 2 if pad_pool_w else 0))
+    self.use_pooling = not (pool_h<=1 and pool_w<=1 and stride_h<=1 and stride_w<=1)
+    if self.use_pooling:
+      self.pooling_layer = nn.MaxPool2d(kernel_size=(pool_h, pool_w),
+                                        stride=(stride_h, stride_w),
+                                        padding=(pool_h // 2 if pad_pool_h else 0,
+                                                 pool_w // 2 if pad_pool_w else 0))
     my_params.append(self.cnn_layer)
-    my_params.append(self.pooling_layer)
     self.activation_fct = tt.activation_by_name(activation)
 
   def transduce(self, x: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
@@ -159,7 +160,8 @@ class MaxPoolCNNLayer(transducers.SeqTransducer, Serializable):
     batch_size, hidden_dim, seq_len = expr.size()
     expr = expr.view((batch_size, self.in_channels, hidden_dim//self.in_channels, seq_len))
     expr = self.cnn_layer(expr)
-    expr = self.pooling_layer(expr)
+    if self.use_pooling:
+      expr = self.pooling_layer(expr)
     expr = self.activation_fct(expr)
     batch_size, out_chn, out_h, seq_len = expr.size()
     expr = expr.view((batch_size, out_chn * out_h, seq_len))
