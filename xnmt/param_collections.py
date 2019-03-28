@@ -213,25 +213,25 @@ class ParamCollectionDynet(BaseParamCollection):
   def parameter_count(self) -> numbers.Integral:
     return self._param_col.parameter_count()
 
-@xnmt.require_torch
-class InitializableModuleList(nn.ModuleList):
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
+if xnmt.backend_torch:
+  @xnmt.require_torch
+  class InitializableModuleList(nn.ModuleList):
+    def __init__(self, *args, **kwargs):
+      super().__init__(*args, **kwargs)
 
-  def init_params(self,
-                  param_init: 'xnmt.param_initializers.ParamInitializer',
-                  bias_init: 'xnmt.param_initializers.ParamInitializer' = None):
-    """Initialize all contained parameters
+    def init_params(self,
+                    param_init: 'xnmt.param_initializers.ParamInitializer',
+                    bias_init: 'xnmt.param_initializers.ParamInitializer' = None):
+      """Initialize all contained parameters
 
-    param_init: initializer to use for params that are named *weight*
-    bias_init: initializer to use for params that are named *bias*
-    """
-    for name, param in self.named_parameters():
-      if 'weight' in name:
-        param_init.initialize(param)
-      if bias_init is not None and 'bias' in name:
-        bias_init.initialize(param)
-
+      param_init: initializer to use for params that are named *weight*
+      bias_init: initializer to use for params that are named *bias*
+      """
+      for name, param in self.named_parameters():
+        if 'weight' in name:
+          param_init.initialize(param)
+        if bias_init is not None and 'bias' in name:
+          bias_init.initialize(param)
 
 @xnmt.require_torch
 class ParamCollectionTorch(BaseParamCollection):
