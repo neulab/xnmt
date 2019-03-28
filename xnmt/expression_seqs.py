@@ -284,7 +284,7 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
       if self.expr_list:
         self.expr_tensor = torch.cat([torch.unsqueeze(e, dim=1) for e in self.expr_list], dim=1)
       else:
-        self.expr_tensor = torch.t(self.expr_transposed_tensor)
+        self.expr_tensor = torch.transpose(self.expr_transposed_tensor, 1, 2)
     return self.expr_tensor
 
   def as_transposed_tensor(self) -> tt.Tensor:
