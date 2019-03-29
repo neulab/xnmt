@@ -186,12 +186,26 @@ class SimpleSGDTrainerTorch(XnmtOptimizerTorch, Serializable):
 
   Args:
     e0: Initial learning rate
+    momentum: momentum factor
+    weight_decay: weight decay (L2 penalty)
+    dampening: dampening for momentum
+    nesterov: enables Nesterov momentum
   """
   yaml_tag = '!SimpleSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0: numbers.Real = 0.1) -> None:
-    super().__init__(optimizer=torch.optim.SGD(params=ParamManager.global_collection().parameters(), lr=e0))
+  def __init__(self,
+               e0: numbers.Real = 0.1,
+               momentum: numbers.Real = 0.0,
+               weight_decay: numbers.Real = 0.0,
+               dampening: numbers.Real = 0.0,
+               nesterov: bool = False) -> None:
+    super().__init__(optimizer=torch.optim.SGD(params=ParamManager.global_collection().parameters(),
+                                               lr=e0,
+                                               momentum=momentum,
+                                               weight_decay=weight_decay,
+                                               dampening=dampening,
+                                               nesterov=nesterov))
 
 SimpleSGDTrainer = xnmt.resolve_backend(SimpleSGDTrainerDynet, SimpleSGDTrainerTorch)
 
@@ -298,6 +312,7 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
     beta_1: Moving average parameter for the mean
     beta_2: Moving average parameter for the variance
     eps: Epsilon parameter to prevent numerical instability
+    weight_decay: weight decay (L2 penalty)
     amsgrad: whether to use the AMSGrad variant of this algorithm from the paper `On the Convergence of Adam and Beyond`
   """
   yaml_tag = '!AdamTrainer'
@@ -308,9 +323,14 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
                beta_1: numbers.Real = 0.9,
                beta_2: numbers.Real = 0.999,
                eps: numbers.Real = 1e-8,
+               weight_decay: numbers.Real = 0.0,
                amsgrad: bool = False) -> None:
     super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
-                                                lr=alpha, betas=(beta_1, beta_2), eps=eps, amsgrad=amsgrad)
+                                                lr=alpha,
+                                                betas=(beta_1, beta_2),
+                                                eps=eps,
+                                                weight_decay=weight_decay,
+                                                amsgrad=amsgrad)
                      )
 
 AdamTrainer = xnmt.resolve_backend(AdamTrainerDynet, AdamTrainerTorch)
