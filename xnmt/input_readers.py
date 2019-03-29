@@ -541,16 +541,17 @@ class CoNLLToRNNGActionsReader(GraphReader, Serializable):
     with open(filename) as fp:
       for line in fp:
         line = line.strip()
-        if len(line) == 0:
+        if len(line) <= 1:
           yield emit_tree(idx, lines)
           lines.clear()
           idx += 1
         else:
           try:
-            node_id, form, lemma, pos, feat, head, deprel = line.strip().split()
+            node_id, form, lemma, pos, feat, head, deprel = line.strip().split("\t")
             lines.append((int(node_id), form, lemma, pos, feat, int(head), deprel))
           except ValueError:
             logger.error("Bad line: %s", line)
+            raise
       if len(lines) != 0:
         yield emit_tree(idx, lines)
 

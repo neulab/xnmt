@@ -94,9 +94,9 @@ for sp, tree in zip(input_sp, input_tree):
     # 1	can	_	MD	_	3	aux
     pred = new_graph.predecessors(node.node_id, True)
     if len(pred) == 0:
-      print("{} {} _ {} _ {} {}".format(node.node_id, node.value, node.head, 0, "ROOT"))
+      print("{}\t{}\t_\t{}\t_\t{}\t{}".format(node.node_id, node.value, node.head, 0, "ROOT"))
     else:
       pred_id, pred_edge = pred[0]
-      print("{} {} _ {} _ {} {}".format(node.node_id, node.value, node.head, pred_id, pred_edge.label))
+      print("{}\t{}\t_\t{}\t_\t{}\t{}".format(node.node_id, node.value, node.head, pred_id, pred_edge.label))
   print()
   

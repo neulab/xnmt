@@ -11,8 +11,8 @@ args = parser.parse_args()
 surface, edge, nt = set(), set(), set()
 with open(args.conll_input) as fp:
   for line in fp:
-    col = line.strip().split()
-    if len(col) == 0: continue
+    col = line.strip().split("\t")
+    if len(col) <= 1: continue
     surface.add(col[1])
     edge.add(col[-1])
     nt.add(col[3])
