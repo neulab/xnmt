@@ -1,0 +1,22 @@
+1	for	_	IN	_	3	case
+2	further	_	JJ	_	3	amod
+3	information	_	NN	_	0	ROOT
+4	go	_	VB	_	3	dep
+5	to	_	TO	_	9	case
+6	your	_	PRP$	_	9	nmod:poss
+7	nearest	_	JJS	_	9	amod
+8	train	_	NN	_	9	compound
+9	station	_	NN	_	4	nmod
+10	or	_	CC	_	4	cc
+11	call	_	VB	_	4	conj
+12	Rail	_	NNP	_	11	xcomp
+13	Away	_	RB	_	15	advmod
+14	at	_	IN	_	15	case
+15	0900 300 300	_	CD	_	12	nmod
+16	-LRB-	_	-LRB-	_	17	punct
+17	CHF	_	NN	_	15	dep
+18	1.19	_	CD	_	17	nummod
+19	/	_	:	_	17	punct
+20	min	_	NN	_	17	dep
+21	-RRB-	_	-RRB-	_	17	punct
+22	.	_	.	_	3	punct

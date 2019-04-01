@@ -41,41 +41,18 @@ with open(args.sp_input) as fp:
   
 assert len(input_tree) == len(input_sp)
 
-# Processing
-for sp, tree in zip(input_sp, input_tree):
-  graph = tree.graph
-  node_list = {}
-  edge_list = []
-  leaves = []
-  sp = sp.strip().split() + [DELIMITER]
-  # Create new hyperedge list
-  for edge in graph.iter_edges():
-    edge_list.append(edge)
-  edge_list = edge_list[:-1]
-  # Routine to modift the graph structure
-  now_id = graph.len_nodes + 1
-  def write_changes(buffer, idx):
-    global now_id
-    now_node = graph[idx]
-    node_list[idx] = SyntaxTreeNode(now_node.node_id, buffer[0], now_node.head, now_node.node_type)
-    leaves.append(node_list[idx])
-    for i in range(1, len(buffer)):
-      node_list[now_id] = SyntaxTreeNode(now_id, buffer[i], "["+ now_node.head + "]", now_node.node_type)
-      edge_list.append(HyperEdge(idx, [now_id], edge.features, "sp"))
-      leaves.append(node_list[now_id])
-      now_id += 1
-    buffer.clear()
-  # Synchronously modify the sentpiece and tree
-  idx = 0
-  buffer = []
-  for token in sp:
-    if DELIMITER in token:
-      if idx != 0:
-        write_changes(buffer, idx)
-      idx += 1
-    buffer.append(token)
-  #leaves.append(graph[graph.len_nodes])
-  # Create new id mapping
+def graph_to_conll(graph):
+  for node in graph.iter_nodes():
+    # 1	can	_	MD	_	3	aux
+    pred = graph.predecessors(node.node_id, True)
+    if len(pred) == 0:
+      print("{}\t{}\t_\t{}\t_\t{}\t{}".format(node.node_id, node.value, node.head, 0, "ROOT"))
+    else:
+      pred_id, pred_edge = pred[0]
+      print("{}\t{}\t_\t{}\t_\t{}\t{}".format(node.node_id, node.value, node.head, pred_id, pred_edge.label))
+  print()
+  
+def remap_id(node_list, edge_list, leaves):
   id_mapping = {}
   for i, node in enumerate(leaves):
     id_mapping[node.node_id] = i+1
@@ -89,14 +66,71 @@ for sp, tree in zip(input_sp, input_tree):
                                    [id_mapping[edge.node_to[0]]],
                                    edge.features,
                                    edge.label))
-  new_graph = HyperGraph(out_edge_list, out_node_list)
-  for node in new_graph.iter_nodes():
-    # 1	can	_	MD	_	3	aux
-    pred = new_graph.predecessors(node.node_id, True)
-    if len(pred) == 0:
-      print("{}\t{}\t_\t{}\t_\t{}\t{}".format(node.node_id, node.value, node.head, 0, "ROOT"))
-    else:
-      pred_id, pred_edge = pred[0]
-      print("{}\t{}\t_\t{}\t_\t{}\t{}".format(node.node_id, node.value, node.head, pred_id, pred_edge.label))
-  print()
-  
+  return HyperGraph(out_edge_list, out_node_list)
+
+def normalize_space_at_conll(forest):
+  new_tree = []
+  leaves = []
+  for idx, tree in enumerate(forest):
+    graph = tree.graph
+    node_list = {}
+    edge_list = []
+    now_id = graph.len_nodes
+    for edge in graph.iter_edges():
+      edge_list.append(edge)
+    edge_list = edge_list[:-1]
+    for i in range(1, graph.len_nodes):
+      node = graph[i]
+      word = node.value
+      for j, subword in enumerate(word.split()):
+        if j == 0:
+          node_list[node.node_id] = SyntaxTreeNode(node.node_id, subword, node.head, node.node_type)
+          leaves.append(node_list[node.node_id])
+        else:
+          node_list[now_id] = SyntaxTreeNode(now_id, subword, node.head, node.node_type)
+          leaves.append(node_list[now_id])
+          edge_list.append(HyperEdge(node.node_id, [now_id], None, "[whtsp]"))
+          now_id += 1
+    new_tree.append(remap_id(node_list, edge_list, leaves))
+  return new_tree
+
+# Processing
+def normalize_sentpiece(sentpieces, forest):
+  for sp, graph in zip(sentpieces, forest):
+    node_list = {}
+    edge_list = []
+    leaves = []
+    sp = sp.strip().split() + [DELIMITER]
+    # Create new hyperedge list
+    for edge in graph.iter_edges():
+      edge_list.append(edge)
+    # Routine to modift the graph structure
+    def write_changes(buffer, idx, now_id):
+      now_node = graph[idx]
+      node_list[idx] = SyntaxTreeNode(now_node.node_id, buffer[0], now_node.head, now_node.node_type)
+      leaves.append(node_list[idx])
+      for i in range(1, len(buffer)):
+        node_list[now_id] = SyntaxTreeNode(now_id, buffer[i], "["+ now_node.head + "]", now_node.node_type)
+        edge_list.append(HyperEdge(idx, [now_id], edge.features, "[sp]"))
+        leaves.append(node_list[now_id])
+        now_id += 1
+      buffer.clear()
+      return now_id
+    # Synchronously modify the sentpiece and tree
+    idx = 0
+    buffer = []
+    now_id = graph.len_nodes + 1
+    for token in sp:
+      if DELIMITER in token:
+        if idx != 0:
+          now_id = write_changes(buffer, idx, now_id)
+        idx += 1
+      buffer.append(token)
+    #leaves.append(graph[graph.len_nodes])
+    # Create new id mapping
+    new_graph = remap_id(node_list, edge_list, leaves)
+    graph_to_conll(new_graph)
+
+now_tree = normalize_space_at_conll(input_tree)
+normalize_sentpiece(input_sp, now_tree)
+
