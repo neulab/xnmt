@@ -423,7 +423,7 @@ class TransformerEncoderLayer(Serializable):
                                                           lambda: recurrent.BiLSTMSeqTransducer(layers=1,
                                                                                                 input_dim=hidden_dim,
                                                                                                 hidden_dim=hidden_dim,
-                                                                                                dropout=dropout,
+                                                                                                var_dropout=dropout,
                                                                                                 param_init=param_init,
                                                                                                 bias_init=bias_init))
     else:

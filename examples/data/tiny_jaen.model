@@ -63,12 +63,11 @@ model: !DefaultTranslator
       bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
       decoder_input_dim: 32
       decoder_input_feeding: true
-      dropout: 0.3
       hidden_dim: 32
       input_dim: 32
       layers: 1
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
-      weightnoise_std: 0.0
+      var_dropout: 0.3
       xnmt_subcol_name: UniLSTMSeqTransducer.f0cd8e59
     scorer: !Softmax
       bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
@@ -102,32 +101,29 @@ model: !DefaultTranslator
       bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
       decoder_input_dim: null
       decoder_input_feeding: true
-      dropout: 0.3
       hidden_dim: 16
       input_dim: 32
       layers: 1
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
-      weightnoise_std: 0.0
+      var_dropout: 0.3
       xnmt_subcol_name: UniLSTMSeqTransducer.710411d0
     bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
-    dropout: 0.3
     forward_layers:
     - !UniLSTMSeqTransducer
       bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
       decoder_input_dim: null
       decoder_input_feeding: true
-      dropout: 0.3
       hidden_dim: 16
       input_dim: 32
       layers: 1
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
-      weightnoise_std: 0.0
+      var_dropout: 0.3
       xnmt_subcol_name: UniLSTMSeqTransducer.597432e9
     hidden_dim: 32
     input_dim: 32
     layers: 1
     param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
-    weightnoise_std: 0.0
+    var_dropout: 0.3
   inference: !AutoRegressiveInference
     batcher: !InOrderBatcher {batch_size: 1, pad_src_to_multiple: 1}
     max_num_sents: null
