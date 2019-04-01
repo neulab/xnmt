@@ -34,13 +34,6 @@ reader = input_readers.CoNLLToRNNGActionsReader(surface_vocab=surface_vocab,
                                                 nt_vocab=nt_vocab,
                                                 edg_vocab=edge_vocab)
 
-# Reading Input
-input_tree = list(reader.read_sents(args.conll_tree_input))
-with open(args.sp_input) as fp:
-  input_sp= fp.readlines()
-  
-assert len(input_tree) == len(input_sp)
-
 def graph_to_conll(graph):
   ret = []
   for node in graph.iter_nodes():
@@ -125,6 +118,9 @@ def normalize_sentpiece(sp, graph):
     buffer.append(token)
   return remap_id(node_list, edge_list, leaves)
 
-for sp, tree in zip(input_sp, input_tree):
-  print(graph_to_conll(normalize_sentpiece(sp, normalize_space_at_conll(tree))))
-  print()
+input_tree = reader.read_sents(args.conll_tree_input)
+with open(args.sp_input) as input_sp:
+  for sp, tree in zip(input_sp, input_tree):
+    print(graph_to_conll(normalize_sentpiece(sp, normalize_space_at_conll(tree))))
+    print()
+
