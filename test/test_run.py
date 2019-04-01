@@ -18,7 +18,6 @@ class TestRunningConfig(unittest.TestCase):
     except:
       pass
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_assemble(self):
     run.main(["test/config/assemble.yaml"])
 
@@ -32,26 +31,21 @@ class TestRunningConfig(unittest.TestCase):
   def test_autobatch(self):
     run.main(["test/config/autobatch.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_cascade(self):
     run.main(["test/config/cascade.yaml"])
 
   def test_classifier(self):
     run.main(["test/config/classifier.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_component_sharing(self):
     run.main(["test/config/component_sharing.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_encoders(self):
     run.main(["test/config/encoders.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_ensembling(self):
     run.main(["test/config/ensembling.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_forced(self):
     run.main(["test/config/forced.yaml"])
 
@@ -62,19 +56,15 @@ class TestRunningConfig(unittest.TestCase):
   def test_lm(self):
     run.main(["test/config/lm.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_load_model(self):
     run.main(["test/config/load_model.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_multi_task(self):
     run.main(["test/config/multi_task.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_multi_task_speech(self):
     run.main(["test/config/multi_task_speech.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_preproc(self):
     run.main(["test/config/preproc.yaml"])
 
@@ -82,15 +72,12 @@ class TestRunningConfig(unittest.TestCase):
   def test_pretrained_emb(self):
     run.main(["test/config/pretrained_embeddings.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_random_search_test_params(self):
     run.main(["test/config/random_search_test_params.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_random_search_train_params(self):
     run.main(["test/config/random_search_train_params.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_reload(self):
     run.main(["test/config/reload.yaml"])
 
@@ -98,13 +85,16 @@ class TestRunningConfig(unittest.TestCase):
   def test_segmenting(self):
     run.main(["test/config/seg_report.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_reload_exception(self):
-    with self.assertRaises(ValueError) as context:
-      run.main(["test/config/reload_exception.yaml"])
-    self.assertEqual(str(context.exception), 'VanillaLSTMGates: x_t has inconsistent dimension 20, expecting 40')
+    if xnmt.backend_dynet:
+      with self.assertRaises(ValueError) as context:
+        run.main(["test/config/reload_exception.yaml"])
+      self.assertEqual(str(context.exception), 'VanillaLSTMGates: x_t has inconsistent dimension 20, expecting 40')
+    else:
+      with self.assertRaises(RuntimeError) as context:
+        run.main(["test/config/reload_exception.yaml"])
+      self.assertEqual(str(context.exception), 'The size of tensor a (20) must match the size of tensor b (40) at non-singleton dimension 1')
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_report(self):
     run.main(["test/config/report.yaml"])
 
@@ -112,7 +102,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_retrieval(self):
     run.main(["test/config/retrieval.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_score(self):
     run.main(["test/config/score.yaml"])
 
@@ -123,7 +112,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_seq_labeler(self):
     run.main(["test/config/seq_labeler.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_speech(self):
     run.main(["test/config/speech.yaml"])
 
@@ -131,7 +119,6 @@ class TestRunningConfig(unittest.TestCase):
   def test_speech_retrieval(self):
     run.main(["test/config/speech_retrieval.yaml"])
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_standard(self):
     run.main(["test/config/standard.yaml"])
 

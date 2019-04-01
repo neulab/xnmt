@@ -3,7 +3,7 @@ import math
 
 import numpy as np
 
-import xnmt
+import xnmt, xnmt.tensor_tools as tt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt.modelparts.bridges import CopyBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
@@ -19,9 +19,6 @@ from xnmt.models.translators.default import DefaultTranslator
 from xnmt.vocabs import Vocab
 from xnmt import batchers, event_trigger, events
 
-if xnmt.backend_dynet:
-  import dynet as dy
-
 class TestEncoder(unittest.TestCase):
 
   def setUp(self):
@@ -36,7 +33,7 @@ class TestEncoder(unittest.TestCase):
     self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
 
   def assert_in_out_len_equal(self, model):
-    dy.renew_cg()
+    tt.reset_graph()
     event_trigger.set_train(True)
     src = self.src_data[0]
     event_trigger.start_sent(src)
@@ -44,7 +41,6 @@ class TestEncoder(unittest.TestCase):
     encodings = model.encoder.transduce(embeddings)
     self.assertEqual(len(embeddings), len(encodings))
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_bi_lstm_encoder_len(self):
     layer_dim = 512
     model = DefaultTranslator(
@@ -62,7 +58,6 @@ class TestEncoder(unittest.TestCase):
     )
     self.assert_in_out_len_equal(model)
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_uni_lstm_encoder_len(self):
     layer_dim = 512
     model = DefaultTranslator(
@@ -98,7 +93,6 @@ class TestEncoder(unittest.TestCase):
   #   )
   #   self.assert_in_out_len_equal(model)
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_py_lstm_encoder_len(self):
     layer_dim = 512
     model = DefaultTranslator(
@@ -116,14 +110,13 @@ class TestEncoder(unittest.TestCase):
     )
     event_trigger.set_train(True)
     for sent_i in range(10):
-      dy.renew_cg()
+      tt.reset_graph()
       src = self.src_data[sent_i].create_padded_sent(4 - (self.src_data[sent_i].sent_len() % 4))
       event_trigger.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
       encodings = model.encoder.transduce(embeddings)
       self.assertEqual(int(math.ceil(len(embeddings) / float(4))), len(encodings))
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_py_lstm_mask(self):
     layer_dim = 512
     model = DefaultTranslator(
@@ -146,7 +139,7 @@ class TestEncoder(unittest.TestCase):
 
     event_trigger.set_train(True)
     for sent_i in range(3):
-      dy.renew_cg()
+      tt.reset_graph()
       src = train_src[sent_i]
       event_trigger.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
@@ -156,7 +149,6 @@ class TestEncoder(unittest.TestCase):
       else:
         np.testing.assert_array_almost_equal(train_src[sent_i].mask.np_arr, encodings.mask.np_arr)
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_multihead_attention_encoder_len(self):
     layer_dim = 512
     model = DefaultTranslator(

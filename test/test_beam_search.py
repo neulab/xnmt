@@ -1,6 +1,6 @@
 import unittest
 
-import xnmt
+import xnmt, xnmt.tensor_tools as tt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt import batchers, event_trigger, events
 from xnmt.modelparts.bridges import CopyBridge
@@ -15,9 +15,6 @@ from xnmt.search_strategies import BeamSearch, GreedySearch
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import LoadSerialized, initialize_if_needed, YamlPreloader
 from xnmt.vocabs import Vocab
-
-if xnmt.backend_dynet:
-  import dynet as dy
 
 class TestFreeDecodingLoss(unittest.TestCase):
 
@@ -48,9 +45,9 @@ class TestFreeDecodingLoss(unittest.TestCase):
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
+  @unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
   def test_single(self):
-    dy.renew_cg()
+    tt.reset_graph()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch())
 
     # Make sure the output of beam search is the same as the target sentence
@@ -61,7 +58,7 @@ class TestFreeDecodingLoss(unittest.TestCase):
 
     # Verify that the loss we get from beam search is the same as the loss
     # we get if we call model.calc_nll
-    dy.renew_cg()
+    tt.reset_graph()
     train_loss = self.model.calc_nll(src=self.src_data[0],
                                      trg=outputs[0]).value()
 
@@ -94,13 +91,12 @@ class TestGreedyVsBeam(unittest.TestCase):
 
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_greedy_vs_beam(self):
-    dy.renew_cg()
+    tt.reset_graph()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch(beam_size=1))
     output_score1 = outputs[0].score
 
-    dy.renew_cg()
+    tt.reset_graph()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), GreedySearch())
     output_score2 = outputs[0].score
 

@@ -43,7 +43,7 @@ model: !DefaultTranslator
     input_dim: 32
     param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
     state_dim: 32
-    xnmt_subcol_name: MlpAttender.dd4040ad
+    xnmt_subcol_name: MlpAttender-dd4040ad
   decoder: !AutoRegressiveDecoder
     bridge: !CopyBridge {dec_dim: 32, dec_layers: 1}
     embedder: !SimpleWordEmbedder
@@ -56,7 +56,7 @@ model: !DefaultTranslator
       vocab_size: 69
       weight_noise: 0.0
       word_dropout: 0.0
-      xnmt_subcol_name: SimpleWordEmbedder.4433ba39
+      xnmt_subcol_name: SimpleWordEmbedder-4433ba39
     input_dim: 32
     input_feeding: true
     rnn: !UniLSTMSeqTransducer
@@ -68,7 +68,7 @@ model: !DefaultTranslator
       layers: 1
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
       var_dropout: 0.3
-      xnmt_subcol_name: UniLSTMSeqTransducer.f0cd8e59
+      xnmt_subcol_name: UniLSTMSeqTransducer-f0cd8e59
     scorer: !Softmax
       bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
       input_dim: 32
@@ -79,12 +79,12 @@ model: !DefaultTranslator
         input_dim: 32
         output_dim: 69
         param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
-        xnmt_subcol_name: Linear.1c40e55e
+        xnmt_subcol_name: Linear-1c40e55e
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
       trg_reader: !Ref {default: 1928437192847, name: null, path: model.trg_reader}
       vocab: null
       vocab_size: null
-      xnmt_subcol_name: Softmax.21c2feda
+      xnmt_subcol_name: Softmax-21c2feda
     transform: !AuxNonLinear
       activation: tanh
       aux_input_dim: 32
@@ -93,8 +93,8 @@ model: !DefaultTranslator
       input_dim: 32
       output_dim: 32
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
-      xnmt_subcol_name: AuxNonLinear.63afb176
-    xnmt_subcol_name: AutoRegressiveDecoder.45b88e09
+      xnmt_subcol_name: AuxNonLinear-63afb176
+    xnmt_subcol_name: AutoRegressiveDecoder-45b88e09
   encoder: !BiLSTMSeqTransducer
     backward_layers:
     - !UniLSTMSeqTransducer
@@ -106,7 +106,7 @@ model: !DefaultTranslator
       layers: 1
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
       var_dropout: 0.3
-      xnmt_subcol_name: UniLSTMSeqTransducer.710411d0
+      xnmt_subcol_name: UniLSTMSeqTransducer-710411d0
     bias_init: !Ref {default: 1928437192847, name: null, path: exp_global.bias_init}
     forward_layers:
     - !UniLSTMSeqTransducer
@@ -118,7 +118,7 @@ model: !DefaultTranslator
       layers: 1
       param_init: !Ref {default: 1928437192847, name: null, path: exp_global.param_init}
       var_dropout: 0.3
-      xnmt_subcol_name: UniLSTMSeqTransducer.597432e9
+      xnmt_subcol_name: UniLSTMSeqTransducer-597432e9
     hidden_dim: 32
     input_dim: 32
     layers: 1
@@ -150,7 +150,7 @@ model: !DefaultTranslator
     vocab_size: 73
     weight_noise: 0.0
     word_dropout: 0.0
-    xnmt_subcol_name: SimpleWordEmbedder.36f64a98
+    xnmt_subcol_name: SimpleWordEmbedder-36f64a98
   src_reader: !PlainTextReader
     output_proc: []
     read_sent_len: false

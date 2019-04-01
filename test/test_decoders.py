@@ -1,6 +1,6 @@
 import unittest
 
-import xnmt
+import xnmt, xnmt.tensor_tools as tt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt import batchers, event_trigger, events
 from xnmt.modelparts.bridges import CopyBridge
@@ -44,15 +44,14 @@ class TestFreeDecodingLoss(unittest.TestCase):
     self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
     self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
 
-  @unittest.skipUnless(xnmt.backend_dynet, "requires dynet backend")
   def test_single(self):
-    dy.renew_cg()
+    tt.reset_graph()
     outputs = self.model.generate(batchers.mark_as_batch([self.src_data[0]]), GreedySearch())
     output_score = outputs[0].score
 
-    dy.renew_cg()
-    train_loss = self.model.calc_nll(src=self.src_data[0],
-                                     trg=outputs[0]).value()
+    tt.reset_graph()
+    train_loss = tt.npvalue(self.model.calc_nll(src=self.src_data[0],
+                                     trg=outputs[0]))
 
     self.assertAlmostEqual(-output_score, train_loss, places=3)
 
