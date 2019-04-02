@@ -350,7 +350,7 @@ class TestOverfitting(unittest.TestCase):
                                             ref_file="examples/data/head.en",
                                             batcher=batcher)]
     train_args['run_for_epochs'] = 1
-    train_args['trainer'] = optimizers.AdamTrainer(alpha=0.01)
+    train_args['trainer'] = optimizers.AdamTrainer(alpha=0.01 if xnmt.backend_torch else 0.1)
     train_args['batcher'] = batcher
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     for _ in range(500 if xnmt.backend_torch else 50):

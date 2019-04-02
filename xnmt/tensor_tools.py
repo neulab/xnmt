@@ -116,7 +116,7 @@ def npvalue(t):
     return t.npvalue()
   else:
     ret = t.cpu().data.numpy()
-    if batch_size(t)==1:
+    if batch_size(t)==1 and t.dim()>1:
       ret = ret.squeeze(0)
     return ret.T
 
