@@ -1,6 +1,8 @@
 from typing import Optional, Dict, List, Tuple
 import collections
 
+import numpy as np
+
 import xnmt
 import xnmt.tensor_tools as tt
 
@@ -112,7 +114,9 @@ class FactoredLossExprDynet(BaseFactoredLossExpr):
     return self._combine_batches(dy.esum(list(self.expr_factors.values())), comb_method)
 
   def value(self) -> List[float]:
-    return dy.esum(list(self.expr_factors.values())).value()
+    ret = dy.esum(list(self.expr_factors.values())).value()
+    if np.isscalar(ret): ret = [ret]
+    return ret
 
   def _combine_batches(self, batched_expr, comb_method: str = "sum"):
     if comb_method == "sum":

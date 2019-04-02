@@ -24,7 +24,6 @@ from xnmt.vocabs import Vocab
 from xnmt import event_trigger, sent
 
 
-@unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
 class TestTruncatedBatchTraining(unittest.TestCase):
 
   def setUp(self):
@@ -64,7 +63,7 @@ class TestTruncatedBatchTraining(unittest.TestCase):
                                    model=model,
                                    src=src_sents_trunc[sent_id],
                                    trg=trg_sents_trunc[sent_id]).value()
-      single_loss += train_loss
+      single_loss += train_loss[0]
 
     tt.reset_graph()
 
@@ -158,7 +157,6 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
-@unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
 class TestBatchTraining(unittest.TestCase):
 
   def setUp(self):
@@ -202,7 +200,7 @@ class TestBatchTraining(unittest.TestCase):
                                    model=model,
                                    src=src_sents_trunc[sent_id],
                                    trg=trg_sents[sent_id]).value()
-      single_loss += train_loss
+      single_loss += train_loss[0]
 
     tt.reset_graph()
 
@@ -316,7 +314,6 @@ class TestTrainDevLoss(unittest.TestCase):
     self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
                            training_regimen.dev_loss_tracker.dev_score.loss, places=5)
 
-@unittest.skipUnless(xnmt.backend_dynet, "requires DyNet backend")
 class TestOverfitting(unittest.TestCase):
 
   def setUp(self):
