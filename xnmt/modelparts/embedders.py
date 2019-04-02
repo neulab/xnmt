@@ -502,7 +502,7 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
       if self.train and self.word_id_mask and x in self.word_id_mask[0]:
         ret = tt.zeroes(hidden_dim=self.emb_dim)
       else:
-        ret = self.embeddings(torch.tensor(x).to(xnmt.device))
+        ret = self.embeddings(torch.tensor(x,dtype=torch.long).to(xnmt.device))
         ret = ret.unsqueeze(0)
         if self.fix_norm is not None:
           ret = torch.div(ret, torch.norm(ret))
