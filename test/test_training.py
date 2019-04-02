@@ -13,7 +13,7 @@ import xnmt.events
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import MLELoss
-from xnmt.optimizers import AdamTrainer, DummyTrainer
+from xnmt import optimizers
 from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.train import regimens
@@ -306,7 +306,7 @@ class TestTrainDevLoss(unittest.TestCase):
                                             src_file="examples/data/head.ja",
                                             ref_file="examples/data/head.en",
                                             batcher=batcher)]
-    train_args['trainer'] = DummyTrainer()
+    train_args['trainer'] = optimizers.DummyTrainer()
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
@@ -350,10 +350,11 @@ class TestOverfitting(unittest.TestCase):
                                             ref_file="examples/data/head.en",
                                             batcher=batcher)]
     train_args['run_for_epochs'] = 1
-    train_args['trainer'] = AdamTrainer(alpha=0.1)
+    train_args['trainer'] = optimizers.AdamTrainer(alpha=0.01)
     train_args['batcher'] = batcher
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
-    for _ in range(50):
+    for _ in range(500 if xnmt.backend_torch else 50):
+      # TODO: unsure why torch seems to converge more slowly?
       training_regimen.run_training(save_fct=lambda:None)
     self.assertAlmostEqual(0.0,
                            training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
