@@ -458,7 +458,7 @@ class SoftmaxTorch(Scorer, Serializable):
       # scores = torch.nn.LogSoftmax(dim=-1)(self.calc_scores(x))
       # return F.nll_loss(input=scores, target=torch.tensor(y).to(xnmt.device), reduction='none')
       if np.isscalar(y): y = [y]
-      return F.cross_entropy(self.calc_scores(x), target=torch.tensor(y).to(xnmt.device), reduction='none')
+      return F.cross_entropy(self.calc_scores(x), target=torch.tensor(y,dtype=torch.long).to(xnmt.device), reduction='none')
 
   def calc_probs(self, x: tt.Tensor) -> tt.Tensor:
     return torch.nn.Softmax(dim=-1)(self.calc_scores(x))

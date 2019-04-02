@@ -330,7 +330,9 @@ class DenseWordEmbedderTorch(SentEmbedder, transforms.Linear, Serializable):
       if self.train and self.word_id_mask and x in self.word_id_mask[0]:
         ret = tt.zeroes(hidden_dim=self.emb_dim)
       else:
-        ret = torch.index_select(self.linear.weight, dim=0, index=torch.tensor([x], device=xnmt.device))
+        ret = torch.index_select(self.linear.weight,
+                                 dim=0,
+                                 index=torch.tensor([x], dtype=torch.long, device=xnmt.device))
         # ret = dy.pick(emb_e, index=x)
         if self.fix_norm is not None:
           ret = torch.div(ret, torch.norm(ret))
@@ -510,7 +512,7 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
             ret = torch.mul(ret, self.fix_norm)
     # minibatch mode
     else:
-      ret = self.embeddings(torch.tensor(x).to(xnmt.device))
+      ret = self.embeddings(torch.tensor(x,dtype=torch.long).to(xnmt.device))
       if self.fix_norm is not None:
         ret = torch.div(ret, torch.norm(ret))
         if self.fix_norm != 1:
