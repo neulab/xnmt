@@ -453,7 +453,7 @@ class SoftmaxTorch(Scorer, Serializable):
       one_hot = torch.zeros_like(pred).scatter(1, gold.view(-1,1), 1)
       one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / n_class
       log_prb = F.log_softmax(pred, dim=1)
-      return -(one_hot * log_prb)
+      return -(torch.matmul(one_hot.unsqueeze(1), log_prb.unsqueeze(2)).squeeze(2)) # neg dot product
     else:
       # scores = torch.nn.LogSoftmax(dim=-1)(self.calc_scores(x))
       # return F.nll_loss(input=scores, target=torch.tensor(y).to(xnmt.device), reduction='none')
