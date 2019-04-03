@@ -423,16 +423,15 @@ class H5Reader(ContvecReader, Serializable):
   def read_sents(self, filename: str, filter_ids: Optional[Sequence[numbers.Integral]]=None) -> Iterator[sent.ArraySentence]:
     with h5py.File(filename, "r") as hf:
       h5_keys = sorted(hf.keys(), key=lambda x: int(x))
+
       if filter_ids is not None:
         filter_ids = sorted(filter_ids)
         h5_keys = [h5_keys[i] for i in filter_ids]
         h5_keys.sort(key=lambda x: int(x))
+
       for sent_no, key in enumerate(h5_keys):
         inp = hf[key][:]
         inp = self.proc_one_sent(inp)
-        if sent_no % 1000 == 999:
-          logger.info(
-            f"Read {sent_no + 1} lines ({float(sent_no + 1) / len(h5_keys) * 100:.2f}%) of {filename} at {key}")
         yield sent.ArraySentence(idx=filter_ids[sent_no] if filter_ids else sent_no, nparr=inp)
 
   def count_sents(self, filename: str) -> numbers.Integral:
@@ -487,18 +486,17 @@ class NpzReader(ContvecReader, Serializable):
   def read_sents(self, filename: str, filter_ids: Optional[Sequence[numbers.Integral]] = None) -> None:
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
+
     if filter_ids is not None:
       filter_ids = sorted(filter_ids)
       npzKeys = [npzKeys[i] for i in filter_ids]
       npzKeys.sort(key=lambda x: int(x.split('_')[-1]))
+
     for sent_no, key in enumerate(npzKeys):
       inp = npzFile[key]
-
       inp = self.proc_one_sent(inp)
-
-      if sent_no % 1000 == 999:
-        logger.info(f"Read {sent_no+1} lines ({float(sent_no+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
       yield sent.ArraySentence(idx=filter_ids[sent_no] if filter_ids else sent_no, nparr=inp)
+
     npzFile.close()
 
   def count_sents(self, filename: str) -> numbers.Integral:
