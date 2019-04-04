@@ -161,8 +161,9 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     self.max_trg_len = max_trg_len
 
     self.batcher = batcher
-    self.dev_loss_tracker = loss_trackers.DevLossTracker(self, dev_every, name)
     self.name = name
+    self.train_loss_tracker = loss_trackers.TrainLossTracker(self)
+    self.dev_loss_tracker = loss_trackers.DevLossTracker(self, dev_every, name)
 
   def _augment_data_initial(self):
     """

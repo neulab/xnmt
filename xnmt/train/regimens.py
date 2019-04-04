@@ -6,7 +6,7 @@ import numbers
 import numpy as np
 
 import xnmt.tensor_tools as tt
-from xnmt import batchers, event_trigger, loss_calculators, loss_trackers, losses, optimizers, param_collections, utils
+from xnmt import batchers, event_trigger, loss_calculators, losses, optimizers, param_collections, utils
 from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.eval import tasks as eval_tasks
@@ -130,7 +130,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                      max_trg_len=max_trg_len)
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
-    self.train_loss_tracker = loss_trackers.TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
     self.num_updates_skipped = 0
@@ -266,7 +265,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
       raise ValueError("AutobatchTrainingRegimen forces the batcher to have batch_size 1. Use update_every to set the actual batch size in this regimen.")
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
-    self.train_loss_tracker = loss_trackers.TrainLossTracker(self)
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
     self.num_updates_skipped = 0
@@ -407,7 +405,6 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                update_every: numbers.Integral = 1,
                n_task_steps: Optional[Sequence[numbers.Integral]] = None) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every)
-    self.train_loss_trackers = {task : loss_trackers.TrainLossTracker(task) for task in tasks}
     self.per_task_backward = per_task_backward
     self.loss_comb_method = loss_comb_method
     self.n_task_steps = n_task_steps or [1] * len(tasks)
@@ -432,12 +429,12 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
         task_trg_loss_stats = {}
         with contextlib.ExitStack() as stack: #use exit stack to control whether to use global or per-task time tracking
           if not self.per_task_backward:
-            stack.enter_context(self.train_loss_trackers[self.tasks[0]].time_tracker)
+            stack.enter_context(self.tasks[0].train_loss_tracker.time_tracker)
           self.trigger_train_event(True)
           for task, src, trg in task_src_trg:
             with contextlib.ExitStack() as stack2:
               if self.per_task_backward:
-                stack2.enter_context(self.train_loss_trackers[task].time_tracker)
+                stack2.enter_context(task.train_loss_tracker.time_tracker)
               loss_builder = task.training_step(src, trg)
               task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
               if self.per_task_backward:
@@ -449,7 +446,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
             self.backward(sum(task_losses))
           self.update(self.trainer)
         for task, (trg, stats) in task_trg_loss_stats.items():
-          self.train_loss_trackers[task].report(trg, stats)
+          task.train_loss_tracker.report(trg, stats)
         self.checkpoint_and_save(save_fct)
         if self.tasks[0].should_stop_training(): break
 
@@ -501,7 +498,6 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     if len(self.task_weights) != len(self.tasks):
       raise ValueError(f"number of tasks must match number of task weights; "
                        f"found: {len(self.task_weights)} != {len(self.tasks)}")
-    self.train_loss_trackers = {task: loss_trackers.TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
   def run_training(self, save_fct: Callable) -> None:
@@ -516,15 +512,14 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
         cur_task = self.tasks[cur_task_i]
         task_gen = task_generators[cur_task]
         if dev_zero[cur_task_i]: self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
-        cur_train_loss_tracker = self.train_loss_trackers[cur_task]
-        with cur_train_loss_tracker.time_tracker:
+        with cur_task.train_loss_tracker.time_tracker:
           for _ in range(self.update_every_within):
             src, trg = next(task_gen)
             self.trigger_train_event(True)
             loss_builder = cur_task.training_step(src, trg)
             self.backward(loss=loss_builder.compute())
           self.update(trainer=self.trainer)
-        cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+        cur_task.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
         self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         if self.tasks[0].should_stop_training(): break
 
@@ -563,7 +558,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: numbers.Integral = 1) -> None:
     super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every)
-    self.train_loss_trackers = {task: loss_trackers.TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
   def run_training(self, save_fct: Callable) -> None:
@@ -571,20 +565,19 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     for cur_task_id in range(len(self.tasks)):
       self.train = None
       cur_task = self.tasks[cur_task_id]
-      cur_train_loss_tracker = self.train_loss_trackers[cur_task]
       task_gen = cur_task.next_minibatch()
       if cur_task.run_for_epochs > 0:
         while True:
           tt.reset_graph()
           src, trg = next(task_gen)
           if dev_zero[cur_task_id]: self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
-          with cur_train_loss_tracker.time_tracker:
+          with cur_task.train_loss_tracker.time_tracker:
             self.trigger_train_event(True)
             loss_builder = cur_task.training_step(src, trg)
             task_loss = loss_builder.compute()
             self.backward(task_loss)
             self.update(self.trainer)
-          cur_train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+          cur_task.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
           self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           if cur_task.should_stop_training(): break
 
