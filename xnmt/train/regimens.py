@@ -78,7 +78,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     max_trg_len:
     loss_comb_method: method for combining loss across batch elements (``sum`` or ``avg``).
     update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
-    commandline_args:
   """
   yaml_tag = '!SimpleTrainingRegimen'
 
@@ -107,8 +106,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                max_src_len: Optional[numbers.Integral] = None,
                max_trg_len: Optional[numbers.Integral] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: numbers.Integral = 1,
-               commandline_args: dict = Ref("exp_global.commandline_args", default={})) -> None:
+               update_every: numbers.Integral = 1) -> None:
 
     super().__init__(model=model,
                      src_file=src_file,
@@ -214,7 +212,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
     max_trg_len:
     loss_comb_method: method for combining loss across batch elements (``sum`` or ``avg``).
     update_every: how many instances to accumulate before updating parameters. This effectively sets the batch size under DyNet autobatching.
-    commandline_args:
   """
   yaml_tag = '!AutobatchTrainingRegimen'
 
@@ -243,8 +240,7 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
                max_src_len: Optional[numbers.Integral] = None,
                max_trg_len: Optional[numbers.Integral] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: numbers.Integral = 1,
-               commandline_args: dict = Ref("exp_global.commandline_args", default={})) -> None:
+               update_every: numbers.Integral = 1) -> None:
 
     super().__init__(model=model,
                      src_file=src_file,
@@ -334,14 +330,12 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     trainer: Trainer object, default is SGD with learning rate 0.1
     dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
     update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
-    commandline_args:
   """
   def __init__(self,
                tasks: Sequence[train_tasks.TrainingTask],
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
-               update_every: numbers.Integral = 1,
-               commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
+               update_every: numbers.Integral = 1) -> None:
     super().__init__()
     if len(tasks)==0: raise ValueError("Task list must be non-empty.")
     self.tasks = tasks
@@ -400,7 +394,6 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                   and then loop according to this parameter so that we collect multiple steps for each task and always
                   according to the same ratio.
     n_task_steps: The number steps to accumulate for each task, useful for weighting tasks.
-    commandline_args:
   """
   yaml_tag = "!SameBatchMultiTaskTrainingRegimen"
 
@@ -412,10 +405,8 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                per_task_backward: bool = True,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: numbers.Integral = 1,
-               n_task_steps: Optional[Sequence[numbers.Integral]] = None,
-               commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every,
-                     commandline_args=commandline_args)
+               n_task_steps: Optional[Sequence[numbers.Integral]] = None) -> None:
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every)
     self.train_loss_trackers = {task : loss_trackers.TrainLossTracker(task) for task in tasks}
     self.per_task_backward = per_task_backward
     self.loss_comb_method = loss_comb_method
@@ -490,7 +481,6 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
     update_every_across: Simulate large-batch training by accumulating gradients over several steps before updating
                          parameters. The behavior here is to draw tasks randomly several times before doing parameter
                          updates.
-    commandline_args:
   """
   yaml_tag = "!AlternatingBatchMultiTaskTrainingRegimen"
 
@@ -502,10 +492,8 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every_within: numbers.Integral = 1,
-               update_every_across: numbers.Integral = 1,
-               commandline_args=Ref("exp_global.commandline_args", default=None)) -> None:
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every_across,
-                     commandline_args=commandline_args)
+               update_every_across: numbers.Integral = 1) -> None:
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every_across)
     if update_every_within!=1 and update_every_across!=1:
       raise ValueError("update_every_within and update_every_across cannot be mixed.")
     self.update_every_within = update_every_within
@@ -563,7 +551,6 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
     dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
     loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
-    commandline_args:
   """
 
   yaml_tag = "!SerialMultiTaskTrainingRegimen"
@@ -574,10 +561,8 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
                trainer: optimizers.XnmtOptimizer = bare(optimizers.SimpleSGDTrainer, e0=0.1),
                dev_zero: bool = False,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
-               update_every: numbers.Integral = 1,
-               commandline_args: dict = Ref("exp_global.commandline_args", default=None)) -> None:
-    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, commandline_args=commandline_args,
-                     update_every=update_every)
+               update_every: numbers.Integral = 1) -> None:
+    super().__init__(tasks=tasks, trainer=trainer, dev_zero=dev_zero, update_every=update_every)
     self.train_loss_trackers = {task: loss_trackers.TrainLossTracker(task) for task in tasks}
     self.loss_comb_method = loss_comb_method
 
