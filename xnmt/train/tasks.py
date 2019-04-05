@@ -277,6 +277,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
         src = self.src_batches[batch_num]
         trg = self.trg_batches[batch_num]
         self.training_state.steps_into_epoch += 1
+        self.training_state.steps_since_start += 1
         self.training_state.sents_into_epoch += src.batch_size()
         self.training_state.sents_since_start += src.batch_size()
         yield src, trg
@@ -383,6 +384,7 @@ class TrainingState(object):
     self.cur_attempt = 0
     self.epoch_num = 0
     self.steps_into_epoch = 0
+    self.steps_since_start = 0
     self.sents_since_start = 0
     self.sents_into_epoch = 0
     self.best_dev_score = None

@@ -33,8 +33,8 @@ class TrainLossTracker(Serializable):
 
   yaml_tag = "!TrainLossTracker"
 
-  REPORT_TEMPLATE_SPEED = 'Epoch {epoch:.4f}: {data_name}_loss/word={loss:.6f} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
-  REPORT_TEMPLATE       = 'Epoch {epoch:.4f}: {data_name}_loss/word={loss:.6f} (words={words}, words/sec={words_per_sec}, time={time})'
+  REPORT_TEMPLATE_SPEED = 'Epoch {epoch:.4f}: {data_name}_loss/word={loss:.6f} (steps={n_iter}, words/sec={words_per_sec:.2f}, time={time})'
+  REPORT_TEMPLATE       = 'Epoch {epoch:.4f}: {data_name}_loss/word={loss:.6f} (steps={n_iter}, words/sec={words_per_sec}, time={time})'
   REPORT_TEMPLATE_ADDITIONAL = '- {loss_name} {loss:5.6f}'
   REPORT_EVERY = 1000
 
@@ -90,7 +90,8 @@ class TrainLossTracker(Serializable):
       utils.log_readable_and_tensorboard(
         template = TrainLossTracker.REPORT_TEMPLATE_SPEED if accum_time else TrainLossTracker.REPORT_TEMPLATE,
         args = {"loss": rep_train_loss},
-        n_iter = fractional_epoch,
+        n_iter = self.training_task.training_state.steps_since_start,
+        fractional_epoch = fractional_epoch,
         time = utils.format_time(time.time() - self.start_time),
         words = self.epoch_words,
         data_name = "train",
@@ -171,7 +172,8 @@ class DevLossTracker(TrainLossTracker, Serializable):
     dev_time = self.time_tracker.get_and_reset()
     utils.log_readable_and_tensorboard(template=DevLossTracker.REPORT_TEMPLATE_DEV,
                                        args={self.dev_score.metric_name(): self.dev_score.value()},
-                                       n_iter=self.fractional_epoch,
+                                       n_iter=self.training_task.training_state.steps_since_start,
+                                       fractional_epoch=self.fractional_epoch,
                                        data_name="dev",
                                        task_name=self.name,
                                        score=self.dev_score,
@@ -179,7 +181,8 @@ class DevLossTracker(TrainLossTracker, Serializable):
     for score in self.aux_scores:
       utils.log_readable_and_tensorboard(template=DevLossTracker.REPORT_TEMPLATE_DEV_AUX,
                                          args={score.metric_name(): score.value()},
-                                         n_iter=self.fractional_epoch,
+                                         n_iter=self.training_task.training_state.steps_since_start,
+                                         fractional_epoch=self.fractional_epoch,
                                          data_name="dev",
                                          task_name=self.name,
                                          score=score)

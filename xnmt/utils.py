@@ -50,13 +50,15 @@ def format_time(seconds: numbers.Number) -> str:
 
 def log_readable_and_tensorboard(template: str,
                                  args: MutableMapping,
-                                 n_iter: numbers.Real,
+                                 n_iter: numbers.Integral,
+                                 fractional_epoch: numbers.Real,
                                  data_name: str,
                                  task_name: Optional[str] = None,
                                  **kwargs) -> None:
   log_args = dict(args)
   log_args["data_name"] = data_name
-  log_args["epoch"] = n_iter
+  log_args["epoch"] = fractional_epoch
+  log_args["n_iter"] = n_iter
   log_args.update(kwargs)
   if task_name: log_args["task_name"] = task_name
   logger.info(template.format(**log_args), extra=log_args)
