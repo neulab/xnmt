@@ -28,7 +28,6 @@ class LossEvalTask(EvalTask, Serializable):
     max_src_len: omit sentences with source length greater than specified number
     max_trg_len: omit sentences with target length greater than specified number
     max_num_sents: compute loss only for the first n sentences in the given corpus
-    loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     desc: description to pass on to computed score objects
   """
   yaml_tag = '!LossEvalTask'
@@ -43,7 +42,6 @@ class LossEvalTask(EvalTask, Serializable):
                max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                max_num_sents: Optional[int] = None,
-               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                desc: Any = None) -> None:
     self.model = model
     self.loss_calculator = loss_calculator
@@ -54,7 +52,6 @@ class LossEvalTask(EvalTask, Serializable):
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
     self.max_num_sents = max_num_sents
-    self.loss_comb_method = loss_comb_method
     self.desc=desc
 
   def eval(self) -> 'metrics.EvalScore':
@@ -84,7 +81,7 @@ class LossEvalTask(EvalTask, Serializable):
         loss = self.loss_calculator.calc_loss(self.model, src, trg)
 
         ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
-        loss_val += loss.get_factored_loss_val(comb_method=self.loss_comb_method)
+        loss_val += loss.get_factored_loss_val()
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
 #

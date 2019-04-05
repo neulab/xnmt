@@ -6,7 +6,7 @@ import numbers
 import numpy as np
 
 import xnmt.tensor_tools as tt
-from xnmt import batchers, event_trigger, loss_calculators, losses, optimizers, param_collections, utils
+from xnmt import batchers, event_trigger, loss_calculators, loss_trackers, losses, optimizers, param_collections, utils
 from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
 from xnmt.eval import tasks as eval_tasks
@@ -50,7 +50,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     model: the model
     src_file: the source training file
     trg_file: the target training file
-    dev_every: dev checkpoints every n sentences (0 for only after epoch)
     dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
     batcher: Type of batcher
     loss_calculator: The method for calculating the loss.
@@ -77,6 +76,8 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     max_src_len:
     max_trg_len:
     loss_comb_method: method for combining loss across batch elements (``sum`` or ``avg``).
+    train_loss_tracker: tracker for the training loss
+    dev_loss_tracker: loss tracker for dev checkpoints
     update_every: simulate large-batch training by accumulating gradients over several steps before updating parameters
   """
   yaml_tag = '!SimpleTrainingRegimen'
@@ -86,7 +87,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                model: models.ConditionedModel = Ref("model"),
                src_file: Union[None, str, Sequence[str]] = None,
                trg_file: Optional[str] = None,
-               dev_every: numbers.Integral = 0,
                dev_zero: bool = False,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
@@ -106,12 +106,13 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                max_src_len: Optional[numbers.Integral] = None,
                max_trg_len: Optional[numbers.Integral] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
+               train_loss_tracker: loss_trackers.TrainLossTracker = bare(loss_trackers.TrainLossTracker),
+               dev_loss_tracker: loss_trackers.DevLossTracker = bare(loss_trackers.DevLossTracker),
                update_every: numbers.Integral = 1) -> None:
 
     super().__init__(model=model,
                      src_file=src_file,
                      trg_file=trg_file,
-                     dev_every=dev_every,
                      batcher=batcher,
                      loss_calculator=loss_calculator,
                      run_for_epochs=run_for_epochs,
@@ -127,7 +128,10 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                      sample_train_sents=sample_train_sents,
                      max_num_train_sents=max_num_train_sents,
                      max_src_len=max_src_len,
-                     max_trg_len=max_trg_len)
+                     max_trg_len=max_trg_len,
+                     train_loss_tracker=train_loss_tracker,
+                     dev_loss_tracker=dev_loss_tracker,
+                     )
     self.dev_zero = dev_zero
     self.trainer = trainer or optimizers.SimpleSGDTrainer(e0=0.1)
     self.loss_comb_method = loss_comb_method
@@ -148,10 +152,10 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
           with self.train_loss_tracker.time_tracker:
             event_trigger.set_train(True)
             loss_builder = self.training_step(src, trg)
-            loss = loss_builder.compute()
+            loss = loss_builder.compute(comb_method=self.loss_comb_method)
             self.backward(loss)
             self.update(self.trainer)
-          self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+          self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val())
         if self.checkpoint_needed():
           self.checkpoint_and_save(save_fct)
         if self.should_stop_training(): break
@@ -183,7 +187,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
     model: the model
     src_file: the source training file
     trg_file: the target training file
-    dev_every: dev checkpoints every n sentences (0 for only after epoch)
     dev_zero: if True, add a checkpoint before training loop is entered (useful with pretrained models).
     batcher: Type of batcher
     loss_calculator: The method for calculating the loss.
@@ -219,7 +222,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
                model: models.ConditionedModel = Ref("model"),
                src_file: Union[None, str, Sequence[str]] = None,
                trg_file: Optional[str] = None,
-               dev_every: numbers.Integral = 0,
                dev_zero: bool = False,
                batcher: batchers.Batcher = bare(batchers.SrcBatcher, batch_size=32),
                loss_calculator: loss_calculators.LossCalculator = bare(loss_calculators.MLELoss),
@@ -244,7 +246,6 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
     super().__init__(model=model,
                      src_file=src_file,
                      trg_file=trg_file,
-                     dev_every=dev_every,
                      batcher=batcher,
                      loss_calculator=loss_calculator,
                      run_for_epochs=run_for_epochs,
@@ -291,10 +292,10 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
             # num_updates_skipped is incremented in update but
             # we need to call backward before update
             if self.num_updates_skipped == self.update_every - 1:
-              self.backward(total_loss.compute())
+              self.backward(total_loss.compute(comb_method=self.loss_comb_method))
             self.update(self.trainer)
           if self.num_updates_skipped == 0:
-            total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
+            total_loss_val = total_loss.get_factored_loss_val()
             reported_trg = batchers.ListBatch(total_trg)
             self.train_loss_tracker.report(reported_trg, total_loss_val)
             total_loss = losses.FactoredLossExpr()
@@ -304,9 +305,9 @@ class AutobatchTrainingRegimen(SimpleTrainingRegimen):
           # Do a last update before checkpoint
           # Force forward-backward for the last batch even if it's smaller than update_every
           self.num_updates_skipped = self.update_every - 1
-          self.backward(total_loss.compute())
+          self.backward(total_loss.compute(comb_method=self.loss_comb_method))
           self.update(self.trainer)
-          total_loss_val = total_loss.get_factored_loss_val(comb_method=self.loss_comb_method)
+          total_loss_val = total_loss.get_factored_loss_val()
           reported_trg = batchers.ListBatch(total_trg)
           self.train_loss_tracker.report(reported_trg, total_loss_val)
           total_loss = losses.FactoredLossExpr()
@@ -436,12 +437,12 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
               if self.per_task_backward:
                 stack2.enter_context(task.train_loss_tracker.time_tracker)
               loss_builder = task.training_step(src, trg)
-              task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+              task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val())
               if self.per_task_backward:
-                self.backward(loss_builder.compute())
+                self.backward(loss_builder.compute(comb_method=self.loss_comb_method))
                 tt.reset_graph()
               else:
-                task_losses.append(loss_builder.compute())
+                task_losses.append(loss_builder.compute(comb_method=self.loss_comb_method))
           if not self.per_task_backward:
             self.backward(sum(task_losses))
           self.update(self.trainer)
@@ -517,9 +518,9 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
             src, trg = next(task_gen)
             self.trigger_train_event(True)
             loss_builder = cur_task.training_step(src, trg)
-            self.backward(loss=loss_builder.compute())
+            self.backward(loss=loss_builder.compute(comb_method=self.loss_comb_method))
           self.update(trainer=self.trainer)
-        cur_task.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+        cur_task.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val())
         self.checkpoint_and_save(cur_task, cur_task_i, save_fct, dev_zero)
         if self.tasks[0].should_stop_training(): break
 
@@ -574,10 +575,10 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
           with cur_task.train_loss_tracker.time_tracker:
             self.trigger_train_event(True)
             loss_builder = cur_task.training_step(src, trg)
-            task_loss = loss_builder.compute()
+            task_loss = loss_builder.compute(comb_method=self.loss_comb_method)
             self.backward(task_loss)
             self.update(self.trainer)
-          cur_task.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
+          cur_task.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val())
           self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           if cur_task.should_stop_training(): break
 

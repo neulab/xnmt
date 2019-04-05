@@ -13,6 +13,7 @@ import xnmt.events
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import MLELoss
+from xnmt.loss_trackers import TrainLossTracker
 from xnmt import optimizers
 from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
@@ -309,6 +310,7 @@ class TestTrainDevLoss(unittest.TestCase):
     train_args['trainer'] = optimizers.DummyTrainer()
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
+    train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)
     self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,

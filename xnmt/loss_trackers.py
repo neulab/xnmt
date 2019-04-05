@@ -4,6 +4,7 @@ import numbers
 
 from xnmt import batchers, events, logger, losses, sent, utils
 from xnmt.eval import metrics
+from xnmt.persistence import Ref, serializable_init, Serializable
 
 class AccumTimeTracker(object):
   def __init__(self) -> None:
@@ -21,17 +22,27 @@ class AccumTimeTracker(object):
     self.accum_time = 0.0
     return ret
 
-class TrainLossTracker(object):
+class TrainLossTracker(Serializable):
+
+  """
+  Loss tracker for the loss of a training task.
+
+  Args:
+    accumulative: whether to accumulate (average) training loss over each current epoch
+  """
+
+  yaml_tag = "!TrainLossTracker"
 
   REPORT_TEMPLATE_SPEED = 'Epoch {epoch:.4f}: {data_name}_loss/word={loss:.6f} (words={words}, words/sec={words_per_sec:.2f}, time={time})'
   REPORT_TEMPLATE       = 'Epoch {epoch:.4f}: {data_name}_loss/word={loss:.6f} (words={words}, words/sec={words_per_sec}, time={time})'
   REPORT_TEMPLATE_ADDITIONAL = '- {loss_name} {loss:5.6f}'
   REPORT_EVERY = 1000
 
+  @serializable_init
   @events.register_xnmt_handler
-  def __init__(self, training_task: 'xnmt.train.tasks.TrainingTask') -> None:
-    self.training_task = training_task
-
+  def __init__(self, accumulative: bool = False) -> None:
+    self.accumulative = accumulative
+    self.training_task = None
     self.epoch_loss = losses.FactoredLossVal()
     self.epoch_words = 0
     self.last_report_sents_into_epoch = 0
@@ -41,6 +52,9 @@ class TrainLossTracker(object):
 
     self.time_tracker = AccumTimeTracker()
     self.start_time = time.time()
+
+  def set_training_task(self, training_task: 'xnmt.train.tasks.TrainingTask') -> None:
+    self.training_task = training_task
     self.name = self.training_task.name
 
   @events.handle_xnmt_event
@@ -56,7 +70,13 @@ class TrainLossTracker(object):
     Accumulate training loss and report every REPORT_EVERY sentences.
     """
     self.epoch_words += self.count_trg_words(trg)
-    self.epoch_loss += loss
+    if self.accumulative:
+      self.epoch_loss += loss
+      self.loss_normalizer = self.epoch_words
+    else:
+      self.epoch_loss = loss
+      self.loss_normalizer = self.count_trg_words(trg)
+
 
     sent_num_not_report = self.training_task.training_state.sents_since_start - self.last_report_sents_since_start
     should_report = sent_num_not_report >= TrainLossTracker.REPORT_EVERY \
@@ -66,7 +86,7 @@ class TrainLossTracker(object):
       fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
                          + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
       accum_time = self.time_tracker.get_and_reset()
-      rep_train_loss = self.epoch_loss.sum_factors() / self.epoch_words
+      rep_train_loss = self.epoch_loss.sum_factors() / self.loss_normalizer
       utils.log_readable_and_tensorboard(
         template = TrainLossTracker.REPORT_TEMPLATE_SPEED if accum_time else TrainLossTracker.REPORT_TEMPLATE,
         args = {"loss": rep_train_loss},
@@ -81,7 +101,7 @@ class TrainLossTracker(object):
       if len(self.epoch_loss) > 1:
         for loss_name, loss_values in self.epoch_loss.items():
           utils.log_readable_and_tensorboard(template=TrainLossTracker.REPORT_TEMPLATE_ADDITIONAL,
-                                             args={loss_name: loss_values / self.epoch_words},
+                                             args={loss_name: loss_values / self.loss_normalizer},
                                              n_iter=fractional_epoch,
                                              data_name="train",
                                              task_name=self.name,
@@ -98,17 +118,27 @@ class TrainLossTracker(object):
     else:
       return trg_words.len_unpadded()
 
-class DevLossTracker(object):
+class DevLossTracker(TrainLossTracker, Serializable):
+
+  yaml_tag = "!DevLossTracker"
 
   REPORT_TEMPLATE_DEV         = 'Epoch {epoch:.4f} dev {score} (time={time})'
   REPORT_TEMPLATE_DEV_AUX     = '             dev auxiliary {score}'
   REPORT_TEMPLATE_TIME_NEEDED = '             checkpoint took {time_needed}'
 
+  """
+  Loss tracker for dev checkpoints.
+  
+  Args:
+    dev_every: dev checkpoints every n sentences (0 for only after epoch)
+  """
+
+  @serializable_init
   def __init__(self,
-               training_task: 'xnmt.train.tasks.TrainingTask',
-               eval_every: numbers.Integral,
-               name: Optional[str]=None) -> None:
-    self.training_task = training_task
+               eval_every: numbers.Integral = 0,
+               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum")) -> None:
+    self.loss_comb_method = loss_comb_method
+    self.training_task = None
     self.eval_dev_every = eval_every
 
     self.last_report_sents_since_start = 0
@@ -118,7 +148,6 @@ class DevLossTracker(object):
     self.aux_scores = []
 
     self.start_time = time.time()
-    self.name = name
     self.time_tracker = AccumTimeTracker()
 
   def set_dev_score(self, dev_score: metrics.EvalScore) -> None:
