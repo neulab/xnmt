@@ -364,7 +364,11 @@ class ContvecReader(InputReader):
     if self.delta:
       diff_arrays = []
       for order in range(1, self.delta + 1):
-        diff_arrays.append(np.diff(inp, n=order, append=np.zeros(shape=(inp.shape[0], order), dtype=inp.dtype)))
+        diff_arrays.append(np.diff(a=np.append(inp,
+                                               values=np.zeros(shape=(inp.shape[0], order),
+                                                               dtype=inp.dtype),
+                                               axis=1),
+                                   n=order))
       inp = np.concatenate([inp] + diff_arrays)
     sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, :]
     if sub_inp.size < inp.size:
