@@ -88,7 +88,7 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
     input_dim: input dimension
     hidden_dim: hidden dimension
     var_dropout: dropout probability (variational recurrent + vertical dropout)
-    weightnoise_std): weight noise standard deviation
+    weightnoise_std: weight noise standard deviation
     param_init: how to initialize weight matrices
     bias_init: how to initialize bias vectors
     yaml_path:
@@ -414,10 +414,10 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   It uses 2 :class:`xnmt.lstm.UniLSTMSeqTransducer` objects in each layer.
 
   Args:
-    layers (int): number of layers
-    input_dim (int): input dimension
-    hidden_dim (int): hidden dimension
-    var_dropout (float): dropout probability (variational recurrent + vertical dropout)
+    layers: number of layers
+    input_dim: input dimension
+    hidden_dim: hidden dimension
+    var_dropout: dropout probability (variational recurrent + vertical dropout)
     param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
     bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
@@ -496,9 +496,9 @@ class CustomLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   starting point for LSTM extensions.
 
   Args:
-    layers (int): number of layers
-    input_dim (int): input dimension; if None, use exp_global.default_layer_dim
-    hidden_dim (int): hidden dimension; if None, use exp_global.default_layer_dim
+    layers: number of layers
+    input_dim: input dimension; if None, use exp_global.default_layer_dim
+    hidden_dim: hidden dimension; if None, use exp_global.default_layer_dim
     param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
                 specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
                 If None, use ``exp_global.param_init``
