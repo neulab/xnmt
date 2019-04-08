@@ -24,10 +24,10 @@ class LayerNormDynet(Serializable, transforms.Transform):
   yaml_tag = "!LayerNorm"
 
   @serializable_init
-  def __init__(self, d_hid: numbers.Integral) -> None:
+  def __init__(self, hidden_dim: numbers.Integral) -> None:
     my_params = param_collections.ParamManager.my_params(self)
-    self.p_g = my_params.add_parameters(dim=d_hid, init=dy.ConstInitializer(1.0))
-    self.p_b = my_params.add_parameters(dim=d_hid, init=dy.ConstInitializer(0.0))
+    self.p_g = my_params.add_parameters(dim=hidden_dim, init=dy.ConstInitializer(1.0))
+    self.p_b = my_params.add_parameters(dim=hidden_dim, init=dy.ConstInitializer(0.0))
 
   def transform(self, x: tt.Tensor) -> tt.Tensor:
     g = dy.parameter(self.p_g)
@@ -40,9 +40,9 @@ class LayerNormTorch(Serializable, transforms.Transform):
   yaml_tag = "!LayerNorm"
 
   @serializable_init
-  def __init__(self, d_hid: numbers.Integral) -> None:
+  def __init__(self, hidden_dim: numbers.Integral) -> None:
     my_params = param_collections.ParamManager.my_params(self)
-    self.layer_norm = nn.LayerNorm(normalized_shape=d_hid).to(xnmt.device)
+    self.layer_norm = nn.LayerNorm(normalized_shape=hidden_dim).to(xnmt.device)
     my_params.append(self.layer_norm)
 
   def transform(self, x: tt.Tensor) -> tt.Tensor:
