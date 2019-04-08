@@ -5,6 +5,7 @@ import collections
 import numpy as np
 
 import xnmt
+import xnmt.tensor_tools as tt
 from xnmt import logger
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable
@@ -25,12 +26,6 @@ class XnmtOptimizer(object):
   """
   A base classe for trainers. Trainers are mostly simple wrappers of the backend trainers but can add extra
   functionality.
-
-  Args:
-    optimizer: the underlying DyNet optimizer (trainer)
-    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
-                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
-                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
   """
   def __init__(self):
     self.learning_rate = None
@@ -129,21 +124,34 @@ class XnmtOptimizerTorch(XnmtOptimizer):
 
   Args:
     optimizer: the underlying PyTorch optimizer
+    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
+                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
+                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
     clip_threshold: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
   """
 
-  def __init__(self, optimizer: 'torch.optim.Optimizer', clip_threshold: numbers.Real = 5.0) -> None:
+  def __init__(self,
+               optimizer: 'torch.optim.Optimizer',
+               skip_noisy: bool = False,
+               clip_threshold: numbers.Real = 5.0) -> None:
     self.optimizer = optimizer
     self.clip_threshold = clip_threshold
     self.lr_factor = 1.0
     self.scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=self.optimizer,
                                                        lr_lambda = lambda epoch: self.lr_factor, last_epoch=-1)
+    self.skip_noisy = skip_noisy
+    if skip_noisy:
+      self.rolling_stats = utils.RollingStatistic()
 
   def update(self) -> None:
     if self.clip_threshold > 0.0:
       torch.nn.utils.clip_grad_norm_(ParamManager.global_collection().parameters(), self.clip_threshold)
     self.scheduler.step()
-    self.optimizer.step()
+    if not (self.skip_noisy and self._check_gradients_noisy()):
+      self.optimizer.step()
+    else:
+      logger.info("skipping noisy update")
+
 
   def restart(self) -> None:
     # https://discuss.pytorch.org/t/reset-adaptive-optimizer-state/14654/3
@@ -156,6 +164,20 @@ class XnmtOptimizerTorch(XnmtOptimizer):
   def learning_rate(self, value):
     self.lr_factor = value
 
+  def _check_gradients_noisy(self) -> bool:
+    sq_norm = 0
+    for subcol in ParamManager.param_col.subcols.values():
+      for _, param in subcol.named_parameters():
+        cur_grads = tt.npvalue(param.grad)
+        sq_norm += np.sum(np.square(cur_grads))
+    log_norm = np.log(np.sqrt(sq_norm))
+    self.rolling_stats.update(log_norm)
+    if self.rolling_stats.average is None: # too few statistics
+      return False
+    else:
+      req_min = self.rolling_stats.average - 4*self.rolling_stats.stddev
+      req_max = self.rolling_stats.average + 4*self.rolling_stats.stddev
+      return not (req_min < log_norm < req_max)
 
 @xnmt.require_dynet
 class SimpleSGDTrainerDynet(XnmtOptimizerDynet, Serializable):
@@ -190,6 +212,9 @@ class SimpleSGDTrainerTorch(XnmtOptimizerTorch, Serializable):
     weight_decay: weight decay (L2 penalty)
     dampening: dampening for momentum
     nesterov: enables Nesterov momentum
+    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
+                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
+                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
   """
   yaml_tag = '!SimpleSGDTrainer'
 
@@ -199,13 +224,15 @@ class SimpleSGDTrainerTorch(XnmtOptimizerTorch, Serializable):
                momentum: numbers.Real = 0.0,
                weight_decay: numbers.Real = 0.0,
                dampening: numbers.Real = 0.0,
-               nesterov: bool = False) -> None:
+               nesterov: bool = False,
+               skip_noisy: bool = False) -> None:
     super().__init__(optimizer=torch.optim.SGD(params=ParamManager.global_collection().parameters(),
                                                lr=e0,
                                                momentum=momentum,
                                                weight_decay=weight_decay,
                                                dampening=dampening,
-                                               nesterov=nesterov))
+                                               nesterov=nesterov),
+                     skip_noisy=skip_noisy)
 
 SimpleSGDTrainer = xnmt.resolve_backend(SimpleSGDTrainerDynet, SimpleSGDTrainerTorch)
 
@@ -314,6 +341,9 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
     eps: Epsilon parameter to prevent numerical instability
     weight_decay: weight decay (L2 penalty)
     amsgrad: whether to use the AMSGrad variant of this algorithm from the paper `On the Convergence of Adam and Beyond`
+    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
+                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
+                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
   """
   yaml_tag = '!AdamTrainer'
 
@@ -324,13 +354,15 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
                beta_2: numbers.Real = 0.999,
                eps: numbers.Real = 1e-8,
                weight_decay: numbers.Real = 0.0,
-               amsgrad: bool = False) -> None:
+               amsgrad: bool = False,
+               skip_noisy: bool = False) -> None:
     super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
                                                 lr=alpha,
                                                 betas=(beta_1, beta_2),
                                                 eps=eps,
                                                 weight_decay=weight_decay,
-                                                amsgrad=amsgrad)
+                                                amsgrad=amsgrad),
+                     skip_noisy=skip_noisy
                      )
 
 AdamTrainer = xnmt.resolve_backend(AdamTrainerDynet, AdamTrainerTorch)
@@ -400,6 +432,9 @@ class NoamTrainerTorch(XnmtOptimizerTorch, Serializable):
     beta_1:
     beta_2:
     eps:
+    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
+                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
+                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
   """
   yaml_tag = '!NoamTrainer'
 
@@ -410,10 +445,11 @@ class NoamTrainerTorch(XnmtOptimizerTorch, Serializable):
                warmup_steps: Optional[numbers.Integral] = 4000,
                beta_1: numbers.Real = 0.9,
                beta_2: numbers.Real = 0.98,
-               eps: numbers.Real = 1e-9) -> None:
+               eps: numbers.Real = 1e-9,
+               skip_noisy: bool = False) -> None:
     super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
-                                                lr=alpha, betas=(beta_1, beta_2), eps=eps)
-                     )
+                                                lr=alpha, betas=(beta_1, beta_2), eps=eps),
+                     skip_noisy=skip_noisy)
     self.dim = dim
     self.warmup_steps = warmup_steps
     self.steps = 0
