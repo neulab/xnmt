@@ -13,6 +13,7 @@ from abc import ABC
 
 import xnmt
 from xnmt.settings import settings
+from xnmt import param_collections
 
 class Tensor(ABC): pass
 
@@ -27,6 +28,8 @@ if xnmt.backend_torch:
 def reset_graph():
   if xnmt.backend_dynet:
     dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+  if xnmt.backend_torch:
+    param_collections.ParamManager.global_collection().zero_grad()
 
 def sent_len(x):
   if xnmt.backend_dynet:

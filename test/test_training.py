@@ -352,11 +352,14 @@ class TestOverfitting(unittest.TestCase):
                                             ref_file="examples/data/head.en",
                                             batcher=batcher)]
     train_args['run_for_epochs'] = 1
-    train_args['trainer'] = optimizers.AdamTrainer(alpha=0.01 if xnmt.backend_torch else 0.1)
+    if xnmt.backend_torch:
+      train_args['trainer'] = optimizers.AdamTrainer(alpha=0.1, clip_grads=5.0, rescale_grads=0.0, skip_noisy=True)
+    else:
+      train_args['trainer'] = optimizers.AdamTrainer(alpha=0.1, clip_grads=5.0, skip_noisy=True)
+
     train_args['batcher'] = batcher
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
-    for _ in range(500 if xnmt.backend_torch else 50):
-      # TODO: unsure why torch seems to converge more slowly?
+    for _ in range(100):
       training_regimen.run_training(save_fct=lambda:None)
     self.assertAlmostEqual(0.0,
                            training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
