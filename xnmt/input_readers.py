@@ -189,7 +189,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
                l: numbers.Integral=-1,
                alpha: numbers.Real=0.1,
                vocab: Optional[vocabs.Vocab]=None,
-               output_proc=[output.JoinPieceTextOutputProcessor]) -> None:
+               output_proc: Sequence[output.OutputProcessor] = [output.JoinPieceTextOutputProcessor()]) -> None:
     """
     Args:
       model_file: The sentence piece model file
