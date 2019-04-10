@@ -124,18 +124,18 @@ class MaxPoolCNNLayer(transducers.SeqTransducer, Serializable):
   yaml_tag = "!MaxPoolCNNLayer"
   @serializable_init
   def __init__(self,
-               in_channels: numbers.Integral, # 1 / 128
-               out_channels: numbers.Integral, # 128 / 128
-               kernel_h: numbers.Integral = 1, # 9 / 9
-               kernel_w: numbers.Integral = 1, # 21 / 1
+               in_channels: numbers.Integral,
+               out_channels: numbers.Integral,
+               kernel_h: numbers.Integral = 1,
+               kernel_w: numbers.Integral = 1,
                pad_cnn_h: bool = False,
                pad_cnn_w: bool = False,
-               pool_h: numbers.Integral = 1,   # 2
-               pool_w: numbers.Integral = 1,   # 1
+               pool_h: numbers.Integral = 1,
+               pool_w: numbers.Integral = 1,
                pad_pool_h: bool = False,
                pad_pool_w: bool = False,
-               stride_h: numbers.Integral = 1, # 2
-               stride_w: numbers.Integral = 1, # 1
+               stride_h: numbers.Integral = 1,
+               stride_w: numbers.Integral = 1,
                activation: str = 'selu'):
     self.in_channels = in_channels
     self.out_channels = out_channels
