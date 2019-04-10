@@ -31,7 +31,7 @@ class ResidualSeqTransducer(transducers.SeqTransducer, Serializable):
     if layer_norm:
       self.layer_norm_component = self.add_serializable_component("layer_norm_component",
                                                                   layer_norm_component,
-                                                                  lambda: xnmt.norms.LayerNorm(d_hid=input_dim))
+                                                                  lambda: xnmt.norms.LayerNorm(hidden_dim=input_dim))
 
   @ events.handle_xnmt_event
   def on_set_train(self, val):
