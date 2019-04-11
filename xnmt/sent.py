@@ -341,8 +341,8 @@ class ArraySentence(Sentence):
       new_nparr = np.append(self.nparr, np.broadcast_to(np.reshape(self.nparr[:, -1], (self.nparr.shape[0], 1)),
                                                         (self.nparr.shape[0], pad_len)), axis=1)
     else:
-      new_nparr = np.append(self.nparr, np.broadcast_to(np.reshape(self.nparr[-1, :], (1, self.nparr.shape[1])),
-                                                        (pad_len, self.nparr.shape[1])), axis=0)
+      feat_dim = self.nparr.shape[1]
+      new_nparr = np.append(self.nparr, np.broadcast_to(self.nparr[-1:, :], (pad_len, feat_dim)), axis=0)
     return ArraySentence(new_nparr, idx=self.idx, score=self.score, padded_len=self.padded_len + pad_len,
                          unpadded_sent=self if self.padded_len==0 else self.unpadded_sent)
 
