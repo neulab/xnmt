@@ -25,6 +25,9 @@ from xnmt.param_collections import ParamManager
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
 from xnmt.eval import metrics
 
+if xnmt.backend_torch:
+  import torch
+
 if settings.RESOURCE_WARNINGS:
   import warnings
   warnings.simplefilter('always', ResourceWarning)
@@ -49,6 +52,7 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
     if getattr(args, "seed", None):
       random.seed(args.seed)
       np.random.seed(args.seed)
+      if xnmt.backend_torch: torch.manual_seed(0)
 
     if (xnmt.backend_torch or args.dynet_gpu) and settings.CHECK_VALIDITY:
       settings.CHECK_VALIDITY = False
