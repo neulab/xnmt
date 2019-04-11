@@ -382,7 +382,7 @@ class LazyNumpyExpressionSequenceTorch(ExpressionSequence):
       return super().__getitem__(key)
     else:
       return torch.tensor(
-        np.array([self.lazy_data[batch].get_array()[key, :] for batch in range(self.lazy_data.batch_size())]),
+        np.array([self.lazy_data[batch_i].get_array()[key, :] for batch_i in range(self.lazy_data.batch_size())]),
         device=xnmt.device)
   def as_tensor(self) -> tt.Tensor:
     if not (self.expr_list or self.expr_tensor is not None):
