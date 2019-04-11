@@ -436,7 +436,7 @@ class SoftmaxTorch(Scorer, Serializable):
   def best_k(self, x: tt.Tensor, k: numbers.Integral, normalize_scores: bool = False):
     scores_expr = self.calc_log_probs(x) if normalize_scores else self.calc_scores(x)
     scores = scores_expr.cpu().transpose(0,1).data.numpy()
-    if scores.shape[1]==1: scores.resize((scores.shape[0],))
+    if scores.shape[1]==1: scores = np.resize(scores, (scores.shape[0],))
     return find_best_k(scores, k)
 
   def sample(self, x: tt.Tensor, n: numbers.Integral, temperature: numbers.Real=1.0):
