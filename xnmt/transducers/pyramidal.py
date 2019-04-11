@@ -1,15 +1,11 @@
 from typing import Any, List, Sequence, Union
 import numbers
 
-import xnmt
 import xnmt.tensor_tools as tt
 from xnmt.transducers import recurrent
 from xnmt import expression_seqs, events
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.transducers import base as transducers
-
-if xnmt.backend_dynet:
-  import dynet as dy
 
 class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
   """
