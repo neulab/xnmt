@@ -5,7 +5,7 @@ import numbers
 
 import numpy as np
 
-import xnmt.tensor_tools as tt
+import xnmt, xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger, loss_calculators, loss_trackers, losses, optimizers, param_collections, utils
 from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
@@ -173,7 +173,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     else:
       assert 0 < self.num_updates_skipped < self.update_every
 
-
+@xnmt.require_dynet
 class AutobatchTrainingRegimen(SimpleTrainingRegimen):
   """
   This regimen overrides SimpleTrainingRegimen by accumulating (summing) losses
@@ -440,7 +440,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
               task_trg_loss_stats[task] = (trg, loss_builder.get_factored_loss_val())
               if self.per_task_backward:
                 self.backward(loss_builder.compute(comb_method=self.loss_comb_method))
-                tt.reset_graph()
+                tt.reset_graph(zero_grad=False)
               else:
                 task_losses.append(loss_builder.compute(comb_method=self.loss_comb_method))
           if not self.per_task_backward:

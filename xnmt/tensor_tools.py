@@ -25,10 +25,19 @@ if xnmt.backend_torch:
   import torch.nn as nn
   Tensor.register(torch.Tensor)
 
-def reset_graph():
+def reset_graph(zero_grad=True):
+  """
+  Resets graph and/or gradients.
+
+  DyNet case: reset computation graph (this is done implicitly by Pytorch garbage collection)
+  Pytorch case: zero gradients (unless zero_grad is set to False). This is done automatically upon update() in DyNet.
+
+  Args:
+    zero_grad: Whether to zero gradients with Pytorch backend.
+  """
   if xnmt.backend_dynet:
     dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-  if xnmt.backend_torch:
+  if xnmt.backend_torch and zero_grad:
     param_collections.ParamManager.global_collection().zero_grad()
 
 def sent_len(x):
