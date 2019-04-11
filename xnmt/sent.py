@@ -253,7 +253,7 @@ class SimpleSentence(ReadableSentence):
   def create_truncated_sent(self, trunc_len: numbers.Integral) -> 'SimpleSentence':
     if trunc_len == 0:
       return self
-    return self.sent_with_words(self.words[:-trunc_len])
+    return self.sent_with_new_words(self.words[:-trunc_len])
 
   def get_unpadded_sent(self):
     if self.unpadded_sent: return self.unpadded_sent

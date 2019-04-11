@@ -82,7 +82,7 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
     old_mask = trg.mask
     if len(trg[0]) > seq_len:
       trunc_len = len(trg[0]) - seq_len
-      trg = batchers.mark_as_batch([trg_sent.get_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
+      trg = batchers.mark_as_batch([trg_sent.create_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
       if old_mask:
         trg.mask = batchers.Mask(np_arr=old_mask.np_arr[:, :-trunc_len])
     else:
