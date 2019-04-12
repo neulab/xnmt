@@ -49,6 +49,8 @@ import xnmt.specialized_encoders.tilburg_harwath
 import xnmt.train.regimens
 import xnmt.train.tasks
 import xnmt.transducers.convolution
+import xnmt.transducers.char_compose.segmenting_encoder
+import xnmt.transducers.char_compose.segmenting_composer
 import xnmt.transducers.lattice
 import xnmt.transducers.network_in_network
 import xnmt.transducers.positional
