@@ -609,7 +609,7 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
 
   @handle_xnmt_event
   def on_set_train(self, val):
-    self.lstm.train(mode=val) # TODO: needs testing
+    self.lstm.train(mode=val)
     self.train = val
 
   def get_final_states(self) -> List[transducers.FinalTransducerState]:
@@ -651,5 +651,7 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
       final_hidden = unsorted_hidden[layer_i,:,:,:].transpose(0,1).contiguous().view(batch_size, self.hidden_dim)
       self._final_states.append(transducers.FinalTransducerState(final_hidden))
 
-    return expression_seqs.ExpressionSequence(expr_tensor=unsorted_outputs, mask=es.mask)
+    ret = expression_seqs.ExpressionSequence(expr_tensor=unsorted_outputs, mask=es.mask)
+    assert len(ret) == len(es) # this may happen e.g. when using pad_src_to_multiple, in which case we would need to manually re-append padding tokens to the output
+    return ret
 
