@@ -151,7 +151,7 @@ class MaxPoolCNNLayer(transducers.SeqTransducer, Serializable):
       self.pooling_layer = nn.MaxPool2d(kernel_size=(pool_h, pool_w),
                                         stride=(stride_h, stride_w),
                                         padding=(pool_h // 2 if pad_pool_h else 0,
-                                                 pool_w // 2 if pad_pool_w else 0))
+                                                 pool_w // 2 if pad_pool_w else 0)).to(xnmt.device)
     my_params.append(self.cnn_layer)
     self.activation_fct = tt.activation_by_name(activation)
 

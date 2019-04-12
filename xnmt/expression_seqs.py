@@ -263,7 +263,7 @@ class ExpressionSequenceTorch(BaseExpressionSequence):
       if self.expr_tensor is not None:
         return torch.index_select(self.expr_tensor, dim=1, index=torch.LongTensor([key]).to(xnmt.device)).squeeze(1)
       else:
-        return torch.index_select(self.expr_transposed_tensor, dim=-1, index=torch.LongTensor([key])).squeeze(-1)
+        return torch.index_select(self.expr_transposed_tensor, dim=-1, index=torch.LongTensor([key]).to(xnmt.device)).squeeze(-1)
 
   def as_list(self) -> List[tt.Tensor]:
     """Get a list.
