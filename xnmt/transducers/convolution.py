@@ -145,7 +145,7 @@ class MaxPoolCNNLayer(transducers.SeqTransducer, Serializable):
                                out_channels=out_channels,
                                kernel_size=(kernel_h, kernel_w),
                                padding=(kernel_h // 2 if pad_cnn_h else 0,
-                                        kernel_w // 2 if pad_cnn_w else 0))
+                                        kernel_w // 2 if pad_cnn_w else 0)).to(xnmt.device)
     self.use_pooling = not (pool_h<=1 and pool_w<=1 and stride_h<=1 and stride_w<=1)
     if self.use_pooling:
       self.pooling_layer = nn.MaxPool2d(kernel_size=(pool_h, pool_w),
