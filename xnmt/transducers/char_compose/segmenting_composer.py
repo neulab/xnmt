@@ -23,7 +23,7 @@ class SequenceComposer(object):
     exprs = []
     # Batching expression
     for expr_list, batch_num, position, start, end in composed_words:
-      self.set_word(self.src_sent[batch_num][start:end])
+      self.set_word(self.src_sent[batch_num], start, end)
       expr = self.transduce(expr_list)
       if expr is not None:
         outputs[batch_num].append(expr)
@@ -35,7 +35,7 @@ class SequenceComposer(object):
   def on_start_sent(self, src):
     self.src_sent = src
 
-  def set_word(self, word):
+  def set_word(self, src_sent, start, end):
     pass
 
   def transduce(self, embeds):
@@ -212,12 +212,11 @@ class LookupComposer(VocabBasedComposer, Serializable):
   def transduce(self, inputs):
     return dy.lookup(self.embedding, self.convert(self.word))
 
-  @lru_cache(maxsize=32000)
   def to_word(self, word):
     return "".join([self.char_vocab[c] for c in word])
 
-  def set_word(self, word):
-    self.word = self.to_word(word)
+  def set_word(self, src_sent, begin, end):
+    self.word = self.to_word(src_sent[begin:end])
 
   def on_id_delete(self, wordid):
     assert self.train and self.learn_vocab
@@ -278,7 +277,6 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
 
   @lru_cache(maxsize=256000)
   def to_word_vector(self, word):
-    word = "".join([self.char_vocab[c] for c in word])
     word_vector = Counter()
     for i in range(len(word)):
       for j in range(i, min(i+self.ngram_size, len(word))):
@@ -289,7 +287,8 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
       word_vector[self.vocab.UNK_STR] += 1
     return word_vector
 
-  def set_word(self, word):
+  def set_word(self, src_sent, begin, end):
+    word = "".join([self.char_vocab[c] for c in src_sent[begin:end]])
     self.word_vect = self.to_word_vector(word)
 
   def on_id_delete(self, wordid):
@@ -315,9 +314,9 @@ class SumMultipleComposer(SequenceComposer, Serializable):
     super().__init__()
     self.composers = composers
 
-  def set_word(self, word):
+  def set_word(self, src_sent, begin, end):
     for composer in self.composers:
-      composer.set_word(word)
+      composer.set_word(src_sent, begin, end)
 
   def transduce(self, embeds):
     return sum([composer.transduce(embeds) for composer in self.composers])
@@ -343,9 +342,9 @@ class ConcatMultipleComposer(SequenceComposer, Serializable):
                                                                      bias_init=bias_init))
 
 
-  def set_word(self, word):
+  def set_word(self, src_sent, begin, end):
     for composer in self.composers:
-      composer.set_word(word)
+      composer.set_word(src_sent, begin, end)
 
   def transduce(self, embeds):
     results = dy.concatenate([composer.transduce(embeds) for composer in self.composers])
@@ -362,9 +361,6 @@ class DyerHeadComposer(SequenceComposer, Serializable):
     self.fwd_combinator = fwd_combinator
     self.bwd_combinator = bwd_combinator
     self.transform = transform
-  
-  def set_word(self, word):
-    pass
   
   def transduce(self, embeds):
     fwd_state = self.fwd_combinator.initial_state()

@@ -252,37 +252,37 @@ class TestComposing(unittest.TestCase):
         vocab_size = 4
     )
     event_trigger.set_train(True)
-    enc.segment_composer.set_word((0, 1, 2)) # abc 0
+    enc.segment_composer.set_word((0, 1, 2), 0, 3) # abc 0
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((0, 2, 1)) # acb 1
+    enc.segment_composer.set_word((0, 2, 1), 0, 3) # acb 1
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((0, 3, 2)) # adc 2
+    enc.segment_composer.set_word((0, 3, 2), 0, 3) # adc 2
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((0, 1, 2)) # abc 0
+    enc.segment_composer.set_word((0, 1, 2), 0, 3) # abc 0
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((1, 3, 2)) # bdc 3
+    enc.segment_composer.set_word((1, 3, 2), 0, 3) # bdc 3
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((3, 3, 3)) # ddd 1 -> acb is the oldest
+    enc.segment_composer.set_word((3, 3, 3), 0, 3) # ddd 1 -> acb is the oldest
     enc.segment_composer.transduce([])
     act = dict(enc.segment_composer.lrucache.items())
     exp = {'abc': 0, 'ddd': 1, 'adc': 2, 'bdc': 3}
     self.assertDictEqual(act, exp)
     
-    enc.segment_composer.set_word((0, 2, 1))
+    enc.segment_composer.set_word((0, 2, 1), 0, 3)
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((0, 3, 2))
+    enc.segment_composer.set_word((0, 3, 2), 0, 3)
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((0, 1, 2))  # abc 0
+    enc.segment_composer.set_word((0, 1, 2), 0, 3)  # abc 0
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((1, 3, 2))  # bdc 3
+    enc.segment_composer.set_word((1, 3, 2), 0, 3)  # bdc 3
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((3, 3, 3))
+    enc.segment_composer.set_word((3, 3, 3), 0, 3)
     enc.segment_composer.transduce([])
-    enc.segment_composer.set_word((0, 3, 1))
+    enc.segment_composer.set_word((0, 3, 1), 0, 3)
     enc.segment_composer.transduce([])
 
     event_trigger.set_train(False)
-    enc.segment_composer.set_word((3, 3, 2))
+    enc.segment_composer.set_word((3, 3, 2), 0, 3)
     enc.segment_composer.transduce([])
 
   def test_chargram_composer_learn(self):
@@ -296,13 +296,13 @@ class TestComposing(unittest.TestCase):
         vocab_size = 5,
     )
     event_trigger.set_train(True)
-    enc.segment_composer.set_word((0, 1, 2)) # a:0, ab:1, b: 2, bc: 3, c: 4
+    enc.segment_composer.set_word((0, 1, 2), 0, 3) # a:0, ab:1, b: 2, bc: 3, c: 4
     enc.segment_composer.transduce([])
     act = dict(enc.segment_composer.lrucache.items())
     exp = {'a': 0, 'ab': 1, 'b': 2, 'bc': 3, 'c': 4}
     self.assertDictEqual(act, exp)
 
-    enc.segment_composer.set_word((2, 3)) # c, cd, d
+    enc.segment_composer.set_word((2, 3), 0, 2) # c, cd, d
     enc.segment_composer.transduce([])
     act = dict(enc.segment_composer.lrucache.items())
     exp = {'cd': 0, 'd': 1, 'b': 2, 'bc': 3, 'c': 4}
