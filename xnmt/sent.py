@@ -332,7 +332,7 @@ class ArraySentence(Sentence):
       return self.nparr.shape[0]
 
   def len_unpadded(self):
-    return len(self) - self.padded_len
+    return self.sent_len() - self.padded_len
 
   def create_padded_sent(self, pad_len: numbers.Integral) -> 'ArraySentence':
     if pad_len == 0:
