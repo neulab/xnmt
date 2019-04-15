@@ -25,7 +25,6 @@ from scipy.stats import entropy
 
 import numpy as np
 
-import xnmt
 import xnmt.tensor_tools as tt
 import xnmt.param_initializers
 from xnmt import norms, events, param_collections
