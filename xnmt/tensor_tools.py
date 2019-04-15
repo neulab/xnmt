@@ -37,8 +37,10 @@ def reset_graph(zero_grad=True):
   """
   if xnmt.backend_dynet:
     dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
-  if xnmt.backend_torch and zero_grad:
-    param_collections.ParamManager.global_collection().zero_grad()
+  if xnmt.backend_torch:
+    torch.autograd.set_detect_anomaly(settings.CHECK_VALIDITY)
+    if zero_grad:
+      param_collections.ParamManager.global_collection().zero_grad()
 
 def sent_len(x):
   if xnmt.backend_dynet:

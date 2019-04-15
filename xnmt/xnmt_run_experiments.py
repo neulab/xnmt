@@ -54,9 +54,9 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
       np.random.seed(args.seed)
       if xnmt.backend_torch: torch.manual_seed(0)
 
-    if (xnmt.backend_torch or args.dynet_gpu) and settings.CHECK_VALIDITY:
+    if xnmt.backend_dynet and args.dynet_gpu and settings.CHECK_VALIDITY:
       settings.CHECK_VALIDITY = False
-      log_preamble("disabling CHECK_VALIDITY because it is only supported with DyNet backend on CPU", logging.WARNING)
+      log_preamble("disabling CHECK_VALIDITY because it is not supported in the DyNet/GPU setting", logging.WARNING)
 
     config_experiment_names = YamlPreloader.experiment_names_from_file(args.experiments_file)
 
