@@ -555,6 +555,61 @@ class CoNLLToRNNGActionsReader(GraphReader, Serializable):
       if len(lines) != 0:
         yield emit_tree(idx, lines)
 
+class PennTreeBankReader(GraphReader, Serializable):
+  yaml_tag = "!PennTreeBankReader"
+  @serializable_init
+  def __init__(self, word_vocab: vocabs.Vocab, head_vocab: vocabs.Vocab, output_procs=[]):
+    super().__init__(head_vocab, None, word_vocab)
+    self.output_procs = output.OutputProcessor.get_output_processor(output_procs)
+   
+  def _read_tree_from_line(self, line):
+    stack = []
+    edges = []
+    nodes = {}
+    now_depth = 0
+    now_id = 0
+    for token in line.split():
+      # Process "("
+      if token.startswith("("):
+        stack.append([now_depth, sent.SyntaxTreeNode(now_id, None, token[1:], sent.SyntaxTreeNode.Type.NT)])
+        nodes[now_id] = stack[-1][1]
+        now_id += 1
+        now_depth += 1
+      else:
+        try:
+          end_idx = token.index(")")
+        except IndexError:
+          end_idx = len(token)
+        if end_idx != 0:
+          stack.append([now_depth, sent.SyntaxTreeNode(now_id, token[:end_idx], None, sent.SyntaxTreeNode.Type.T)])
+          nodes[now_id] = stack[-1][1]
+          now_id += 1
+        # Process ")"
+        for _ in range(end_idx, len(token)):
+          depth, child = stack.pop()
+          children = [child]
+          while len(stack) > 0 and stack[-1][0] == depth:
+            children.append(stack.pop()[1])
+          if len(stack) > 0:
+            parent = stack[-1][1]
+            for child in children:
+              edges.append(HyperEdge(parent.node_id, [child.node_id]))
+          now_depth -= 1
+    return HyperGraph(edges, nodes)
+    
+  def read_sents(self, filename: str, filter_ids: Sequence[numbers.Integral] = None):
+    with open(filename) as fp:
+      for idx, line in enumerate(fp):
+        graph = self._read_tree_from_line(line.strip())
+        yield sent.ParseTreeRNNGSequenceSentence(idx=idx,
+                                                 score=None,
+                                                 graph=graph,
+                                                 surface_vocab=self.value_vocab,
+                                                 nt_vocab=self.node_vocab,
+                                                 edge_vocab=self.edge_vocab,
+                                                 all_surfaces=False,
+                                                 output_procs=self.output_procs)
+        
 
 class LatticeReader(GraphReader, Serializable):
   """

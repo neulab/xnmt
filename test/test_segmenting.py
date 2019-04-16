@@ -106,7 +106,7 @@ class TestSegmentingEncoder(unittest.TestCase):
     fertility_loss = GlobalFertilityLoss()
     mle_loss = MLELoss()
     loss = CompositeLoss(pt_losses=[mle_loss, fertility_loss]).calc_loss(self.model, self.src[0], self.trg[0])
-    reinforce_loss = event_trigger.calc_additional_loss(self.trg[0], self.model, loss)
+    reinforce_loss = event_trigger.calc_reinforce_loss(self.trg[0], self.model, loss)
     pl = self.model.encoder.policy_learning
     # Ensure correct length
     src = self.src[0]
@@ -127,7 +127,7 @@ class TestSegmentingEncoder(unittest.TestCase):
 
   def calc_loss_single_batch(self):
     loss = MLELoss().calc_loss(self.model, self.src[0], self.trg[0])
-    reinforce_loss = event_trigger.calc_additional_loss(self.trg[0], self.model, loss)
+    reinforce_loss = event_trigger.calc_reinforce_loss(self.trg[0], self.model, loss)
     return loss, reinforce_loss
 
   def test_gold_input(self):
@@ -141,15 +141,12 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.model.encoder.eps_greedy.eps_prob= 1.0
     self.calc_loss_single_batch()
     self.assertEqual(self.model.encoder.segmenting_action, SegmentingSeqTransducer.SegmentingAction.POLICY_SAMPLE)
-    self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.PREDEFINED)
   
   def test_policy_train_test(self):
     event_trigger.set_train(True)
     self.calc_loss_single_batch()
-    self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.POLICY_CLP)
     event_trigger.set_train(False)
     self.calc_loss_single_batch()
-    self.assertEqual(self.model.encoder.policy_learning.sampling_action, PolicyGradient.SamplingAction.POLICY_AMAX)
 
   def test_no_policy_train_test(self):
     self.model.encoder.policy_learning = None

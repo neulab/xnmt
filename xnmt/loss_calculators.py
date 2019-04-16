@@ -253,7 +253,27 @@ class FeedbackLoss(Serializable, LossCalculator):
     loss_builder = losses.FactoredLossExpr()
     for _ in range(self.repeat):
       standard_loss = self.child_loss.calc_loss(model, src, trg)
-      additional_loss = event_trigger.calc_additional_loss(trg, model, standard_loss)
+      additional_loss = event_trigger.calc_reinforce_loss(trg, model, standard_loss)
       loss_builder.add_factored_loss_expr(standard_loss)
       loss_builder.add_factored_loss_expr(additional_loss)
     return loss_builder
+  
+
+class ImitationLoss(Serializable, LossCalculator):
+  yaml_tag = "!ImitationLoss"
+  @serializable_init
+  def __init__(self, freeze_normal_loss = False, eps_greedy=None):
+    self.freeze_normal_loss = freeze_normal_loss
+    self.eps_greedy = eps_greedy
+    
+  def calc_loss(self, model, src, trg):
+    standard_loss = model.calc_nll(src, trg)
+    
+    loss_builder = losses.FactoredLossExpr()
+    if not self.freeze_normal_loss:
+      loss_builder.add_factored_loss_expr(standard_loss)
+      
+    loss_builder.add_factored_loss_expr(event_trigger.calc_imitation_loss(trg))
+    return loss_builder
+    
+    

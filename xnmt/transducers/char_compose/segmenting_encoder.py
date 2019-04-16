@@ -117,24 +117,26 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           self.report_sent_info({"segment_actions": actions})
 
   @handle_xnmt_event
-  def on_calc_additional_loss(self, trg, generator, generator_loss):
+  def on_calc_reinforce_loss(self, trg, generator, generator_loss):
+    # Not learning policy return None
     if self.policy_learning is None:
       return None
     reward = FactoredLossExpr()
+   
+    # R = log(P(E|F))
     reward.add_loss("generator", -dy.inputTensor(generator_loss.value(), batched=True))
+    
+    # R += log(P_poisson(F, u))
     if self.length_prior is not None:
       reward.add_loss('length_prior', self.length_prior.log_ll(self.seg_size_unpadded))
+    
+    # Packing up
     reward_value = reward.value()
-    if trg.batch_size() == 1:
-      reward_value = [reward_value]
+    reward_value = [reward_value] if trg.batch_size() == 1 else reward_value
     reward_tensor = dy.inputTensor(reward_value, batched=True)
-    ### Calculate losses
-    try:
-      return self.policy_learning.calc_loss(reward_tensor)
-    finally:
-      self.reward = reward
-      if self.train and self.reporter is not None:
-        self.reporter.report_process(self)
+    reward_tensor = [reward_tensor] * self.src_sent.sent_len()
+
+    return self.policy_learning.calc_loss(reward_tensor)
 
   @handle_xnmt_event
   def on_start_sent(self, src):

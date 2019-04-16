@@ -41,7 +41,7 @@ def start_sent(src: Union[sent.Sentence, batchers.Batch]) -> None:
   pass
 
 @events.register_xnmt_event_sum
-def calc_additional_loss(trg: Union[sent.Sentence, batchers.Batch],
+def calc_reinforce_loss(trg: Union[sent.Sentence, batchers.Batch],
                          parent_model: models.TrainableModel,
                          parent_model_loss: losses.FactoredLossExpr) -> losses.FactoredLossExpr:
   """
@@ -52,6 +52,10 @@ def calc_additional_loss(trg: Union[sent.Sentence, batchers.Batch],
     parent_model: The reference to the parent model who called the addcitional_loss
     parent_model_loss: The loss from the parent_model.calc_loss()
   """
+  return None
+
+@events.register_xnmt_event_sum
+def calc_imitation_loss(trg: Union[sent.Sentence, batchers.Batch]) -> losses.FactoredLossExpr:
   return None
 
 @events.register_xnmt_event_assign

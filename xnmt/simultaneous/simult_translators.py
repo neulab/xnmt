@@ -127,11 +127,14 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     self.src = src_batch
 
   @events.handle_xnmt_event
-  def on_calc_additional_loss(self, trg, generator, generator_loss):
+  def on_calc_reinforce_loss(self, trg, generator, generator_loss):
     if self.policy_learning is None:
       return None
     reward = rewards.SimultaneousReward(self.src, trg, self.actions, self.outputs, self.trg_reader.vocab).calculate()
     return self.policy_learning.calc_loss(reward, only_final_reward=False)
+
+  def on_calc_imitation_loss(self, trg):
+    return self.policy_learning.calc_nll(trg)
   
   def _initial_state(self, src):
     return SimultaneousState(self, self.encoder.initial_state(), None, None)

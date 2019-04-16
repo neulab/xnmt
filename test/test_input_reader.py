@@ -49,7 +49,6 @@ class TestCoNLLInputReader(unittest.TestCase):
                 sent.RNNGAction(sent.RNNGAction.Type.GEN, vocab.convert(".")),
                 sent.RNNGAction(sent.RNNGAction.Type.REDUCE_RIGHT)]
     self.assertListEqual(tree[0].actions, expected)
-  
 
 if __name__ == '__main__':
   unittest.main()

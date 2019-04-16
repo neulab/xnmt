@@ -150,7 +150,7 @@ class VocabBasedComposer(SequenceComposer):
     if self.learn_vocab:
       self.cache_id_pool.append(wordid)
       self.on_id_delete(wordid)
-      del self.cache_word_table[str(wordid)]
+      del self.cache_word_table[wordid]
     else:
       raise ValueError("Should not delete any id when not learning")
     
@@ -170,12 +170,11 @@ class VocabBasedComposer(SequenceComposer):
         wordid = self.lrucache.size()  # Unknown ID
     else:
       wordid = self.lrucache[word]
-    try:
-      return wordid
-    finally:
-      self.cache_word_table[str(wordid)] = [self.cache_counter, word]
       self.cache_counter += 1
-      
+    self.cache_word_table[wordid] = word
+    return wordid
+    
+    
   @handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
