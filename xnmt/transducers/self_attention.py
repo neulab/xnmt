@@ -177,15 +177,10 @@ class MultiHeadAttentionSeqTransducerTorch(transducers.SeqTransducer, Serializab
 
     # Start with a [(length, model_size) x batch] tensor
     # B x T x H -> B x H x T
-    # x = expr_seq.as_transposed_tensor()
     x = expr_seq.as_tensor()
     x_len = x.size()[1]
     x_batch = x.size()[0]
     # Get the query key and value vectors
-    # TODO: do we need bias broadcasting in DyNet?
-    # q = dy.affine_transform([bq, x, Wq])
-    # k = dy.affine_transform([bk, x, Wk])
-    # v = dy.affine_transform([bv, x, Wv])
     q = self.lin_q(x).transpose(1,2).contiguous()
     k = self.lin_k(x).transpose(1,2).contiguous()
     v = self.lin_v(x).transpose(1,2).contiguous()
@@ -206,10 +201,8 @@ class MultiHeadAttentionSeqTransducerTorch(transducers.SeqTransducer, Serializab
     if self.train and self.dropout > 0.0:
       attn_prob = tt.dropout(attn_prob, self.dropout)
     # Reduce using attention and resize to match [(length, model_size) x batch]
-    # o = dy.reshape(attn_prob * v, (x_len, self.input_dim), batch_size=x_batch)
     o = torch.matmul(v,attn_prob).view(x_batch,self.input_dim,x_len).transpose(1,2)
     # Final transformation
-    # o = dy.affine_transform([bo, attn_prob * v, Wo])
     o = self.lin_o(o)
     # o = bo + o * Wo
 
