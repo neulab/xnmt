@@ -98,7 +98,6 @@ class GreedySearch(Serializable, SearchStrategy):
       score.append(word_score)
       word_ids.append(word_id)
       attentions.append(current_output.attention)
-      logsoftmaxes.append(None)
       states.append((current_dec_state, current_att_state))
 
       # Check if we are done.

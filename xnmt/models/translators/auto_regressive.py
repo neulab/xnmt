@@ -43,4 +43,4 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
     self.trg_vocab = trg_vocab
 
   # The output template for the auto regressive translator output
-  Output = collections.namedtuple('Output', ['state', 'attention'])
+  Output = collections.namedtuple('Output', ['dec_state', 'att_state', 'attention'])

@@ -62,7 +62,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     # For every item in the batch
     for src, trg in zip(src_batch, trg_batch):
       # Initial state with no read/write actions being taken
-      current_state = self._initial_state(src)
+      current_dec_state, current_att_state = self._initial_state(src)
       src_len = src.sent_len()
       # Reading + Writing
       src_encoding = []
@@ -70,25 +70,25 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
       now_action = []
       outputs = []
       # Simultaneous greedy search
-      while not self._stoping_criterions_met(current_state, trg):
+      while not self._stoping_criterions_met(current_dec_state, trg):
         # Define action based on state
-        action = self.next_action(current_state, src_len, len(src_encoding))
+        action = self.next_action(current_dec_state, src_len, len(src_encoding))
         if action == self.Action.READ:
           # Reading + Encoding
-          current_state = current_state.read(src)
-          src_encoding.append(current_state.encoder_state.output())
+          current_state = current_dec_state.read(src)
+          src_encoding.append(current_dec_state.encoder_state.output())
         else:
           # Predicting next word
-          current_state = current_state.calc_context(src_encoding)
-          current_output = self.add_input(current_state.prev_written_word, current_state)
+          current_state = current_dec_state.calc_context(src_encoding)
+          current_output = self.add_input(current_dec_state.prev_written_word, current_dec_state, current_att_state)
           # Calculating losses
-          ground_truth = self._select_ground_truth(current_state, trg)
-          loss_exprs.append(self.decoder.calc_loss(current_output.state, ground_truth))
+          ground_truth = self._select_ground_truth(current_dec_state, trg)
+          loss_exprs.append(self.decoder.calc_loss(current_output.dec_state, ground_truth))
           # Use word from ref/model depeding on settings
-          next_word = self._select_next_word(ground_truth, current_output.state)
+          next_word = self._select_next_word(ground_truth, current_output.dec_state)
           # The produced words
           outputs.append(next_word)
-          current_state = current_state.write(next_word)
+          current_state = current_dec_state.write(next_word)
         now_action.append(action.value)
       self.actions.append(now_action)
       self.outputs.append(outputs)
@@ -134,7 +134,8 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     return self.policy_learning.calc_loss(reward, only_final_reward=False)
   
   def _initial_state(self, src):
-    return SimultaneousState(self, self.encoder.initial_state(), None, None)
+    att_state = self.attender.init_sent(self.encoder.initial_state())
+    return SimultaneousState(self, self.encoder.initial_state(), None, None), att_state
 
   def _select_next_word(self, ref, state):
     if self.policy_learning is None:

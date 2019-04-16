@@ -149,7 +149,7 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                                       context=dec_state.context)
 
   def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
-    h = dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])
+    h = dy.concatenate([mlp_dec_state.as_vector(), mlp_dec_state.context])
     return self.transform.transform(h)
 
   def best_k(self, mlp_dec_state: AutoRegressiveDecoderState, k: numbers.Integral, normalize_scores: bool = False):
