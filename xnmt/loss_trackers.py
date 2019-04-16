@@ -103,7 +103,8 @@ class TrainLossTracker(Serializable):
         for loss_name, loss_values in self.epoch_loss.items():
           utils.log_readable_and_tensorboard(template=TrainLossTracker.REPORT_TEMPLATE_ADDITIONAL,
                                              args={loss_name: loss_values / self.loss_normalizer},
-                                             n_iter=fractional_epoch,
+                                             n_iter=self.training_task.training_state.steps_since_start,
+                                             fractional_epoch=fractional_epoch,
                                              data_name="train",
                                              task_name=self.name,
                                              loss_name=loss_name,
