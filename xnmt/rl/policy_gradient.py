@@ -57,7 +57,7 @@ class PolicyGradient(Serializable, Reportable):
                                                               lambda: conf_penalty) if conf_penalty is not None else None
     self.z_normalization = z_normalization
 
-  def sample_action(self, state, argmax=False, sample_pp=None, predefined_actions=None):
+  def sample_action(self, state, argmax=False, sample_pp=None, predefined_actions=None, valid_pos=None):
     """
     state: Input state.
     argmax: Whether to perform argmax or sampling.
@@ -72,11 +72,13 @@ class PolicyGradient(Serializable, Reportable):
     # Select actions
     if predefined_actions is not None:
       actions = predefined_actions
-    elif argmax:
-      actions = policy.tensor_value().argmax().as_numpy()[0]
     else:
-      actions = policy.tensor_value().categorical_sample_log_prob().as_numpy()[0]
-    
+      if argmax:
+        actions = policy.tensor_value().argmax().as_numpy()[0]
+      else:
+        actions = policy.tensor_value().categorical_sample_log_prob().as_numpy()[0]
+      if len(actions.shape) == 0:
+        actions = [actions]
     # Post Processing
     if sample_pp is not None:
       actions = sample_pp(actions)
@@ -88,6 +90,7 @@ class PolicyGradient(Serializable, Reportable):
       self.policy_lls.append(policy)
       self.actions.append(actions)
       self.states.append(state)
+      self.valid_pos.append(valid_pos)
 
   def calc_loss(self, policy_reward):
     """
@@ -108,7 +111,7 @@ class PolicyGradient(Serializable, Reportable):
     for i, state in enumerate(self.states):
       r_p = self.baseline.transform(dy.nobackprop(state))
       rewards.append(policy_reward[i] - r_p)
-      if self.valid_pos is not None:
+      if self.valid_pos[i] is not None:
         r_p = dy.pick_batch_elems(r_p, self.valid_pos[i])
         r_r = dy.pick_batch_elems(policy_reward[i], self.valid_pos[i])
       else:
@@ -135,7 +138,7 @@ class PolicyGradient(Serializable, Reportable):
     for i, (policy, action) in enumerate(zip(self.policy_lls, self.actions)):
       reward = dy.pick(rewards, i)
       ll = dy.pick_batch(policy, action)
-      if self.valid_pos is not None:
+      if self.valid_pos[i] is not None:
         ll = dy.pick_batch_elems(ll, self.valid_pos[i])
         reward = dy.pick_batch_elems(reward, self.valid_pos[i])
       reinf_loss.append(dy.sum_batches(ll * reward))
@@ -164,6 +167,4 @@ class PolicyGradient(Serializable, Reportable):
     self.policy_lls = []
     self.actions = []
     self.states = []
-    self.baseline_input = None
-    self.valid_pos = src_sent.mask.get_valid_position() if src_sent.mask else None
-
+    self.valid_pos = []

@@ -182,13 +182,15 @@ class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
           sample_batch[i] = 1
       return sample_batch
     # Loop through all items in the sequence
+    valid_pos = self.src_sent.mask.get_valid_position()
     for position, encoding in enumerate(encodings):
       # Sample from softmax if we have no predefined action
       predefined = predefined_actions[position] if predefined_actions is not None else None
       action = self.policy_learning.sample_action(encoding,
                                                   argmax=from_argmax,
                                                   sample_pp=lambda x: ensure_end_segment(x, position),
-                                                  predefined_actions=predefined)
+                                                  predefined_actions=predefined,
+                                                  valid_pos=valid_pos[position] if valid_pos is not None else None)
       # Appending the "1" position if it has valid flags
       for i in np.nonzero(action)[0]:
         if mask is None or mask[i][position] == 0:

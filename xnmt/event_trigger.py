@@ -59,7 +59,7 @@ def calc_imitation_loss(trg: Union[sent.Sentence, batchers.Batch]) -> losses.Fac
   return None
 
 @events.register_xnmt_event_assign
-def get_report_input(context: dict = {}) -> dict:
+def get_report_input(context) -> dict:
   return context
 
 @events.register_xnmt_event

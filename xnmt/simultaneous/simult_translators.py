@@ -13,6 +13,7 @@ import xnmt.event_trigger as event_trigger
 import xnmt.vocabs as vocabs
 import xnmt.simultaneous.simult_rewards as rewards
 
+from xnmt.losses import FactoredLossExpr
 from xnmt.models.translators.default import DefaultTranslator
 from xnmt.persistence import bare, Serializable, serializable_init
 from xnmt.reports import Reportable
@@ -96,7 +97,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
       batch_loss.append(dy.esum(loss_exprs))
     dy.forward(batch_loss)
     loss = dy.esum(batch_loss)
-    return loss if not self.freeze_decoder_param else dy.nobackprop(loss)
+    return loss
 
   def next_action(self, state, src_len, enc_len):
     if self.policy_learning is None:
@@ -131,7 +132,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     if self.policy_learning is None:
       return None
     reward = rewards.SimultaneousReward(self.src, trg, self.actions, self.outputs, self.trg_reader.vocab).calculate()
-    return self.policy_learning.calc_loss(reward, only_final_reward=False)
+    return self.policy_learning.calc_loss(reward)
 
   def on_calc_imitation_loss(self, trg):
     return self.policy_learning.calc_nll(trg)
