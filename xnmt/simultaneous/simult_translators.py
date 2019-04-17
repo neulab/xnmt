@@ -2,6 +2,7 @@ import dynet as dy
 
 from enum import Enum
 
+import xnmt.expression_seqs as expression_seqs
 import xnmt.input_readers as input_readers
 import xnmt.modelparts.embedders as embedders
 import xnmt.modelparts.attenders as attenders
@@ -134,7 +135,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     return self.policy_learning.calc_loss(reward, only_final_reward=False)
   
   def _initial_state(self, src):
-    att_state = self.attender.init_sent(self.encoder.initial_state())
+    att_state = dy.zeros((0,))
     return SimultaneousState(self, self.encoder.initial_state(), None, None), att_state
 
   def _select_next_word(self, ref, state):
