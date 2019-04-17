@@ -113,8 +113,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
                max_trg_len: Optional[numbers.Integral] = None,
                loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                update_every: numbers.Integral = 1,
-               commandline_args: dict = Ref("exp_global.commandline_args", default={}),
-               additional_logger = []) -> None:
+               commandline_args: dict = Ref("exp_global.commandline_args", default={})) -> None:
 
     super().__init__(model=model,
                      src_file=src_file,
@@ -143,7 +142,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
     self.num_updates_skipped = 0
-    self.additional_logger = additional_logger
 
   def run_training(self, save_fct: Callable) -> None:
     """
@@ -162,12 +160,6 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
             loss = loss_builder.compute()
             self.backward(loss, self.dynet_profiling)
             self.update(self.trainer)
-          # Additional logging
-          if len(self.additional_logger) != 0:
-            report_context = event_trigger.get_report_input(context=reports.ReportInfo())
-            for report_input in report_context.sent_info:
-              for reporter in self.additional_logger:
-                reporter.create_sent_report(**report_input, **report_context.glob_info)
           self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val(comb_method=self.loss_comb_method))
         if self.checkpoint_needed():
           self.checkpoint_and_save(save_fct)

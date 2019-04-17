@@ -268,14 +268,12 @@ class PolicyReinforceLoss(Serializable, LossCalculator):
     
   def calc_loss(self, model, src, trg):
     standard_loss = model.calc_nll(src, trg)
-   
     # Calculate all losses
     loss_builder = losses.FactoredLossExpr()
     if not self.freeze_normal_loss:
       loss_builder.add_loss("standard", standard_loss)
-    
     for i in range(self.num_sample):
-      loss_builder.add_factored_loss_expr(event_trigger.calc_reinforce_loss(trg, model, standard_loss))
-      
+      loss = event_trigger.calc_reinforce_loss(trg, model, standard_loss)
+      loss_builder.add_factored_loss_expr(loss)
     return loss_builder
     

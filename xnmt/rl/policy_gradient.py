@@ -92,12 +92,11 @@ class PolicyGradient(Serializable, Reportable):
       self.states.append(state)
       self.valid_pos.append(valid_pos)
 
-  def calc_loss(self, policy_reward):
+  def calc_loss(self, policy_reward, results={}):
     """
     Calc policy networks loss.
     """
     assert len(policy_reward) == len(self.states), "There should be a reward for every action taken"
-    
     loss = losses.FactoredLossExpr()
     
     # Calculate the baseline loss of the reinforce loss for each timestep:
@@ -107,7 +106,7 @@ class PolicyGradient(Serializable, Reportable):
     # b = r_p (predicted)
     # loss_b = squared_distance(r_p - r_r)
     rewards = []
-    baseline_loss = 0
+    baseline_loss = []
     for i, state in enumerate(self.states):
       r_p = self.baseline.transform(dy.nobackprop(state))
       rewards.append(policy_reward[i] - r_p)
@@ -116,15 +115,17 @@ class PolicyGradient(Serializable, Reportable):
         r_r = dy.pick_batch_elems(policy_reward[i], self.valid_pos[i])
       else:
         r_r = policy_reward[i]
-      baseline_loss += dy.sum_batches(dy.squared_distance(r_p, r_r))
-    loss.add_loss("rl_baseline", baseline_loss)
+      baseline_loss.append(dy.squared_distance(r_p, r_r))
+    loss.add_loss("rl_baseline", dy.esum(baseline_loss))
     
     # Z Normalization
     # R = R - mean(R) / std(R)
     rewards = dy.concatenate(rewards, d=0)
+    r_dim = rewards.dim()
     if self.z_normalization:
-      rewards_mean = dy.mean_batches(dy.mean_elems(rewards))
-      rewards_std = dy.std_batches(dy.mean_elems(rewards)) + 1e-20
+      rewards_shape = dy.reshape(rewards, (r_dim[0][0], r_dim[1]))
+      rewards_mean = dy.mean_elems(rewards_shape)
+      rewards_std = dy.std_elems(rewards) + 1e-20
       rewards = (rewards - rewards_mean.value()) / rewards_std.value()
     rewards = dy.nobackprop(rewards)
 
@@ -141,22 +142,22 @@ class PolicyGradient(Serializable, Reportable):
       if self.valid_pos[i] is not None:
         ll = dy.pick_batch_elems(ll, self.valid_pos[i])
         reward = dy.pick_batch_elems(reward, self.valid_pos[i])
-      reinf_loss.append(dy.sum_batches(ll * reward))
+      reinf_loss.append(dy.sum_batches(dy.cmult(ll, reward)))
     loss.add_loss("rl_reinf", -dy.esum(reinf_loss))
 
     # Pack up + return
     try:
       return loss
     finally:
-      self.report_sent_info({
-        "pg_loss": loss,
-        "pg_policy_reward": policy_reward,
-        "pg_baseline_loss": baseline_loss,
-        "pg_rewards": rewards,
-        "pg_policy_ll": self.policy_lls,
-        "pg_actions": self.actions,
-        "pg_valid_pos": self.valid_pos
-      })
+      if results is not None:
+        results.update({
+          "pg_loss": loss,
+          "pg_policy_reward": policy_reward,
+          "pg_rewards": rewards,
+          "pg_policy_ll": self.policy_lls,
+          "pg_actions": self.actions,
+          "pg_valid_pos": self.valid_pos
+        })
 
   def shared_params(self):
     return [{".input_dim", ".policy_network.input_dim"},

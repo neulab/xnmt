@@ -14,7 +14,13 @@ class SimultaneousReward(object):
     
   def calculate(self):
     ret = []
+    bleus = []
+    delays = []
+    instant_rewards = []
     for inp, ref, action, output in zip(self.src_batch, self.trg_batch, self.actions, self.outputs):
       reward, bleu, delay, instant_reward = simult_reward.return_reward(output, ref, action, inp.len_unpadded()+1)
       ret.append(reward)
-    return [dy.scalarInput(x) for x in np.hstack(ret)]
+      bleus.append(bleu)
+      delays.append(delay)
+      instant_rewards.append(instant_reward)
+    return [dy.scalarInput(x) for x in np.hstack(ret)], bleus, delays, instant_rewards

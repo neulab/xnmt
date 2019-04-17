@@ -12,6 +12,7 @@ import xnmt.events as events
 import xnmt.event_trigger as event_trigger
 import xnmt.vocabs as vocabs
 import xnmt.simultaneous.simult_rewards as rewards
+import xnmt.simultaneous.simult_logger as simult_logger
 
 from xnmt.losses import FactoredLossExpr
 from xnmt.models.translators.default import DefaultTranslator
@@ -20,14 +21,13 @@ from xnmt.reports import Reportable
 
 from .simult_state import SimultaneousState
 
-class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
+class SimultaneousTranslator(DefaultTranslator, Serializable):
   yaml_tag = '!SimultaneousTranslator'
   
   class Action(Enum):
     READ = 0
     WRITE = 1
   
-  @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
                src_reader: input_readers.InputReader,
@@ -40,7 +40,8 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                truncate_dec_batches: bool = False,
                policy_learning=None,
                freeze_decoder_param=False,
-               max_generation=100) -> None:
+               max_generation=100,
+               logger=None) -> None:
     super().__init__(src_reader=src_reader,
                      trg_reader=trg_reader,
                      encoder=encoder,
@@ -54,6 +55,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     self.outputs = []
     self.freeze_decoder_param = freeze_decoder_param
     self.max_generation = max_generation
+    self.logger = logger
   
   def calc_nll(self, src_batch, trg_batch) -> dy.Expression:
     self.actions.clear()
@@ -86,7 +88,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
           ground_truth = self._select_ground_truth(current_state, trg)
           loss_exprs.append(self.decoder.calc_loss(current_output.state, ground_truth))
           # Use word from ref/model depeding on settings
-          next_word = self._select_next_word(ground_truth, current_output.state)
+          next_word = self._select_next_word(ground_truth, current_output.state, True)
           # The produced words
           outputs.append(next_word)
           current_state = current_state.write(next_word)
@@ -131,8 +133,24 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
   def on_calc_reinforce_loss(self, trg, generator, generator_loss):
     if self.policy_learning is None:
       return None
-    reward = rewards.SimultaneousReward(self.src, trg, self.actions, self.outputs, self.trg_reader.vocab).calculate()
-    return self.policy_learning.calc_loss(reward)
+    reward, bleu, delay, instant_rewards = rewards.SimultaneousReward(self.src, trg, self.actions, self.outputs, self.trg_reader.vocab).calculate()
+    results = {}
+    reinforce_loss = self.policy_learning.calc_loss(reward, results)
+    try:
+      return reinforce_loss
+    finally:
+      if self.logger is not None:
+        keywords = {
+          "sim_inputs": [x[:x.len_unpadded()+1] for x in self.src],
+          "sim_actions": self.actions,
+          "sim_outputs": self.outputs,
+          "sim_bleu": bleu,
+          "sim_delay": delay,
+          "sim_instant_reward": instant_rewards,
+        }
+        keywords.update(results)
+        self.logger.create_sent_report(**keywords)
+        
 
   def on_calc_imitation_loss(self, trg):
     return self.policy_learning.calc_nll(trg)
@@ -140,8 +158,8 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
   def _initial_state(self, src):
     return SimultaneousState(self, self.encoder.initial_state(), None, None)
 
-  def _select_next_word(self, ref, state):
-    if self.policy_learning is None:
+  def _select_next_word(self, ref, state, force_ref=False):
+    if self.policy_learning is None or force_ref:
       return ref
     else:
       best_words, _ = self.best_k(state, 1)
