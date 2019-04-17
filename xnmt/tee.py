@@ -71,6 +71,8 @@ class TensorboardCustomWriter(object):
     self.out_file_name = None
   def add_scalars(self, name: str, *args, **kwargs):
     return self.writer.add_scalars(f"{self.exp_name}/{name}", *args, **kwargs)
+  def add_histogram(self, name: str, *args, **kwargs):
+    return self.writer.add_histogram(f"{self.exp_name}/{name}", *args, **kwargs)
 
 if settings.USE_TENSORBOARD:
   tensorboard_writer = TensorboardCustomWriter()
