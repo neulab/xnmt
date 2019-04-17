@@ -42,10 +42,10 @@ class BaseExpressionSequence(object):
     self.mask = mask
     if not (self.expr_list is not None or self.expr_tensor is not None or self.expr_transposed_tensor is not None):
       raise ValueError("must provide expr_list or expr_tensor")
-    if self.expr_list and self.expr_tensor:
+    if self.expr_list is not None and self.expr_tensor is not None:
       if len(self.expr_list) != tt.sent_len(self.expr_tensor):
         raise ValueError("expr_list and expr_tensor must be of same length")
-    if expr_list:
+    if expr_list is not None:
       if not isinstance(expr_list,list):
         raise ValueError("expr_list must be list, was:", type(expr_list))
       if not isinstance(expr_list[0], tensor_type):
