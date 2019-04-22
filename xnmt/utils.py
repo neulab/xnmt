@@ -20,8 +20,15 @@ def print_cg_conditional() -> None:
       import dynet as dy
       dy.print_text_graphviz()
     else:
-      logger.warning("CG printing not implemented with Torch backup")
-      # TODO: https://discuss.pytorch.org/t/print-autograd-graph/692/6
+      logger.warning("CG printing not implemented with Torch backend")
+      # TODO: print_cg_torch() works but needs a loss variable which we don't have access to here..
+
+@xnmt.backend_torch
+def print_cg_torch(loss_var) -> None:
+  import torchviz
+  from xnmt import param_collections
+  dot = torchviz.make_dot(loss_var, dict(param_collections.ParamManager.global_collection().named_parameters()))
+  dot.save('computation_graph.gv')  # render() produces a PDF but takes a long time to compute
 
 
 def make_parent_dir(filename: str) -> None:
