@@ -23,12 +23,14 @@ def print_cg_conditional() -> None:
       logger.warning("CG printing not implemented with Torch backend")
       # TODO: print_cg_torch() works but needs a loss variable which we don't have access to here..
 
-@xnmt.backend_torch
-def print_cg_torch(loss_var) -> None:
+def print_cg_torch(loss_var, render=False) -> None:
   import torchviz
   from xnmt import param_collections
   dot = torchviz.make_dot(loss_var, dict(param_collections.ParamManager.global_collection().named_parameters()))
-  dot.save('computation_graph.gv')  # render() produces a PDF but takes a long time to compute
+  if render:
+    dot.render('computation_graph.gv')
+  else:
+    dot.save('computation_graph.gv')
 
 
 def make_parent_dir(filename: str) -> None:
