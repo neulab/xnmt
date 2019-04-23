@@ -2,6 +2,7 @@ import dynet as dy
 
 from enum import Enum
 
+import xnmt.batchers as batchers
 import xnmt.input_readers as input_readers
 import xnmt.modelparts.embedders as embedders
 import xnmt.modelparts.attenders as attenders
@@ -58,48 +59,54 @@ class SimultaneousTranslator(DefaultTranslator, Serializable):
     self.logger = logger
   
   def calc_nll(self, src_batch, trg_batch) -> dy.Expression:
-    self.actions.clear()
-    self.outputs.clear()
     event_trigger.start_sent(src_batch)
     batch_loss = []
     # For every item in the batch
     for src, trg in zip(src_batch, trg_batch):
-      # Initial state with no read/write actions being taken
-      current_state = self._initial_state(src)
-      src_len = src.sent_len()
-      # Reading + Writing
-      src_encoding = []
-      loss_exprs = []
-      now_action = []
-      outputs = []
-      # Simultaneous greedy search
-      while not self._stoping_criterions_met(current_state, trg):
-        # Define action based on state
-        action = self.next_action(current_state, src_len, len(src_encoding))
-        if action == self.Action.READ:
-          # Reading + Encoding
-          current_state = current_state.read(src)
-          src_encoding.append(current_state.encoder_state.output())
-        else:
-          # Predicting next word
-          current_state = current_state.calc_context(src_encoding)
-          current_output = self.add_input(current_state.prev_written_word, current_state)
-          # Calculating losses
-          ground_truth = self._select_ground_truth(current_state, trg)
-          loss_exprs.append(self.decoder.calc_loss(current_output.state, ground_truth))
-          # Use word from ref/model depeding on settings
-          next_word = self._select_next_word(ground_truth, current_output.state, True)
-          # The produced words
-          outputs.append(next_word)
-          current_state = current_state.write(next_word)
-        now_action.append(action.value)
-      self.actions.append(now_action)
+      actions, outputs, decoder_state, _ = self._create_trajectory(src, trg)
+      state = SimultMergedDecoderState(decoder_state)
+      ground_truth = [trg[i] if i < trg.sent_len() else vocabs.Vocab.ES for i in range(len(decoder_state))]
+      batch_loss.append(self.decoder.calc_loss(state, batchers.mark_as_batch(ground_truth)))
+      self.actions.append(actions)
       self.outputs.append(outputs)
       # Accumulate loss
-      batch_loss.append(dy.esum(loss_exprs))
     dy.forward(batch_loss)
-    loss = dy.esum(batch_loss)
-    return loss
+    return dy.esum(batch_loss)
+  
+  def _create_trajectory(self, src, ref=None, current_state=None):
+    # Initial state with no read/write actions being taken
+    if current_state is None:
+      current_state = self._initial_state(src)
+    src_len = src.sent_len()
+    # Reading + Writing
+    src_encoding = []
+    actions = []
+    outputs = []
+    decoder_states = []
+    model_states = [current_state]
+    # Simultaneous greedy search
+    while not self._stoping_criterions_met(current_state, ref):
+      # Define action based on state
+      action = self.next_action(current_state, src_len, len(src_encoding))
+      if action == self.Action.READ:
+        # Reading + Encoding
+        current_state = current_state.read(src)
+        src_encoding.append(current_state.encoder_state.output())
+      else:
+        # Predicting next word
+        current_state = current_state.calc_context(src_encoding)
+        current_output = self.add_input(current_state.prev_written_word, current_state)
+        # Calculating losses
+        ground_truth = self._select_ground_truth(current_state, ref)
+        decoder_states.append(current_output.state)
+        # Use word from ref/model depeding on settings
+        next_word = self._select_next_word(ground_truth, current_output.state, True)
+        # The produced words
+        outputs.append(next_word)
+        current_state = current_state.write(next_word)
+      model_states.append(current_state)
+      actions.append(action.value)
+    return actions, outputs, decoder_states, model_states
 
   def next_action(self, state, src_len, enc_len):
     if self.policy_learning is None:
@@ -128,6 +135,8 @@ class SimultaneousTranslator(DefaultTranslator, Serializable):
   @events.handle_xnmt_event
   def on_start_sent(self, src_batch):
     self.src = src_batch
+    self.actions = []
+    self.outputs = []
 
   @events.handle_xnmt_event
   def on_calc_reinforce_loss(self, trg, generator, generator_loss):
@@ -150,10 +159,15 @@ class SimultaneousTranslator(DefaultTranslator, Serializable):
         }
         keywords.update(results)
         self.logger.create_sent_report(**keywords)
-        
 
-  def on_calc_imitation_loss(self, trg):
-    return self.policy_learning.calc_nll(trg)
+  def on_calc_imitation_loss(self, ref_action):
+    actions, outputs, decoders
+    
+    
+    for t in range(len(ref_action)):
+      pass
+    
+    
   
   def _initial_state(self, src):
     return SimultaneousState(self, self.encoder.initial_state(), None, None)
@@ -178,3 +192,24 @@ class SimultaneousTranslator(DefaultTranslator, Serializable):
     else:
       return trg[state.has_been_written]
 
+class SimultMergedDecoderState(object):
+  def __init__(self, decoder_state):
+    self.decoder_state = decoder_state
+    
+  @property
+  def rnn_state(self):
+    return self._MockRNNState(self.decoder_state)
+  
+  class _MockRNNState(object):
+   def __init__(self, decoder_state):
+     self.decoder_state = decoder_state
+   
+   def output(self):
+     return dy.concatenate_to_batch([state.rnn_state.output() for state in self.decoder_state])
+    
+  @property
+  def context(self):
+    ret = dy.concatenate_to_batch([state.context for state in self.decoder_state])
+    return ret
+   # dim = ret.dim()
+    #return dy.reshape(ret, (dim[0][0],))
