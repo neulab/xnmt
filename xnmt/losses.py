@@ -23,20 +23,27 @@ class BaseFactoredLossExpr(object):
   """
 
   def __init__(self, init_loss: Optional[Dict[str, tt.Tensor]] = None) -> None:
-    self.expr_factors = collections.defaultdict(lambda: dy.scalarInput(0) if xnmt.backend_dynet
-                                                        else torch.Tensor([0.0]).to(xnmt.device))
+    self.expr_factors = {}
+    # self.expr_factors = collections.defaultdict(lambda: dy.scalarInput(0) if xnmt.backend_dynet
+    #                                                     else torch.Tensor([0.0]).to(xnmt.device))
     if init_loss is not None:
       for key, val in init_loss.items():
         self.expr_factors[key] = val
 
   def add_loss(self, loss_name: str, loss: Optional[tt.Tensor]) -> None:
     if loss:
-      self.expr_factors[loss_name] += loss
+      if loss_name in self.expr_factors:
+        self.expr_factors[loss_name] += loss
+      else:
+        self.expr_factors[loss_name] = loss
 
   def add_factored_loss_expr(self, factored_loss_expr: Optional['FactoredLossExpr']) -> None:
     if factored_loss_expr:
       for loss_name, loss in factored_loss_expr.expr_factors.items():
-        self.expr_factors[loss_name] += loss
+        if loss_name in self.expr_factors:
+          self.expr_factors[loss_name] += loss
+        else:
+          self.expr_factors[loss_name] = loss
 
   def compute(self, comb_method: str = "sum") -> tt.Tensor:
     """
