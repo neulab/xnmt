@@ -75,6 +75,8 @@ class TensorboardCustomWriter(object):
     return self.writer.add_histogram(f"{self.exp_name}/{name}", *args, **kwargs)
   def add_graph(self, *args, **kwargs):
     return self.writer.add_graph(*args, **kwargs)
+  def add_embedding(self, *args, **kwargs):
+    return self.writer.add_embedding(*args, **kwargs)
 
 
 if settings.USE_TENSORBOARD:
