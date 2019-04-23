@@ -31,3 +31,5 @@ docs/_pycharm_build/
 docs/examples
 .history
 venv_*
+*.gv
+*.gv.pdf
