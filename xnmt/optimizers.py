@@ -175,8 +175,9 @@ class XnmtOptimizerTorch(XnmtOptimizer):
     sq_norm = 0
     for subcol in ParamManager.param_col.subcols.values():
       for _, param in subcol.named_parameters():
-        cur_grads = tt.npvalue(param.grad)
-        sq_norm += np.sum(np.square(cur_grads))
+        if param.grad is not None:
+          cur_grads = tt.npvalue(param.grad)
+          sq_norm += np.sum(np.square(cur_grads))
     log_norm = np.log(np.sqrt(sq_norm))
     self.rolling_stats.update(log_norm)
     if self.rolling_stats.average is None: # too few statistics
