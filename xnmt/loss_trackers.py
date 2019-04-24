@@ -29,6 +29,7 @@ class TrainLossTracker(Serializable):
 
   Args:
     accumulative: whether to accumulate (average) training loss over each current epoch
+    aux_loss_per_token: whether to normalize auxiliary losses by number of tokens
   """
 
   yaml_tag = "!TrainLossTracker"
@@ -40,7 +41,7 @@ class TrainLossTracker(Serializable):
 
   @serializable_init
   @events.register_xnmt_handler
-  def __init__(self, accumulative: bool = False) -> None:
+  def __init__(self, accumulative: bool = False, aux_loss_per_token = True) -> None:
     self.accumulative = accumulative
     self.training_task = None
     self.epoch_loss = losses.FactoredLossVal()
@@ -52,6 +53,7 @@ class TrainLossTracker(Serializable):
 
     self.time_tracker = AccumTimeTracker()
     self.start_time = time.time()
+    self.aux_loss_per_token = aux_loss_per_token
 
   def set_training_task(self, training_task: 'xnmt.train.tasks.TrainingTask') -> None:
     self.training_task = training_task
@@ -100,15 +102,16 @@ class TrainLossTracker(Serializable):
       )
 
       if len(self.epoch_loss) > 1:
-        for loss_name, loss_values in self.epoch_loss.items():
+        for loss_i, (loss_name, loss_values) in enumerate(self.epoch_loss.items()):
+          cur_normalizer = (self.loss_normalizer if loss_i==0 or self.aux_loss_per_token else 1)
           utils.log_readable_and_tensorboard(template=TrainLossTracker.REPORT_TEMPLATE_ADDITIONAL,
-                                             args={loss_name: loss_values / self.loss_normalizer},
+                                             args={loss_name: loss_values / cur_normalizer},
                                              n_iter=self.training_task.training_state.steps_since_start,
                                              fractional_epoch=fractional_epoch,
                                              data_name="train",
                                              task_name=self.name,
                                              loss_name=loss_name,
-                                             loss=loss_values / self.epoch_words,
+                                             loss=loss_values / cur_normalizer,
                                              )
 
       self.last_report_words = self.epoch_words
