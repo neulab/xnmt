@@ -66,18 +66,20 @@ class TrainLossTracker(Serializable):
       self.epoch_words = 0
       self.last_report_sents_since_start = 0
       self.last_report_words = 0
+      self.loss_normalizer_tok = 0
+      self.loss_normalizer_sent = 0
 
   def report(self, trg: Union[sent.Sequence, batchers.Batch], loss: losses.FactoredLossVal) -> None:
     """
     Accumulate training loss and report every REPORT_EVERY sentences.
     """
     self.epoch_words += self.count_trg_words(trg)
+    self.epoch_loss += loss
+    self.loss_normalizer_sent += trg.batch_size() if batchers.is_batched(trg) else 1
     if self.accumulative:
-      self.epoch_loss += loss
-      self.loss_normalizer = self.epoch_words
+      self.loss_normalizer_tok = self.epoch_words
     else:
-      self.epoch_loss = loss
-      self.loss_normalizer = self.count_trg_words(trg)
+      self.loss_normalizer_tok += self.count_trg_words(trg)
 
 
     sent_num_not_report = self.training_task.training_state.sents_since_start - self.last_report_sents_since_start
@@ -88,7 +90,7 @@ class TrainLossTracker(Serializable):
       fractional_epoch = (self.training_task.training_state.epoch_num - 1) \
                          + self.training_task.training_state.sents_into_epoch / self.training_task.cur_num_sentences()
       accum_time = self.time_tracker.get_and_reset()
-      rep_train_loss = self.epoch_loss.sum_factors() / self.loss_normalizer
+      rep_train_loss = self.epoch_loss.sum_factors() / self.loss_normalizer_tok
       utils.log_readable_and_tensorboard(
         template = TrainLossTracker.REPORT_TEMPLATE_SPEED if accum_time else TrainLossTracker.REPORT_TEMPLATE,
         args = {"loss": rep_train_loss},
@@ -103,7 +105,7 @@ class TrainLossTracker(Serializable):
 
       if len(self.epoch_loss) > 1:
         for loss_i, (loss_name, loss_values) in enumerate(self.epoch_loss.items()):
-          cur_normalizer = (self.loss_normalizer if loss_i==0 or self.aux_loss_per_token else 1)
+          cur_normalizer = (self.loss_normalizer_tok if loss_i==0 or self.aux_loss_per_token else self.loss_normalizer_sent)
           utils.log_readable_and_tensorboard(template=TrainLossTracker.REPORT_TEMPLATE_ADDITIONAL,
                                              args={loss_name: loss_values / cur_normalizer},
                                              n_iter=self.training_task.training_state.steps_since_start,
@@ -116,6 +118,10 @@ class TrainLossTracker(Serializable):
 
       self.last_report_words = self.epoch_words
       self.last_report_sents_since_start = self.training_task.training_state.sents_since_start
+      if not self.accumulative:
+        self.epoch_loss.clear()
+        self.loss_normalizer_sent = 0
+        self.loss_normalizer_tok = 0
 
   def count_trg_words(self, trg_words: Union[sent.Sentence, batchers.Batch]) -> int:
     if isinstance(trg_words, batchers.Batch):
