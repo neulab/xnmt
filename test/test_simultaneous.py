@@ -12,20 +12,17 @@ from xnmt.modelparts.bridges import NoBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
 import xnmt.events
-from xnmt.eval import metrics
 from xnmt import batchers, event_trigger
 from xnmt.param_collections import ParamManager
 from xnmt.input_readers import PlainTextReader
-from xnmt.input_readers import CharFromWordTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer
+from xnmt.search_strategies import GreedySearch, BeamSearch
 from xnmt.simultaneous.simult_translators import SimultaneousTranslator
-from xnmt.simultaneous.simult_search_strategies import SimultaneousGreedySearch
 from xnmt.loss_calculators import MLELoss
-from xnmt.modelparts.transforms import AuxNonLinear, Linear
+from xnmt.modelparts.transforms import AuxNonLinear
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 from xnmt.rl.policy_gradient import PolicyGradient
-from xnmt.utils import has_cython
 
 
 class TestSimultaneousTranslation(unittest.TestCase):
@@ -76,8 +73,12 @@ class TestSimultaneousTranslation(unittest.TestCase):
 
   def test_simult_greedy(self):
     event_trigger.set_train(False)
-    self.model.generate(batchers.mark_as_batch([self.src_data[0]]), SimultaneousGreedySearch())
-    
+    self.model.generate(batchers.mark_as_batch([self.src_data[0]]), GreedySearch())
+
+  def test_simult_beam(self):
+    event_trigger.set_train(False)
+    self.model.generate(batchers.mark_as_batch([self.src_data[0]]), BeamSearch())
+   
   def test_policy(self):
     event_trigger.set_train(True)
     self.model.policy_learning = PolicyGradient(input_dim=3*self.layer_dim)

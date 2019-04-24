@@ -13,12 +13,9 @@ import xnmt.events as events
 import xnmt.event_trigger as event_trigger
 import xnmt.vocabs as vocabs
 import xnmt.simultaneous.simult_rewards as rewards
-import xnmt.simultaneous.simult_logger as simult_logger
 
-from xnmt.losses import FactoredLossExpr
 from xnmt.models.translators.default import DefaultTranslator
 from xnmt.persistence import bare, Serializable, serializable_init
-from xnmt.reports import Reportable
 
 from .simult_state import SimultaneousState
 
@@ -72,43 +69,79 @@ class SimultaneousTranslator(DefaultTranslator, Serializable):
       # Accumulate loss
     dy.forward(batch_loss)
     return dy.esum(batch_loss)
-  
+ 
+  def add_input(self, word, state) -> DefaultTranslator.Output:
+    src = self.src[0]
+    # Reading until next write
+    while True:
+      next_action = self._next_action(state, src.sent_len())
+      if next_action == self.Action.WRITE:
+        break
+      else:
+        state = state.read(src)
+        self.src_encoding.append(state.encoder_state.output())
+    # Write one output
+    if type(word) == list:
+      word = batchers.mark_as_batch(word)
+    if word is not None:
+      state = state.write(word)
+    state = state.calc_context(self.src_encoding)
+    output = super().add_input(state.prev_written_word, state)
+    return DefaultTranslator.Output(state, output.attention)
+    
+  def _initial_state(self, src):
+    # To hold all the source encodings
+    self.src_encoding = []
+    # Simultaneous State
+    return SimultaneousState(self, self.encoder.initial_state(), None, None)
+
   def _create_trajectory(self, src, ref=None, current_state=None):
-    # Initial state with no read/write actions being taken
-    if current_state is None:
-      current_state = self._initial_state(src)
+    current_state = current_state or self._initial_state(src)
     src_len = src.sent_len()
-    # Reading + Writing
-    src_encoding = []
+
     actions = []
     outputs = []
     decoder_states = []
     model_states = [current_state]
+
+    def stoping_criterions_met(state, trg):
+      if self.policy_learning is None:
+        return state.has_been_written >= trg.sent_len()
+      else:
+        return state.has_been_written >= self.max_generation or \
+               state.prev_written_word == vocabs.Vocab.ES
+
     # Simultaneous greedy search
-    while not self._stoping_criterions_met(current_state, ref):
+    while not stoping_criterions_met(current_state, ref):
       # Define action based on state
-      action = self.next_action(current_state, src_len, len(src_encoding))
+      action = self._next_action(current_state, src_len)
+      
       if action == self.Action.READ:
         # Reading + Encoding
         current_state = current_state.read(src)
-        src_encoding.append(current_state.encoder_state.output())
+        self.src_encoding.append(current_state.encoder_state.output())
       else:
         # Predicting next word
-        current_state = current_state.calc_context(src_encoding)
-        current_output = self.add_input(current_state.prev_written_word, current_state)
+        current_state = current_state.calc_context(self.src_encoding)
+        current_output = super().add_input(current_state.prev_written_word, current_state)
+        
         # Calculating losses
         ground_truth = self._select_ground_truth(current_state, ref)
         decoder_states.append(current_output.state)
+        
         # Use word from ref/model depeding on settings
         next_word = self._select_next_word(ground_truth, current_output.state, True)
+        
         # The produced words
         outputs.append(next_word)
         current_state = current_state.write(next_word)
+        
       model_states.append(current_state)
       actions.append(action.value)
+  
     return actions, outputs, decoder_states, model_states
 
-  def next_action(self, state, src_len, enc_len):
+  def _next_action(self, state, src_len):
     if self.policy_learning is None:
       if state.has_been_read < src_len:
         return self.Action.READ
@@ -116,8 +149,8 @@ class SimultaneousTranslator(DefaultTranslator, Serializable):
         return self.Action.WRITE
     else:
       # Sanity Check here:
-      force_action = [self.Action.READ.value] if enc_len == 0 else None # No writing at the beginning.
-      force_action = [self.Action.WRITE.value] if enc_len == src_len else force_action # No reading at the end.
+      force_action = [self.Action.READ.value] if state.has_been_read == 0 else None # No writing at the beginning.
+      force_action = [self.Action.WRITE.value] if state.has_been_read == src_len else force_action # No reading at the end.
       # Compose inputs from 3 states
       encoder_state = state.encoder_state.output()
       enc_dim = encoder_state.dim()
@@ -127,6 +160,19 @@ class SimultaneousTranslator(DefaultTranslator, Serializable):
       # Sample / Calculate a single action
       action = self.policy_learning.sample_action(input_state, predefined_actions=force_action, argmax=not self.train)[0]
       return self.Action(action)
+
+  def _select_next_word(self, ref, state, force_ref=False):
+    if self.policy_learning is None or force_ref:
+      return ref
+    else:
+      best_words, _ = self.best_k(state, 1)
+      return best_words[0]
+    
+  def _select_ground_truth(self, state, trg):
+    if trg.sent_len() <= state.has_been_written:
+      return vocabs.Vocab.ES
+    else:
+      return trg[state.has_been_written]
 
   @events.handle_xnmt_event
   def on_set_train(self, train):
@@ -161,36 +207,8 @@ class SimultaneousTranslator(DefaultTranslator, Serializable):
         self.logger.create_sent_report(**keywords)
 
   def on_calc_imitation_loss(self, ref_action):
-    actions, outputs, decoders
-    
-    
-    for t in range(len(ref_action)):
-      pass
-    
-    
-  
-  def _initial_state(self, src):
-    return SimultaneousState(self, self.encoder.initial_state(), None, None)
+    pass
 
-  def _select_next_word(self, ref, state, force_ref=False):
-    if self.policy_learning is None or force_ref:
-      return ref
-    else:
-      best_words, _ = self.best_k(state, 1)
-      return best_words[0]
-    
-  def _stoping_criterions_met(self, state, trg):
-    if self.policy_learning is None:
-      return state.has_been_written >= trg.sent_len()
-    else:
-      return state.has_been_written >= self.max_generation or \
-             state.prev_written_word == vocabs.Vocab.ES
-    
-  def _select_ground_truth(self, state, trg):
-    if trg.sent_len() <= state.has_been_written:
-      return vocabs.Vocab.ES
-    else:
-      return trg[state.has_been_written]
 
 class SimultMergedDecoderState(object):
   def __init__(self, decoder_state):
@@ -211,5 +229,3 @@ class SimultMergedDecoderState(object):
   def context(self):
     ret = dy.concatenate_to_batch([state.context for state in self.decoder_state])
     return ret
-   # dim = ret.dim()
-    #return dy.reshape(ret, (dim[0][0],))

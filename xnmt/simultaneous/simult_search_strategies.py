@@ -6,9 +6,10 @@ from typing import List
 
 import xnmt.search_strategies as search_strategies
 
+from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.simultaneous.simult_translators import SimultaneousTranslator
 from xnmt.vocabs import Vocab
-from xnmt.persistence import serializable_init, Serializable
+from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
 
 from.simult_state import SimultaneousState
@@ -47,7 +48,7 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
 
     encoding = []
     while current_state.has_been_written < self.max_len:
-      action = translator.next_action(current_state, self.src_sent.sent_len(), len(encoding))
+      action = translator._next_action(current_state, self.src_sent.sent_len(), len(encoding))
       if action == translator.Action.READ:
         # Reading
         current_state = current_state.read(self.src_sent)
@@ -68,4 +69,5 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
     
     score = np.sum(scores, axis=0)
     return [search_strategies.SearchOutput([word_ids], attentions, [score], [], [])]
+
 
