@@ -14,6 +14,7 @@ import faulthandler
 faulthandler.enable()
 import traceback
 from typing import Optional, Sequence, Tuple
+import shutil
 
 import numpy as np
 
@@ -83,11 +84,18 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
       glob_args = uninitialized_exp_args.data.exp_global
       log_file = glob_args.log_file
 
-      if os.path.isfile(log_file) and not settings.OVERWRITE_LOG:
-        logger.warning(f"log file {log_file} already exists, skipping experiment; please delete log file by hand if you want to overwrite it "
-                       f"(or activate OVERWRITE_LOG, by either specifying an environment variable as OVERWRITE_LOG=1, "
-                       f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")
-        continue
+      if not settings.OVERWRITE_LOG:
+        log_files_exist = []
+        if os.path.isfile(log_file): log_files_exist.append(log_file)
+        if os.path.isdir(log_file + ".tb"): log_files_exist.append(log_file + ".tb/")
+        if log_files_exist:
+          logger.warning(f"log file {','.join(log_files_exist)} already exists, skipping experiment; "
+                         f"please delete log file by hand if you want to overwrite it "
+                         f"(or activate OVERWRITE_LOG, by either specifying an environment variable OVERWRITE_LOG=1, "
+                         f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")
+          continue
+      elif settings.OVERWRITE_LOG and os.path.isdir(log_file + ".tb"):
+        shutil.rmtree(log_file + ".tb/")  # remove tensorboard logs from previous run that is being overwritten
 
       tee.set_out_file(log_file, exp_name=experiment_name)
 
