@@ -70,7 +70,7 @@ class TensorboardCustomWriter(object):
   def unset_out_file(self) -> None:
     self.out_file_name = None
   def add_scalars(self, name: str, tag_scalar_dict, global_step=None, walltime=None):
-    return self.writer.add_scalars(tag=f"{self.exp_name}/{name}", tag_scalar_dict=tag_scalar_dict, global_step=global_step, walltime=walltime)
+    return self.writer.add_scalars(main_tag=f"{self.exp_name}/{name}", tag_scalar_dict=tag_scalar_dict, global_step=global_step, walltime=walltime)
   def add_histogram(self, name: str, values, global_step=None, bins='tensorflow', walltime=None):
     return self.writer.add_histogram(tag=f"{self.exp_name}/{name}", values=values, global_step=global_step, bins=bins, walltime=walltime)
   def add_graph(self, model, input_to_model=None, verbose=False):
