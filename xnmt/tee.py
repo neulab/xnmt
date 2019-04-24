@@ -69,14 +69,19 @@ class TensorboardCustomWriter(object):
     self.writer = tensorboardX.SummaryWriter(log_dir=f"{out_file_name}")
   def unset_out_file(self) -> None:
     self.out_file_name = None
-  def add_scalars(self, name: str, *args, **kwargs):
-    return self.writer.add_scalars(f"{self.exp_name}/{name}", *args, **kwargs)
-  def add_histogram(self, name: str, *args, **kwargs):
-    return self.writer.add_histogram(f"{self.exp_name}/{name}", *args, **kwargs)
-  def add_graph(self, *args, **kwargs):
-    return self.writer.add_graph(*args, **kwargs)
-  def add_embedding(self, *args, **kwargs):
-    return self.writer.add_embedding(*args, **kwargs)
+  def add_scalars(self, name: str, tag_scalar_dict, global_step=None, walltime=None):
+    return self.writer.add_scalars(tag=f"{self.exp_name}/{name}", tag_scalar_dict=tag_scalar_dict, global_step=global_step, walltime=walltime)
+  def add_histogram(self, name: str, values, global_step=None, bins='tensorflow', walltime=None):
+    return self.writer.add_histogram(tag=f"{self.exp_name}/{name}", values=values, global_step=global_step, bins=bins, walltime=walltime)
+  def add_graph(self, model, input_to_model=None, verbose=False):
+    return self.writer.add_graph(model=model, input_to_model=input_to_model, verbose=verbose)
+  def add_embedding(self, name: str, mat: 'np.ndarray', metadata=None, label_img=None, global_step=None, metadata_header=None):
+    return self.writer.add_embedding(mat,
+                                     metadata=metadata,
+                                     label_img=label_img,
+                                     global_step=global_step,
+                                     tag=f"{self.exp_name}/{name}",
+                                     metadata_header=metadata_header)
 
 
 if settings.USE_TENSORBOARD:
