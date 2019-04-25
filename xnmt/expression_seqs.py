@@ -136,9 +136,14 @@ class BaseExpressionSequence(object):
     Return dimension of the expression sequence
 
     Returns:
-      result of self.as_tensor().dim(), without explicitly constructing that tensor
+      result of self.as_tensor().size(), without explicitly constructing that tensor
     """
-    raise NotImplementedError()
+    if self.expr_list: return (self.expr_list[0].size()[0], len(self.expr_list)) + self.expr_list[0].size()[1:]
+    elif self.expr_tensor is not None: return self.expr_tensor.size()
+    elif self.expr_transposed_tensor is not None:
+      return (self.expr_transposed_tensor.size()[1], self.expr_transposed_tensor.size()[0]) + self.expr_transposed_tensor.size()[2:]
+    else:
+      return tuple()
 
 @xnmt.require_dynet
 class ExpressionSequenceDynet(BaseExpressionSequence):
@@ -406,6 +411,7 @@ class BaseReversedExpressionSequence(BaseExpressionSequence):
     self.base_expr_seq = base_expr_seq
     self.expr_tensor = None
     self.expr_list = None
+    self.expr_transposed_tensor = None
     if base_expr_seq.mask is None:
       self.mask = None
     else:

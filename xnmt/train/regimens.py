@@ -153,6 +153,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
             event_trigger.set_train(True)
             loss_builder = self.training_step(src, trg)
             loss = loss_builder.compute(comb_method=self.loss_comb_method)
+            exit()
             self.backward(loss)
             self.update(self.trainer)
           self.train_loss_tracker.report(trg, loss_builder.get_factored_loss_val())
