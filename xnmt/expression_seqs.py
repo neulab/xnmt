@@ -143,7 +143,7 @@ class BaseExpressionSequence(object):
     elif self.expr_transposed_tensor is not None:
       return (self.expr_transposed_tensor.size()[1], self.expr_transposed_tensor.size()[0]) + self.expr_transposed_tensor.size()[2:]
     else:
-      return tuple()
+      raise NotImplementedError()
 
 @xnmt.require_dynet
 class ExpressionSequenceDynet(BaseExpressionSequence):
@@ -437,6 +437,8 @@ class BaseReversedExpressionSequence(BaseExpressionSequence):
     return self.base_expr_seq.has_list()
   def has_tensor(self) -> bool:
     return self.expr_tensor is not None
+  def dim(self):
+    return self.base_expr_seq.dim()
 
 @xnmt.require_dynet
 class ReversedExpressionSequenceDynet(BaseReversedExpressionSequence, ExpressionSequenceDynet):
