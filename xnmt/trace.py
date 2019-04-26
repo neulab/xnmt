@@ -37,9 +37,9 @@ def str_with_dim(obj):
     return f"[{', '.join([str_with_dim(item) for item in obj])}]"
   elif isinstance(obj, tuple):
     return f"({', '.join([str_with_dim(item) for item in obj])})"
-  elif xnmt.backend_torch and hasattr(obj, "size"):
+  elif xnmt.backend_torch and hasattr(obj, "size") and callable(obj.size):
     return f"{obj.__class__.__name__} {tuple(obj.size())}"
-  elif hasattr(obj, "dim"):
+  elif hasattr(obj, "dim") and callable(obj.dim):
     return f"{obj.__class__.__name__} {obj.dim()}"
   else:
     return str(obj)
@@ -47,9 +47,9 @@ def str_with_dim(obj):
 def has_dim(obj):
   if isinstance(obj, list) or isinstance(obj, tuple):
     return any(has_dim(item) for item in obj)
-  elif xnmt.backend_torch and hasattr(obj, "size"):
+  elif xnmt.backend_torch and hasattr(obj, "size") and callable(obj.size):
     return True
-  elif hasattr(obj, "dim"):
+  elif hasattr(obj, "dim") and callable(obj.dim):
     return True
   else:
     return False
@@ -94,6 +94,7 @@ def make_traceable(obj):
     if not name.startswith("_") and callable(member):
       try:
         sig = inspect.signature(member)
+        # TODO: might also include things like decoder states that encapsulate tensor expressions
         if "xnmt.tensor_tools.Tensor" in str(sig.return_annotation) or "ExpressionSequence" in str(sig.return_annotation):
           setattr(obj, name, tracing(member))
           # from functools.update_wrapper:
