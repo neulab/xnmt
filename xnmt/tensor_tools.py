@@ -13,7 +13,7 @@ from abc import ABC
 
 import xnmt
 from xnmt.settings import settings
-from xnmt import param_collections
+from xnmt import param_collections, trace
 
 class Tensor(ABC): pass
 
@@ -41,6 +41,7 @@ def reset_graph(zero_grad=True):
     torch.autograd.set_detect_anomaly(settings.CHECK_VALIDITY)
     if zero_grad:
       param_collections.ParamManager.global_collection().zero_grad()
+  trace.reset()
 
 def sent_len(x):
   if xnmt.backend_dynet:

@@ -21,6 +21,10 @@ from enum import IntEnum, auto
 import collections.abc
 import numbers
 import logging
+import inspect
+
+from xnmt.trace import make_traceable
+
 logger = logging.getLogger('xnmt')
 import os
 import copy
@@ -28,7 +32,7 @@ from functools import lru_cache, wraps
 from collections import OrderedDict
 import collections.abc
 from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Any
-import inspect, random
+import random
 
 import yaml
 
@@ -1489,46 +1493,3 @@ def check_type(obj, desired_type):
             for i in range(len(obj)))
       else: return True
     return True # case of unsupported types: return True
-
-def str_with_dim(obj):
-  if hasattr(obj, "dim"):
-    return f"{str(obj)} {obj.dim()}"
-  elif isinstance(obj, list):
-    return f"[{', '.join([str_with_dim(item) for item in obj])}]"
-  elif isinstance(obj, tuple):
-    return f"({', '.join([str_with_dim(item) for item in obj])})"
-  elif hasattr(obj, "size"):
-    return f"{str(obj)} {obj.size()}"
-  else:
-    return str(obj)
-
-import inspect
-trace_indent = 0
-#@wraps
-def tracing(f):
-  sig = inspect.signature(f)
-  def do_it(*args, **kwargs):
-    global trace_indent
-    ws = ' ' * (trace_indent * 2)
-    print("%sENTER %s: " % (ws, f.__name__))
-    for ix, param in enumerate(sig.parameters.values()):
-      if ix < len(args):
-        print("%s    %s: %s" % (ws, param.name, str_with_dim(args[ix])))
-    trace_indent += 1
-    result = f(*args, **kwargs)
-    trace_indent -= 1
-    print("%sEXIT %s (returned %s)" % (ws, f.__name__, str_with_dim(result)))
-    return result
-  return do_it
-
-def make_traceable(obj):
-  members = inspect.getmembers(obj)
-  for name, member in members:
-    if not name.startswith("_") and callable(member):
-      try:
-        sig = inspect.signature(member)
-        if "xnmt.tensor_tools.Tensor" in str(sig.return_annotation) or "ExpressionSequence" in str(sig.return_annotation):
-          setattr(obj, name, tracing(member))
-          a = 1
-      except ValueError:
-        continue # probably Cython built-in
