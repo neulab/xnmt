@@ -6,7 +6,8 @@ import numpy as np
 
 import xnmt
 import xnmt.tensor_tools as tt
-from xnmt import logger
+from xnmt.settings import settings
+from xnmt import logger, tee
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import utils
@@ -63,11 +64,13 @@ class XnmtOptimizerDynet(XnmtOptimizer):
     self.skip_noisy = skip_noisy
     if skip_noisy:
       self.rolling_stats = utils.RollingStatistic()
+    self.global_step = 0
 
   def update(self) -> None:
     """
     Update the parameters.
     """
+    self.global_step += 1
     try:
       if not (self.skip_noisy and self._check_gradients_noisy()):
         self.optimizer.update()
@@ -109,6 +112,7 @@ class XnmtOptimizerDynet(XnmtOptimizer):
         cur_grads = param.grad_as_array()
         sq_norm += np.sum(np.square(cur_grads))
     log_norm = np.log(np.sqrt(sq_norm))
+    if settings.USE_TENSORBOARD: tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(log_norm)}, global_step=self.global_step)
     self.rolling_stats.update(log_norm)
     if self.rolling_stats.average is None: # too few statistics
       return False
@@ -147,8 +151,10 @@ class XnmtOptimizerTorch(XnmtOptimizer):
     self.skip_noisy = skip_noisy
     if skip_noisy:
       self.rolling_stats = utils.RollingStatistic()
+    self.global_step = 0
 
   def update(self) -> None:
+    self.global_step += 1
     if self.rescale_grads > 0.0:
       torch.nn.utils.clip_grad_norm_(ParamManager.global_collection().parameters(), self.rescale_grads)
     elif self.clip_grads > 0.0:
@@ -179,6 +185,7 @@ class XnmtOptimizerTorch(XnmtOptimizer):
           cur_grads = tt.npvalue(param.grad)
           sq_norm += np.sum(np.square(cur_grads))
     log_norm = np.log(np.sqrt(sq_norm))
+    if settings.USE_TENSORBOARD: tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(log_norm)}, global_step=self.global_step)
     self.rolling_stats.update(log_norm)
     if self.rolling_stats.average is None: # too few statistics
       return False
