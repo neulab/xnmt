@@ -5,6 +5,9 @@ This is achieved by tracing all methods that (a) belong to Serializable classes 
 ExpressionSequence, or a list with at least one of these objects. The print includes info on tensor dimensions.
 
 The main method to call is trace.print_trace(), a good place to put it would be after the computation of the loss value.
+
+Note that deciding what methods to put in the trace is based on type annotations. Therefore, the trace may be incomplete
+in cases of forgotten type annotations.
 """
 
 
@@ -94,8 +97,10 @@ def make_traceable(obj):
     if not name.startswith("_") and callable(member):
       try:
         sig = inspect.signature(member)
-        # TODO: might also include things like decoder states that encapsulate tensor expressions
-        if "xnmt.tensor_tools.Tensor" in str(sig.return_annotation) or "ExpressionSequence" in str(sig.return_annotation):
+        if "xnmt.tensor_tools.Tensor" in str(sig.return_annotation) \
+                or "ExpressionSequence" in str(sig.return_annotation) \
+                or "DecoderState" in str(sig.return_annotation) \
+                or "FinalTransducerState"  in str(sig.return_annotation):
           setattr(obj, name, tracing(member))
           # from functools.update_wrapper:
           for attr in ('__module__', '__name__', '__qualname__', '__doc__', '__annotations__'):
