@@ -50,7 +50,7 @@ class Attender(object):
     if xnmt.backend_dynet:
       return I * attention
     else:
-      return torch.matmul(attention,I).squeeze(1)
+      return torch.matmul(attention,I)
 
 @xnmt.require_dynet
 class MlpAttenderDynet(Attender, Serializable):
