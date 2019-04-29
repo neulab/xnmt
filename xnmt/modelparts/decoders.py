@@ -1,7 +1,7 @@
 from typing import Any
 import numbers
 
-import xnmt.tensor_tools as tt
+import xnmt, xnmt.tensor_tools as tt
 from xnmt.modelparts import bridges, transforms, scorers, embedders
 from xnmt.transducers import recurrent
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
@@ -136,13 +136,13 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     trg_embedding = self.embedder.embed(trg_word)
     inp = trg_embedding
     if self.input_feeding:
-      inp = tt.concatenate([inp, dec_state.context])
+      inp = tt.concatenate([inp, dec_state.context.squeeze(1) if xnmt.backend_torch else dec_state.context])
     rnn_state = dec_state.rnn_state
     return AutoRegressiveDecoderState(rnn_state=rnn_state.add_input(inp),
                                       context=dec_state.context)
 
   def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> tt.Tensor:
-    h = tt.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])
+    h = tt.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context.squeeze(1) if xnmt.backend_torch else mlp_dec_state.context])
     return self.transform.transform(h)
 
   def best_k(self, mlp_dec_state: AutoRegressiveDecoderState, k: numbers.Integral, normalize_scores: bool = False):
