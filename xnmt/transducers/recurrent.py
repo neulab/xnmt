@@ -173,7 +173,7 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
       x = list(x)
 
     if self.dropout_rate > 0.0 and self.train and self.dropout_mask_x is None:
-      self.set_dropout_masks()
+      self.set_dropout_masks(batch_size=tt.batch_size(x[0]))
 
     new_c, new_h = [], []
     for layer_i in range(self.num_layers):
@@ -345,7 +345,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     assert isinstance(x, tt.Tensor)
 
     if self.dropout_rate > 0.0 and self.train and self.dropout_mask_x is None:
-      self.set_dropout_masks()
+      self.set_dropout_masks(batch_size=tt.batch_size(x))
 
     new_c, new_h = [], []
     for layer_i in range(self.num_layers):
