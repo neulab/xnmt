@@ -221,9 +221,11 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
           x_t = [x_t]
         elif type(x_t) != list:
           x_t = list(x_t)
-        if sum([x_t_i.dim()[0][0] for x_t_i in x_t]) != self.total_input_dim:
+        if (layer_i == 0 and sum([x_t_i.dim()[0][0] for x_t_i in x_t]) != self.total_input_dim) \
+                or (layer_i>0 and sum([x_t_i.dim()[0][0] for x_t_i in x_t]) != self.hidden_dim):
           found_dim = sum([x_t_i.dim()[0][0] for x_t_i in x_t])
-          raise ValueError(f"VanillaLSTMGates: x_t has inconsistent dimension {found_dim}, expecting {self.total_input_dim}")
+          raise ValueError(f"VanillaLSTMGates: x_t has inconsistent dimension {found_dim}, "
+                           f"expecting {self.total_input_dim if layer_i==0 else self.hidden_dim}")
         if self.dropout_rate > 0.0 and self.train:
           # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
           gates_t = dy.vanilla_lstm_gates_dropout_concat(x_t,
@@ -401,7 +403,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
           c.append(mask.cmult_by_timestep_expr(c_t,pos_i,True) + mask.cmult_by_timestep_expr(c[-1],pos_i,False))
           h.append(mask.cmult_by_timestep_expr(h_t,pos_i,True) + mask.cmult_by_timestep_expr(h[-1],pos_i,False))
       self._final_states.append(transducers.FinalTransducerState(h[-1], c[-1]))
-      cur_input = h[1:]
+      cur_input = [h[1:]]
 
     return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=mask)
 
