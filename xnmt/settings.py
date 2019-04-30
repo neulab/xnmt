@@ -40,6 +40,7 @@ class Standard(object):
   DEFAULT_LOG_PATH = "{EXP_DIR}/logs/{EXP}.log"
   DEFAULT_REPORT_PATH = "{EXP_DIR}/reports/{EXP}"
   USE_TENSORBOARD = False
+  COMPUTE_TRACE = False
 
 class Debug(Standard):
   """

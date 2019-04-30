@@ -38,6 +38,7 @@ import yaml
 
 from xnmt import param_collections, tee, utils
 import xnmt
+from xnmt.settings import settings
 
 def serializable_init(f):
   @wraps(f)
@@ -97,7 +98,7 @@ def serializable_init(f):
     for key, arg in serialize_params.items():
       if not hasattr(obj, key):
         setattr(obj, key, arg)
-    make_traceable(obj)
+    if settings.COMPUTE_TRACE: make_traceable(obj)
 
   wrapper.uses_serializable_init = True
   return wrapper
