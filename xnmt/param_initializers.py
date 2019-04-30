@@ -261,6 +261,7 @@ class NumpyInitializerDynet(ParamInitializerDynet, Serializable):
     self.array = array
 
   def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1) -> 'dy.NumpyInitializer':
+    if dim != self.array.shape: raise ValueError(f"expected same dims, got: {dim} != {self.array.shape}")
     return dy.NumpyInitializer(array=self.array)
 
 @xnmt.require_torch
