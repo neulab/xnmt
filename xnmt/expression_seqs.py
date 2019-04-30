@@ -369,7 +369,7 @@ class LazyNumpyExpressionSequenceTorch(ExpressionSequence):
       lazy_data: numpy array, or Batcher.Batch of numpy arrays
     """
     self.lazy_data = lazy_data
-    self.expr_list, self.expr_tensor = None, None
+    self.expr_list, self.expr_tensor, self.expr_transposed_tensor = None, None, None
     self.mask = mask
   def __len__(self):
     if self.expr_list or self.expr_tensor:
