@@ -401,8 +401,13 @@ class SimpleWordEmbedderDynet(SentEmbedder, Serializable):
     my_params = param_collections.ParamManager.my_params(self)
     self.vocab_size = self.choose_vocab_size(vocab_size, vocab, yaml_path, src_reader, trg_reader)
     self.save_processed_arg("vocab_size", self.vocab_size)
-    self.embeddings = my_params.add_lookup_parameters((self.vocab_size, self.emb_dim),
-                             init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
+    if isinstance(param_init, param_initializers.NumpyInitializer):
+      if param_init.array.shape != (self.vocab_size, self.emb_dim):
+        raise ValueError(f"Expected numpy array of shape {(self.vocab_size, self.emb_dim)}, got {param_init.array.shape}")
+      self.embeddings = my_params.lookup_parameters_from_numpy(param_init.array)
+    else:
+      self.embeddings = my_params.add_lookup_parameters((self.vocab_size, self.emb_dim),
+                               init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
 
   @events.handle_xnmt_event
   def on_set_train(self, val: bool) -> None:
