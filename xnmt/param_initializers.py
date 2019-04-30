@@ -243,7 +243,7 @@ class FromFileInitializer(ParamInitializerDynet, Serializable):
     return dy.FromFileInitializer(fname=self.fname)
 
 @xnmt.require_dynet
-class NumpyInitializer(ParamInitializerDynet, Serializable):
+class NumpyInitializerDynet(ParamInitializerDynet, Serializable):
   """
   Wraps DyNet's NumpyInitializer: http://dynet.readthedocs.io/en/latest/python_ref.html#dynet.NumpyInitializer
 
@@ -262,6 +262,27 @@ class NumpyInitializer(ParamInitializerDynet, Serializable):
 
   def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1) -> 'dy.NumpyInitializer':
     return dy.NumpyInitializer(array=self.array)
+
+@xnmt.require_torch
+class NumpyInitializerTorch(ParamInitializerTorch, Serializable):
+  """
+  Initialize from numpy array.
+
+  Args:
+    array: Numpy array
+  """
+  yaml_tag = "!NumpyInitializer"
+
+  @serializable_init
+  def __init__(self, array: np.ndarray) -> None:
+    self.array = array
+
+  def initialize(self, weights: tt.Tensor) -> None:
+    if weights.size() != self.array.shape: raise ValueError(f"Assuming equal dims, got: {weights.size()} != {self.array.shape}")
+    weights.data = torch.Tensor(self.array).to(xnmt.device)
+
+NumpyInitializer = xnmt.resolve_backend(NumpyInitializerDynet, NumpyInitializerTorch)
+
 
 @xnmt.require_dynet
 class LeCunUniformInitializer(ParamInitializerDynet, Serializable):

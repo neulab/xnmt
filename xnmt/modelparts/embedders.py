@@ -404,7 +404,7 @@ class SimpleWordEmbedderDynet(SentEmbedder, Serializable):
     if isinstance(param_init, param_initializers.NumpyInitializer):
       if param_init.array.shape != (self.vocab_size, self.emb_dim):
         raise ValueError(f"Expected numpy array of shape {(self.vocab_size, self.emb_dim)}, got {param_init.array.shape}")
-      self.embeddings = my_params.lookup_parameters_from_numpy(param_init.array)
+      self.embeddings = my_params.lookup_parameters_from_numpy(param_init.array, name=self.xnmt_subcol_name)
     else:
       self.embeddings = my_params.add_lookup_parameters((self.vocab_size, self.emb_dim),
                                init=param_init.initializer((self.vocab_size, self.emb_dim), is_lookup=True))
