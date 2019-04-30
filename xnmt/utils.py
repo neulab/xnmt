@@ -74,9 +74,10 @@ def log_readable_and_tensorboard(template: str,
 
   if settings.USE_TENSORBOARD:
     from xnmt.tee import tensorboard_writer
-    tensorboard_writer.add_scalars(f"{task_name}/{data_name}" if task_name else data_name,
-                                   args,
-                                   n_iter)
+    if tensorboard_writer.writer is not None:
+      tensorboard_writer.add_scalars(f"{task_name}/{data_name}" if task_name else data_name,
+                                     args,
+                                     n_iter)
 
 class RollingStatistic(object):
   """
