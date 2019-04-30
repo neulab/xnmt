@@ -21,6 +21,10 @@ from enum import IntEnum, auto
 import collections.abc
 import numbers
 import logging
+import inspect
+
+from xnmt.trace import make_traceable
+
 logger = logging.getLogger('xnmt')
 import os
 import copy
@@ -28,7 +32,7 @@ from functools import lru_cache, wraps
 from collections import OrderedDict
 import collections.abc
 from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Any
-import inspect, random
+import random
 
 import yaml
 
@@ -93,6 +97,7 @@ def serializable_init(f):
     for key, arg in serialize_params.items():
       if not hasattr(obj, key):
         setattr(obj, key, arg)
+    make_traceable(obj)
 
   wrapper.uses_serializable_init = True
   return wrapper
