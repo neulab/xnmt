@@ -1,5 +1,5 @@
 import math
-from typing import Tuple
+from typing import Sequence, Tuple
 import numbers
 
 import numpy as np
@@ -20,8 +20,13 @@ class ParamInitializerDynet(object):
   performs some extra configuration.
   """
 
-  def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1) -> 'dy.Initializer':
+  def initializer(self,
+                  dim: Tuple[numbers.Integral],
+                  is_lookup: bool = False,
+                  num_shared: numbers.Integral = 1) -> 'dy.Initializer':
     """
+    Return initializer.
+
     Args:
       dim: dimension of parameter tensor
       is_lookup: True if parameters are a lookup matrix
@@ -30,6 +35,15 @@ class ParamInitializerDynet(object):
       a dynet initializer object
     """
     raise NotImplementedError("subclasses must implement initializer()")
+  def initializer_pos(self,
+                      index: numbers.Integral,
+                      dim: Tuple[numbers.Integral],
+                      is_lookup: bool = False,
+                      num_shared: numbers.Integral = 1) -> 'dy.Initializer':
+    """
+    Return initializer at given position. Default is to use same initializer across positions, unless InitializerSequence is used.
+    """
+    return self.initializer(dim=dim, is_lookup=is_lookup, num_shared=num_shared)
 
 @xnmt.require_torch
 class ParamInitializerTorch(object):
@@ -38,20 +52,49 @@ class ParamInitializerTorch(object):
   performs some extra configuration.
   """
 
-  # def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False,
-  #                 num_shared: numbers.Integral = 1) -> 'dy.Initializer':
   def initialize(self, weights: tt.Tensor) -> None:
     """
+    Initialize given weights.
+
     Args:
-      dim: dimension of parameter tensor
-      is_lookup: True if parameters are a lookup matrix
-      num_shared: Indicates if one parameter object holds multiple matrices
-    Returns:
-      a dynet initializer object
+      weights: parameter tensor to be initialized
     """
     raise NotImplementedError("subclasses must implement initializer()")
+  def initialize_pos(self, index: numbers.Integral, weights: tt.Tensor) -> None:
+    """
+    Initialize using position-specific initializer. Default is to use same initializer across positions, unless InitializerSequence is used.
+    """
+    return self.initialize(weights=weights)
 
 ParamInitializer = xnmt.resolve_backend(ParamInitializerDynet, ParamInitializerTorch)
+
+class InitializerSequence(Serializable, ParamInitializer):
+  """
+  Sequence of position-specific initializers.
+
+  This can be used when a componenent has several parameter tensors that should each be initialized using a different
+  initializer. Examples would be components with multiple layers, and/or several sets of weight matrices that serve
+  different purposes.
+
+  The most commonly needed use case of this may be the case of a NumpyInitializer, where one wants to manually specify
+  all network weights using respective numpy arrays.
+
+  Args:
+    sequence: sequence of initializers
+  """
+  yaml_tag = "!InitializerSequence"
+  @serializable_init
+  def __init__(self, sequence: Sequence[ParamInitializer]):
+    self.sequence = sequence
+  def initialize_pos(self, index, *args, **kwargs):
+    if index >= len(self.sequence):
+      raise ValueError(f"initializer sequence of {len(self.sequence)} is too short")
+    return self.sequence[index].initialize(*args, **kwargs)
+  def initializer_pos(self, index: numbers.Integral, *args, **kwargs):
+    if index >= len(self.sequence):
+      raise ValueError(f"initializer sequence of {len(self.sequence)} is too short")
+    return self.sequence[index].initializer(*args, **kwargs)
+
 
 @xnmt.require_dynet
 class NormalInitializer(ParamInitializerDynet, Serializable):
@@ -261,7 +304,8 @@ class NumpyInitializerDynet(ParamInitializerDynet, Serializable):
     self.array = array
 
   def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1) -> 'dy.NumpyInitializer':
-    if dim != self.array.shape: raise ValueError(f"expected same dims, got: {dim} != {self.array.shape}")
+    if dim != self.array.shape:
+      raise ValueError(f"expected same dims, got: {dim} != {self.array.shape}")
     return dy.NumpyInitializer(array=self.array)
 
 @xnmt.require_torch

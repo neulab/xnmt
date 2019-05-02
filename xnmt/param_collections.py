@@ -226,11 +226,14 @@ class InitializableModuleList(nn.ModuleList if xnmt.backend_torch else object):
     param_init: initializer to use for params that are named *weight*
     bias_init: initializer to use for params that are named *bias*
     """
+    weights_cnt, bias_cnt = 0,0
     for name, param in self.named_parameters():
       if 'weight' in name:
-        param_init.initialize(param)
+        param_init.initialize_pos(weights_cnt, param)
+        weights_cnt += 1
       if bias_init is not None and 'bias' in name:
-        bias_init.initialize(param)
+        bias_init.initialize_pos(bias_cnt, param)
+        bias_cnt += 1
 
 @xnmt.require_torch
 class ParamCollectionTorch(BaseParamCollection):

@@ -2,8 +2,8 @@ import unittest
 
 import numpy as np
 
-import xnmt, xnmt.tensor_tools as tt
-from xnmt.param_initializers import NumpyInitializer
+import xnmt
+from xnmt.param_initializers import NumpyInitializer, InitializerSequence
 from xnmt.modelparts.attenders import DotAttender
 from xnmt.batchers import SrcBatcher
 from xnmt.modelparts.bridges import NoBridge
@@ -21,7 +21,6 @@ from xnmt.modelparts.transforms import NonLinear
 from xnmt.models.translators.default import DefaultTranslator
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
-from xnmt import event_trigger, sent
 
 
 
@@ -79,8 +78,8 @@ class TestTrainManual(unittest.TestCase):
                                                                           rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                                                                                    hidden_dim=layer_dim,
                                                                                                    decoder_input_dim=layer_dim,
-                                                                                                   param_init=NumpyInitializer(
-                                                                                                     lstm_arr),
+                                                                                                   param_init=InitializerSequence([NumpyInitializer(dec_lstm_arr),
+                                                                                                                                   NumpyInitializer(lstm_arr),]),
                                                                                                    yaml_path="model.decoder.rnn"),
                                                                           transform=NonLinear(input_dim=layer_dim * 2,
                                                                                               output_dim=layer_dim,
@@ -92,7 +91,7 @@ class TestTrainManual(unittest.TestCase):
     train_args['dev_tasks'] = []
     train_args['trainer'] = optimizers.SimpleSGDTrainer()
     train_args['batcher'] = batcher
-    train_args['run_while'] = 'epoch <= 1'
+    train_args['run_for_epochs'] = 1
     train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)

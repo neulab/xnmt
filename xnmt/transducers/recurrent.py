@@ -89,8 +89,8 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
     hidden_dim: hidden dimension
     var_dropout: dropout probability (variational recurrent + vertical dropout)
     weightnoise_std: weight noise standard deviation
-    param_init: how to initialize weight matrices
-    bias_init: how to initialize bias vectors
+    param_init: how to initialize weight matrices. Position-specific initializers are ordered Wx_l0, Wh_l0, Wx_l1, Wh_l1, ...
+    bias_init: how to initialize bias vectors. Position-specific initializers are ordered l0, l1, l2, ...
     yaml_path:
     decoder_input_dim: input dimension of the decoder; if ``yaml_path`` contains 'decoder' and ``decoder_input_feeding`` is True, this will be added to ``input_dim``
     decoder_input_feeding: whether this transducer is part of an input-feeding decoder; cf. ``decoder_input_dim``
@@ -121,16 +121,15 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
       if decoder_input_feeding:
         self.total_input_dim += decoder_input_dim
 
-    if not isinstance(param_init, collections.abc.Sequence):
-      param_init = [param_init] * layers
-    if not isinstance(bias_init, collections.abc.Sequence):
-      bias_init = [bias_init] * layers
-
     # [i; f; o; g]
-    self.p_Wx = [my_params.add_parameters(dim=(hidden_dim*4, self.total_input_dim), init=param_init[0].initializer((hidden_dim*4, self.total_input_dim), num_shared=4))]
-    self.p_Wx += [my_params.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init[i].initializer((hidden_dim*4, hidden_dim), num_shared=4)) for i in range(1, layers)]
-    self.p_Wh = [my_params.add_parameters(dim=(hidden_dim*4, hidden_dim), init=param_init[i].initializer((hidden_dim*4, hidden_dim), num_shared=4)) for i in range(layers)]
-    self.p_b  = [my_params.add_parameters(dim=(hidden_dim*4,), init=bias_init[i].initializer((hidden_dim*4,), num_shared=4)) for i in range(layers)]
+    self.p_Wx = [my_params.add_parameters(dim=(hidden_dim*4, self.total_input_dim),
+                                          init=param_init.initializer_pos(0, (hidden_dim*4, self.total_input_dim), num_shared=4))]
+    self.p_Wx += [my_params.add_parameters(dim=(hidden_dim*4, hidden_dim),
+                                           init=param_init.initializer_pos(i*2, (hidden_dim*4, hidden_dim), num_shared=4)) for i in range(1, layers)]
+    self.p_Wh = [my_params.add_parameters(dim=(hidden_dim*4, hidden_dim),
+                                          init=param_init.initializer_pos(i*2+1, (hidden_dim*4, hidden_dim), num_shared=4)) for i in range(layers)]
+    self.p_b  = [my_params.add_parameters(dim=(hidden_dim*4,),
+                                          init=bias_init.initializer_pos(i, (hidden_dim*4,), num_shared=4)) for i in range(layers)]
 
     self.dropout_mask_x = None
     self.dropout_mask_h = None
@@ -261,8 +260,8 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     input_dim: input dimension
     hidden_dim: hidden dimension
     var_dropout: dropout probability (variational recurrent + vertical dropout)
-    param_init: how to initialize weight matrices
-    bias_init: how to initialize bias vectors
+    param_init: how to initialize weight matrices. Position-specific initializers are ordered Wx_l0, Wh_l0, Wx_l1, Wh_l1, ...
+    bias_init: how to initialize bias vectors. Must be a zero initializer.
     yaml_path:
     decoder_input_dim: input dimension of the decoder; if ``yaml_path`` contains 'decoder' and ``decoder_input_feeding`` is True, this will be added to ``input_dim``
     decoder_input_feeding: whether this transducer is part of an input-feeding decoder; cf. ``decoder_input_dim``
