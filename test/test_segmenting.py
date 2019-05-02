@@ -53,8 +53,8 @@ class TestSegmentingEncoder(unittest.TestCase):
     self.segment_encoder_bilstm = BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim)
     self.segment_composer = SumComposer()
 
-    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
-    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
+    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="test/data/head.ja.charvocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab"))
     self.loss_calculator = FeedbackLoss(child_loss=MLELoss(), repeat=5)
 
     baseline = Linear(input_dim=layer_dim, output_dim=1)
@@ -96,8 +96,8 @@ class TestSegmentingEncoder(unittest.TestCase):
     event_trigger.set_train(True)
 
     self.layer_dim = layer_dim
-    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
+    self.src_data = list(self.model.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.model.trg_reader.read_sents("test/data/head.en"))
     my_batcher = batchers.TrgBatcher(batch_size=3)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
@@ -194,8 +194,8 @@ class TestComposing(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
     self.segment_composer = SumComposer()
-    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.charvocab"))
-    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
+    self.src_reader = CharFromWordTextReader(vocab=Vocab(vocab_file="test/data/head.ja.charvocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab"))
     self.loss_calculator = FeedbackLoss(child_loss=MLELoss(), repeat=5)
     self.segmenting_encoder = SegmentingSeqTransducer(
       segment_composer =  self.segment_composer,
@@ -220,8 +220,8 @@ class TestComposing(unittest.TestCase):
     event_trigger.set_train(True)
 
     self.layer_dim = layer_dim
-    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
+    self.src_data = list(self.model.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.model.trg_reader.read_sents("test/data/head.en"))
     my_batcher = batchers.TrgBatcher(batch_size=3)
     self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
     dy.renew_cg(immediate_compute=True, check_validity=True)
@@ -233,7 +233,7 @@ class TestComposing(unittest.TestCase):
 
   def test_lookup_composer(self):
     enc = self.segmenting_encoder
-    word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    word_vocab = Vocab(vocab_file="test/data/head.ja.vocab")
     enc.segment_composer = LookupComposer(
         word_vocab = word_vocab,
         char_vocab = self.src_reader.vocab,
@@ -243,7 +243,7 @@ class TestComposing(unittest.TestCase):
 
   def test_charngram_composer(self):
     enc = self.segmenting_encoder
-    word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    word_vocab = Vocab(vocab_file="test/data/head.ja.vocab")
     enc.segment_composer = CharNGramComposer(
         word_vocab = word_vocab,
         char_vocab = self.src_reader.vocab,
@@ -319,7 +319,7 @@ class TestComposing(unittest.TestCase):
 
   def test_add_multiple_segment_composer(self):
     enc = self.segmenting_encoder
-    word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    word_vocab = Vocab(vocab_file="test/data/head.ja.vocab")
     enc.segment_composer = SumMultipleComposer(
       composers = [
         LookupComposer(word_vocab = word_vocab,
@@ -334,7 +334,7 @@ class TestComposing(unittest.TestCase):
 
   def test_concat_multiple_segment_composer(self):
     enc = self.segmenting_encoder
-    word_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
+    word_vocab = Vocab(vocab_file="test/data/head.ja.vocab")
     enc.segment_composer = ConcatMultipleComposer(
       composers = [
         LookupComposer(word_vocab = word_vocab,

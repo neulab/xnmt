@@ -21,8 +21,8 @@ class TestFreeDecodingLoss(unittest.TestCase):
     layer_dim = 512
     events.clear()
     ParamManager.init_param_col()
-    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
+    src_vocab = Vocab(vocab_file="test/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="test/data/head.en.vocab")
     self.model = DefaultTranslator(
       src_reader=PlainTextReader(vocab=src_vocab),
       trg_reader=PlainTextReader(vocab=trg_vocab),
@@ -38,8 +38,8 @@ class TestFreeDecodingLoss(unittest.TestCase):
     )
     event_trigger.set_train(False)
 
-    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
+    self.src_data = list(self.model.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.model.trg_reader.read_sents("test/data/head.en"))
 
   def test_single(self):
     tt.reset_graph()

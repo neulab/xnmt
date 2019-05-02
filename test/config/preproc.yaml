@@ -6,8 +6,8 @@ standard-preproc: !Experiment
     tasks:
     - !PreprocTokenize
       in_files:
-      - examples/data/head.ja
-      - examples/data/head.en
+      - test/data/head.ja
+      - test/data/head.en
       out_files:
       - test/tmp/head.tok.ja
       - test/tmp/head.tok.en
@@ -19,7 +19,7 @@ standard-preproc: !Experiment
       in_files:
       - test/tmp/head.tok.ja
       - test/tmp/head.tok.en
-      - examples/data/head.en
+      - test/data/head.en
       out_files:
       - test/tmp/head.tok.norm.ja
       - test/tmp/head.tok.norm.en

@@ -6,9 +6,9 @@ autobatch-regimen:
       default_layer_dim: 32
     model: !DefaultTranslator
       src_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
       trg_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     train: !AutobatchTrainingRegimen
       # for autobatching, we set the batch_size to 1, and use update_every to control how many sentences are combined
       # through the autobatch feature.
@@ -16,9 +16,9 @@ autobatch-regimen:
       batcher: !SrcBatcher
         batch_size: 10 # illegal with AutobatchTrainingRegimen
       run_for_epochs: 2
-      src_file: examples/data/head.ja
-      trg_file: examples/data/head.en
+      src_file: test/data/head.ja
+      trg_file: test/data/head.en
       dev_tasks:
         - !LossEvalTask
-          src_file: examples/data/head.ja
-          ref_file: examples/data/head.en
+          src_file: test/data/head.ja
+          ref_file: test/data/head.en
