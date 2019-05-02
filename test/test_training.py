@@ -31,10 +31,10 @@ class TestTruncatedBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
-    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
-    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab"))
+    self.src_data = list(self.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("test/data/head.en"))
 
   def assert_single_loss_equals_batch_loss(self, model, pad_src_to_multiple=1):
     """
@@ -164,10 +164,10 @@ class TestBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
-    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
-    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab"))
+    self.src_data = list(self.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("test/data/head.en"))
 
   def assert_single_loss_equals_batch_loss(self, model, pad_src_to_multiple=1):
     """
@@ -284,11 +284,11 @@ class TestTrainDevLoss(unittest.TestCase):
     layer_dim = 512
     batcher = SrcBatcher(batch_size=5, break_ties_randomly=False)
     train_args = {}
-    train_args['src_file'] = "examples/data/head.ja"
-    train_args['trg_file'] = "examples/data/head.en"
+    train_args['src_file'] = "test/data/head.ja"
+    train_args['trg_file'] = "test/data/head.en"
     train_args['loss_calculator'] = MLELoss()
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
-                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab")),
+                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
                                             attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim,
@@ -304,8 +304,8 @@ class TestTrainDevLoss(unittest.TestCase):
                                                                       bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
-                                            src_file="examples/data/head.ja",
-                                            ref_file="examples/data/head.en",
+                                            src_file="test/data/head.ja",
+                                            ref_file="test/data/head.en",
                                             batcher=batcher)]
     train_args['trainer'] = optimizers.DummyTrainer()
     train_args['batcher'] = batcher
@@ -326,11 +326,11 @@ class TestOverfitting(unittest.TestCase):
     layer_dim = 16
     batcher = SrcBatcher(batch_size=10, break_ties_randomly=False)
     train_args = {}
-    train_args['src_file'] = "examples/data/head.ja"
-    train_args['trg_file'] = "examples/data/head.en"
+    train_args['src_file'] = "test/data/head.ja"
+    train_args['trg_file'] = "test/data/head.en"
     train_args['loss_calculator'] = MLELoss()
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
-                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab")),
+                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
                                             encoder=BiLSTMSeqTransducer(input_dim=layer_dim,
                                                                         hidden_dim=layer_dim),
@@ -348,8 +348,8 @@ class TestOverfitting(unittest.TestCase):
                                                                       bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
-                                            src_file="examples/data/head.ja",
-                                            ref_file="examples/data/head.en",
+                                            src_file="test/data/head.ja",
+                                            ref_file="test/data/head.en",
                                             batcher=batcher)]
     train_args['run_for_epochs'] = 1
     if xnmt.backend_torch:

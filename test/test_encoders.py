@@ -25,12 +25,12 @@ class TestEncoder(unittest.TestCase):
     events.clear()
     ParamManager.init_param_col()
 
-    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
+    src_vocab = Vocab(vocab_file="test/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="test/data/head.en.vocab")
     self.src_reader = PlainTextReader(vocab=src_vocab)
     self.trg_reader = PlainTextReader(vocab=trg_vocab)
-    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
+    self.src_data = list(self.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("test/data/head.en"))
 
   def assert_in_out_len_equal(self, model):
     tt.reset_graph()

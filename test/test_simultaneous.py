@@ -35,11 +35,11 @@ class TestSimultaneousTranslation(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
     
-    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
-    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab"))
     self.layer_dim = layer_dim
-    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
+    self.src_data = list(self.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("test/data/head.en"))
     self.input_vocab_size = len(self.src_reader.vocab.i2w)
     self.output_vocab_size = len(self.trg_reader.vocab.i2w)
     self.loss_calculator = MLELoss()

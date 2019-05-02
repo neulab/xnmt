@@ -279,7 +279,8 @@ class NumpyInitializerTorch(ParamInitializerTorch, Serializable):
     self.array = array
 
   def initialize(self, weights: tt.Tensor) -> None:
-    if weights.size() != self.array.shape: raise ValueError(f"Assuming equal dims, got: {weights.size()} != {self.array.shape}")
+    if weights.size() != self.array.shape:
+      raise ValueError(f"Assuming equal dims, got: {weights.size()} != {self.array.shape}")
     weights.data = torch.Tensor(self.array).to(xnmt.device)
 
 NumpyInitializer = xnmt.resolve_backend(NumpyInitializerDynet, NumpyInitializerTorch)

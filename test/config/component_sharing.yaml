@@ -4,9 +4,9 @@ exp1.pretrain: !Experiment
     model_file: "test/tmp/{EXP}.mod"
   model: !DefaultTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 32
     encoder: !ModularSeqTransducer
@@ -29,12 +29,12 @@ exp1.pretrain: !Experiment
     inference: !AutoRegressiveInference {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 2
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
+    src_file: test/data/head.ja
+    trg_file: test/data/head.en
     dev_tasks:
       - !LossEvalTask
-        src_file: &dev_src examples/data/head.ja
-        ref_file: &dev_trg examples/data/head.en
+        src_file: &dev_src test/data/head.ja
+        ref_file: &dev_trg test/data/head.en
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer

@@ -6,17 +6,17 @@ defaults: !Experiment
       weight_noise: 0.1
     train: !SimpleTrainingRegimen &defaults_train
       run_for_epochs: 2
-      src_file: examples/data/head.ja
-      trg_file: examples/data/head.en
+      src_file: test/data/head.ja
+      trg_file: test/data/head.en
       dev_tasks:
         - !LossEvalTask
-          src_file: examples/data/head.ja
-          ref_file: examples/data/head.en
+          src_file: test/data/head.ja
+          ref_file: test/data/head.en
     evaluate:
       - !AccuracyEvalTask
         eval_metrics: bleu,wer
-        src_file: examples/data/head.ja
-        ref_file: examples/data/head.en
+        src_file: test/data/head.ja
+        ref_file: test/data/head.en
         hyp_file: test/tmp/{EXP}.test_hyp
 
 exp1-lstm-encoder: !Experiment
@@ -24,9 +24,9 @@ exp1-lstm-encoder: !Experiment
     << : *defaults
     model: !DefaultTranslator
       src_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
       trg_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.en.vocab}
       encoder: !BiLSTMSeqTransducer
         layers: 2
         input_dim: 64
@@ -36,9 +36,9 @@ exp2-residual-encoder: !Experiment
     << : *defaults
     model: !DefaultTranslator
       src_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
       trg_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.en.vocab}
       encoder: !ModularSeqTransducer
         input_dim: 64
         modules:
@@ -58,9 +58,9 @@ exp3-pyramidal-encoder: !Experiment
         pad_src_to_multiple: 4
     model: !DefaultTranslator
       src_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
       trg_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.en.vocab}
       encoder: !PyramidalLSTMSeqTransducer
         layers: 3
         input_dim: 64
@@ -81,9 +81,9 @@ exp4-modular-encoder: !Experiment
         pad_src_to_multiple: 4
     model: !DefaultTranslator
       src_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
       trg_reader: !PlainTextReader
-        vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+        vocab: !Vocab {vocab_file: test/data/head.en.vocab}
       encoder: !ModularSeqTransducer
         modules:
         - !BiLSTMSeqTransducer
