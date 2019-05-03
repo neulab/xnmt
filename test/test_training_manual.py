@@ -1,3 +1,7 @@
+"""
+Manually initialized toy model, test for both DyNet and Pytorch backends to produce exactly the same loss value.
+"""
+
 import unittest
 
 import numpy as np
@@ -64,30 +68,27 @@ class TestTrainManual(unittest.TestCase):
       [-0.1, -0.2, -0.1, -0.2],
       [0.1, 0.2, 0.1, 0.2],
     ])
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=vocab),
-                                            trg_reader=PlainTextReader(vocab=vocab),
-                                            src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size,
-                                                                            param_init=NumpyInitializer(emb_arr)),
-                                            encoder=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim,
-                                                                         param_init=NumpyInitializer(lstm_arr)),
-                                            attender=DotAttender(),
-                                            decoder=AutoRegressiveDecoder(input_dim=layer_dim,
-                                                                          embedder=SimpleWordEmbedder(emb_dim=layer_dim,
-                                                                                                      vocab_size=vocab_size,
-                                                                                                      param_init=NumpyInitializer(emb_arr)),
-                                                                          rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
-                                                                                                   hidden_dim=layer_dim,
-                                                                                                   decoder_input_dim=layer_dim,
-                                                                                                   param_init=InitializerSequence([NumpyInitializer(dec_lstm_arr),
-                                                                                                                                   NumpyInitializer(lstm_arr),]),
-                                                                                                   yaml_path="model.decoder.rnn"),
-                                                                          transform=NonLinear(input_dim=layer_dim * 2,
-                                                                                              output_dim=layer_dim,
-                                                                                              param_init=NumpyInitializer(proj_arr)),
-                                                                          scorer=Softmax(input_dim=layer_dim,
-                                                                                         vocab_size=vocab_size),
-                                                                          bridge=NoBridge(dec_dim=layer_dim)),
-                                            )
+    train_args['model'] = \
+      DefaultTranslator(
+        src_reader=PlainTextReader(vocab=vocab),
+        trg_reader=PlainTextReader(vocab=vocab),
+        src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr)),
+        encoder=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, param_init=NumpyInitializer(lstm_arr)),
+        attender=DotAttender(),
+        decoder=AutoRegressiveDecoder(
+          input_dim=layer_dim,
+          embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr)),
+          rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                   hidden_dim=layer_dim,
+                                   decoder_input_dim=layer_dim,
+                                   param_init=InitializerSequence(
+                                     [NumpyInitializer(dec_lstm_arr),
+                                      NumpyInitializer(lstm_arr), ]),
+                                   yaml_path="model.decoder.rnn"),
+          transform=NonLinear(input_dim=layer_dim * 2, output_dim=layer_dim, param_init=NumpyInitializer(proj_arr)),
+          scorer=Softmax(input_dim=layer_dim, vocab_size=vocab_size ,param_init=NumpyInitializer(emb_arr)),
+          bridge=NoBridge(dec_dim=layer_dim)),
+      )
     train_args['dev_tasks'] = []
     train_args['trainer'] = optimizers.SimpleSGDTrainer()
     train_args['batcher'] = batcher
@@ -95,10 +96,7 @@ class TestTrainManual(unittest.TestCase):
     train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)
-    from xnmt import trace
-    trace.print_trace()
-    # self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
-    #                        training_regimen.dev_loss_tracker.dev_score.loss, places=5)
+    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors(), 9.657152, places=5)
 
 
 if __name__ == '__main__':
