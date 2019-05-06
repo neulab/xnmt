@@ -7,6 +7,7 @@ import unittest
 import numpy as np
 
 import xnmt, xnmt.tensor_tools as tt
+from xnmt import event_trigger
 from xnmt.param_initializers import NumpyInitializer, InitializerSequence
 from xnmt.modelparts.attenders import DotAttender
 from xnmt.batchers import SrcBatcher
@@ -144,19 +145,19 @@ class TestManualBasicSeq2seq(unittest.TestCase):
   def test_loss_basic(self):
     self.assert_loss_value(9.657152, places=5, num_layers=1, bi_encoder=False, epochs=1, lr=0.1)
 
-  # def test_loss_two_epochs(self):
-  #   self.assert_loss_value(6.585153, places=2, num_layers=1, bi_encoder=False, epochs=2, lr=10)
+  def test_loss_two_epochs(self):
+    self.assert_loss_value(6.585153, places=2, num_layers=1, bi_encoder=False, epochs=2, lr=10)
   #
   # def test_emb_weights_two_epochs(self):
   #   expected = np.asarray(
   #     [[-0.1, 0.1], [-0.19995555, 0.19998002], [-0.2998707, 0.30003682], [-0.39986575, 0.40003762], [-0.5, 0.5]])
   #   self.assert_trained_emb_params(expected, places=5, num_layers=1, bi_encoder=False, epochs=2, lr=10)
 
-  def test_loss_two_layers(self):
-    self.assert_loss_value(9.656650, places=5, num_layers=2, bi_encoder=False, epochs=1, lr=0.1)
-
-  def test_loss_bidirectional(self):
-    self.assert_loss_value(9.657083, places=5, num_layers=1, bi_encoder=True, epochs=1, lr=0.1)
+  # def test_loss_two_layers(self):
+  #   self.assert_loss_value(9.656650, places=5, num_layers=2, bi_encoder=False, epochs=1, lr=0.1)
+  #
+  # def test_loss_bidirectional(self):
+  #   self.assert_loss_value(9.657083, places=5, num_layers=1, bi_encoder=True, epochs=1, lr=0.1)
 
 
 class TestManualClassifier(unittest.TestCase):
@@ -250,6 +251,23 @@ class TestManualClassifier(unittest.TestCase):
       val = val.T
     np.testing.assert_almost_equal(trained_src_emb, val, decimal=places)
 
+  def assert_trained_emb_grads(self, val, places, *args, **kwargs):
+    training_regimen = self.run_training(epochs=0, *args, **kwargs)
+    src, trg = next(training_regimen.next_minibatch())
+    tt.reset_graph()
+    event_trigger.set_train(True)
+    loss_builder = training_regimen.training_step(src, trg)
+    loss = loss_builder.compute(comb_method=training_regimen.loss_comb_method)
+    training_regimen.backward(loss)
+    # importantly: no update() here because that would zero out the dynet gradients
+
+    if xnmt.backend_dynet:
+      actual_grads = training_regimen.model.src_embedder.embeddings.grad_as_array()
+    else:
+      actual_grads = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].grad)
+      val = val.T
+    np.testing.assert_almost_equal(actual_grads, val, decimal=places)
+
   def test_loss_basic(self):
     self.assert_loss_value(1.386299, places=5, num_layers=1, bi_encoder=False, epochs=1, lr=0.1)
 
@@ -260,20 +278,26 @@ class TestManualClassifier(unittest.TestCase):
     self.assert_loss_value(1.386302, places=5, num_layers=1, bi_encoder=True, epochs=1, lr=0.1)
 
   def test_loss_two_epochs(self):
-    self.assert_loss_value(1.386299, places=5, num_layers=1, bi_encoder=False, epochs=2, lr=0.1)
+    self.assert_loss_value(1.386635, places=5, num_layers=1, bi_encoder=False, epochs=2, lr=100)
 
   def test_loss_five_epochs(self):
-    self.assert_loss_value(1.386299, places=2, num_layers=1, bi_encoder=False, epochs=5, lr=0.1)
+    self.assert_loss_value(2.661108, places=2, num_layers=1, bi_encoder=False, epochs=5, lr=10)
 
   def test_emb_weights_two_epochs(self):
     expected = np.asarray(
-      [[-0.1, 0.1], [-0.2000126, 0.1999742], [-0.2989355, 0.302096], [-0.40107998, 0.39787248], [-0.5, 0.5]])
-    self.assert_trained_emb_params(expected, places=5, num_layers=1, bi_encoder=False, epochs=2, lr=10)
+      [[-0.1, 0.1], [-0.19894804, 0.20147263], [-0.28823119, 0.32002223], [-0.41040528, 0.3818686], [-0.5, 0.5]])
+    self.assert_trained_emb_params(expected, places=4, num_layers=1, bi_encoder=False, epochs=2, lr=100)
 
   def test_emb_weights_five_epochs(self):
     expected = np.asarray(
       [[-0.1, 0.1], [-0.20250981, 0.19391325], [-0.29897961, 0.30119216], [-0.40397269, 0.39145479], [-0.5, 0.5]])
     self.assert_trained_emb_params(expected, places=3, num_layers=1, bi_encoder=False, epochs=5, lr=10)
+
+  def test_emb_grads(self):
+    expected = np.asarray(
+      [[0, 0], [1.2468663e-6, 2.49373261e-6], [-5.26151271e-5, -1.05230254e-4], [5.41623740e-5, 1.08324748e-4], [0, 0]])
+    self.assert_trained_emb_grads(expected, places=7, num_layers=1, bi_encoder=False, lr=0.1)
+
 
 
 if __name__ == '__main__':
