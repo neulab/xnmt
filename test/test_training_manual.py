@@ -15,7 +15,7 @@ from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import SimpleWordEmbedder
 import xnmt.events
 from xnmt.input_readers import PlainTextReader
-from xnmt.transducers.recurrent import UniLSTMSeqTransducer
+from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import MLELoss
 from xnmt.loss_trackers import TrainLossTracker
 from xnmt import optimizers
@@ -34,7 +34,7 @@ class TestTrainManual(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-  def test_manual(self):
+  def get_training_loss(self, num_layers, bi_encoder):
     layer_dim = 2
     batcher = SrcBatcher(batch_size=2, break_ties_randomly=False)
     train_args = {}
@@ -68,12 +68,22 @@ class TestTrainManual(unittest.TestCase):
       [-0.1, -0.2, -0.1, -0.2],
       [0.1, 0.2, 0.1, 0.2],
     ])
+    if bi_encoder:
+      encoder = BiLSTMSeqTransducer(input_dim=layer_dim,
+                                    hidden_dim=layer_dim * 2,
+                                    param_init=NumpyInitializer(lstm_arr),
+                                    layers=num_layers)
+    else:
+      encoder = UniLSTMSeqTransducer(input_dim=layer_dim,
+                                     hidden_dim=layer_dim,
+                                     param_init=NumpyInitializer(lstm_arr),
+                                     layers=num_layers)
     train_args['model'] = \
       DefaultTranslator(
         src_reader=PlainTextReader(vocab=vocab),
         trg_reader=PlainTextReader(vocab=vocab),
         src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr)),
-        encoder=UniLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim, param_init=NumpyInitializer(lstm_arr)),
+        encoder=encoder,
         attender=DotAttender(),
         decoder=AutoRegressiveDecoder(
           input_dim=layer_dim,
@@ -81,13 +91,13 @@ class TestTrainManual(unittest.TestCase):
           rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                    hidden_dim=layer_dim,
                                    decoder_input_dim=layer_dim,
+                                   layers=num_layers,
                                    param_init=InitializerSequence(
-                                     [NumpyInitializer(dec_lstm_arr),
-                                      NumpyInitializer(lstm_arr), ]),
+                                     [NumpyInitializer(dec_lstm_arr)] + [NumpyInitializer(lstm_arr)] * (num_layers*2-1)),
                                    yaml_path="model.decoder.rnn"),
           transform=NonLinear(input_dim=layer_dim * 2, output_dim=layer_dim, param_init=NumpyInitializer(proj_arr)),
           scorer=Softmax(input_dim=layer_dim, vocab_size=vocab_size ,param_init=NumpyInitializer(emb_arr)),
-          bridge=NoBridge(dec_dim=layer_dim)),
+          bridge=NoBridge(dec_dim=layer_dim, dec_layers=num_layers)),
       )
     train_args['dev_tasks'] = []
     train_args['trainer'] = optimizers.SimpleSGDTrainer()
@@ -96,7 +106,20 @@ class TestTrainManual(unittest.TestCase):
     train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)
-    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors(), 9.657152, places=5)
+    return training_regimen.train_loss_tracker.epoch_loss.sum_factors()
+
+  def test_manual_basic(self):
+    training_loss = self.get_training_loss(num_layers=1, bi_encoder=False)
+    self.assertAlmostEqual(training_loss, 9.657152, places=5)
+
+  def test_manual_twolayer(self):
+    training_loss = self.get_training_loss(num_layers=2, bi_encoder=False)
+    self.assertAlmostEqual(training_loss, 9.656650, places=5)
+
+  # def test_manual_bidirectional(self):
+  #   training_loss = self.get_training_loss(num_layers=2, bi_encoder=True)
+  #   self.assertAlmostEqual(training_loss, 9.656650, places=5)
+
 
 
 if __name__ == '__main__':
