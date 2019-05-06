@@ -43,12 +43,12 @@ class TestTrainManual(unittest.TestCase):
     train_args['loss_calculator'] = MLELoss()
     vocab = Vocab(i2w=['<s>', '</s>', 'a', 'b', '<unk>'])
     vocab_size = 5
-    emb_arr = np.asarray([[-0.1, 0.1],[-0.2, 0.2],[-0.3, 0.3],[-0.4, 0.4],[-0.5, 0.5],])
-    proj_arr = np.asarray([
+    emb_arr_5_2 = np.asarray([[-0.1, 0.1],[-0.2, 0.2],[-0.3, 0.3],[-0.4, 0.4],[-0.5, 0.5],])
+    proj_arr_2_4 = np.asarray([
       [-0.1, -0.2, -0.3, -0.4],
       [0.1, 0.2, 0.3, 0.4],
     ])
-    lstm_arr = np.asarray([
+    lstm_arr_8_2 = np.asarray([
       [-0.1, -0.2],
       [0.1, 0.2],
       [-0.1, -0.2],
@@ -58,7 +58,19 @@ class TestTrainManual(unittest.TestCase):
       [-0.1, -0.2],
       [0.1, 0.2],
     ])
-    dec_lstm_arr = np.asarray([
+    lstm_arr_4_2 = np.asarray([
+      [-0.1, -0.2],
+      [-0.1, -0.2],
+      [-0.1, -0.2],
+      [-0.1, -0.2],
+    ])
+    lstm_arr_4_1 = np.asarray([
+      [-0.1],
+      [-0.1],
+      [-0.1],
+      [-0.1],
+    ])
+    dec_lstm_arr_8_4 = np.asarray([
       [-0.1, -0.2, -0.1, -0.2],
       [0.1, 0.2, 0.1, 0.2],
       [-0.1, -0.2, -0.1, -0.2],
@@ -69,34 +81,41 @@ class TestTrainManual(unittest.TestCase):
       [0.1, 0.2, 0.1, 0.2],
     ])
     if bi_encoder:
+      assert num_layers==1
       encoder = BiLSTMSeqTransducer(input_dim=layer_dim,
-                                    hidden_dim=layer_dim * 2,
-                                    param_init=NumpyInitializer(lstm_arr),
+                                    hidden_dim=layer_dim,
+                                    param_init=InitializerSequence([InitializerSequence([
+                                                                     NumpyInitializer(lstm_arr_4_2),  # fwd_l0_ih
+                                                                     NumpyInitializer(lstm_arr_4_1)]), # fwd_l0_hh
+                                                                   InitializerSequence([
+                                                                     NumpyInitializer(lstm_arr_4_2),  # bwd_l0_ih
+                                                                     NumpyInitializer(lstm_arr_4_1)])]  # bwd_l0_hh
+                                    ),
                                     layers=num_layers)
     else:
       encoder = UniLSTMSeqTransducer(input_dim=layer_dim,
                                      hidden_dim=layer_dim,
-                                     param_init=NumpyInitializer(lstm_arr),
+                                     param_init=NumpyInitializer(lstm_arr_8_2),
                                      layers=num_layers)
     train_args['model'] = \
       DefaultTranslator(
         src_reader=PlainTextReader(vocab=vocab),
         trg_reader=PlainTextReader(vocab=vocab),
-        src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr)),
+        src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr_5_2)),
         encoder=encoder,
         attender=DotAttender(),
         decoder=AutoRegressiveDecoder(
           input_dim=layer_dim,
-          embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr)),
+          embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr_5_2)),
           rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                    hidden_dim=layer_dim,
                                    decoder_input_dim=layer_dim,
                                    layers=num_layers,
                                    param_init=InitializerSequence(
-                                     [NumpyInitializer(dec_lstm_arr)] + [NumpyInitializer(lstm_arr)] * (num_layers*2-1)),
+                                     [NumpyInitializer(dec_lstm_arr_8_4)] + [NumpyInitializer(lstm_arr_8_2)] * (num_layers*2-1)),
                                    yaml_path="model.decoder.rnn"),
-          transform=NonLinear(input_dim=layer_dim * 2, output_dim=layer_dim, param_init=NumpyInitializer(proj_arr)),
-          scorer=Softmax(input_dim=layer_dim, vocab_size=vocab_size ,param_init=NumpyInitializer(emb_arr)),
+          transform=NonLinear(input_dim=layer_dim * 2, output_dim=layer_dim, param_init=NumpyInitializer(proj_arr_2_4)),
+          scorer=Softmax(input_dim=layer_dim, vocab_size=vocab_size ,param_init=NumpyInitializer(emb_arr_5_2)),
           bridge=NoBridge(dec_dim=layer_dim, dec_layers=num_layers)),
       )
     train_args['dev_tasks'] = []
@@ -116,9 +135,9 @@ class TestTrainManual(unittest.TestCase):
     training_loss = self.get_training_loss(num_layers=2, bi_encoder=False)
     self.assertAlmostEqual(training_loss, 9.656650, places=5)
 
-  # def test_manual_bidirectional(self):
-  #   training_loss = self.get_training_loss(num_layers=2, bi_encoder=True)
-  #   self.assertAlmostEqual(training_loss, 9.656650, places=5)
+  def test_manual_bidirectional(self):
+    training_loss = self.get_training_loss(num_layers=1, bi_encoder=True)
+    self.assertAlmostEqual(training_loss, 9.657083, places=5)
 
 
 
