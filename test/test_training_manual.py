@@ -29,8 +29,40 @@ from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 
 
+class ManualTestingBaseClass(object):
 
-class TestManualBasicSeq2seq(unittest.TestCase):
+  def assert_loss_value(self, val, places, *args, **kwargs):
+    training_regimen = self.run_training(*args, **kwargs)
+    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors(), val, places=places)
+
+  def assert_trained_emb_params(self, val, places, *args, **kwargs):
+    training_regimen = self.run_training(*args, **kwargs)
+    if xnmt.backend_dynet:
+      trained_src_emb = training_regimen.model.src_embedder.embeddings.as_array()
+    else:
+      trained_src_emb = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].data)
+      val = val.T
+    np.testing.assert_almost_equal(trained_src_emb, val, decimal=places)
+
+  def assert_trained_emb_grads(self, val, places, *args, **kwargs):
+    training_regimen = self.run_training(epochs=0, *args, **kwargs)
+    src, trg = next(training_regimen.next_minibatch())
+    tt.reset_graph()
+    event_trigger.set_train(True)
+    loss_builder = training_regimen.training_step(src, trg)
+    loss = loss_builder.compute(comb_method=training_regimen.loss_comb_method)
+    training_regimen.backward(loss)
+    # importantly: no update() here because that would zero out the dynet gradients
+
+    if xnmt.backend_dynet:
+      actual_grads = training_regimen.model.src_embedder.embeddings.grad_as_array()
+    else:
+      actual_grads = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].grad)
+      val = val.T
+    np.testing.assert_almost_equal(actual_grads, val, decimal=places)
+
+
+class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
 
   def setUp(self):
     xnmt.events.clear()
@@ -129,19 +161,6 @@ class TestManualBasicSeq2seq(unittest.TestCase):
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
-  def assert_loss_value(self, val, places, *args, **kwargs):
-    training_regimen = self.run_training(*args, **kwargs)
-    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors(), val, places=places)
-
-  def assert_trained_emb_params(self, val, places, *args, **kwargs):
-    training_regimen = self.run_training(*args, **kwargs)
-    if xnmt.backend_dynet:
-      trained_src_emb = training_regimen.model.src_embedder.embeddings.as_array()
-    else:
-      trained_src_emb = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].data)
-      val = val.T
-    np.testing.assert_almost_equal(trained_src_emb, val, decimal=places)
-
   def test_loss_basic(self):
     self.assert_loss_value(9.657152, places=5, num_layers=1, bi_encoder=False, epochs=1, lr=0.1)
 
@@ -160,7 +179,7 @@ class TestManualBasicSeq2seq(unittest.TestCase):
   #   self.assert_loss_value(9.657083, places=5, num_layers=1, bi_encoder=True, epochs=1, lr=0.1)
 
 
-class TestManualClassifier(unittest.TestCase):
+class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
 
   def setUp(self):
     xnmt.events.clear()
@@ -238,35 +257,6 @@ class TestManualClassifier(unittest.TestCase):
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
-  def assert_loss_value(self, val, places, *args, **kwargs):
-    training_regimen = self.run_training(*args, **kwargs)
-    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors(), val, places=places)
-
-  def assert_trained_emb_params(self, val, places, *args, **kwargs):
-    training_regimen = self.run_training(*args, **kwargs)
-    if xnmt.backend_dynet:
-      trained_src_emb = training_regimen.model.src_embedder.embeddings.as_array()
-    else:
-      trained_src_emb = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].data)
-      val = val.T
-    np.testing.assert_almost_equal(trained_src_emb, val, decimal=places)
-
-  def assert_trained_emb_grads(self, val, places, *args, **kwargs):
-    training_regimen = self.run_training(epochs=0, *args, **kwargs)
-    src, trg = next(training_regimen.next_minibatch())
-    tt.reset_graph()
-    event_trigger.set_train(True)
-    loss_builder = training_regimen.training_step(src, trg)
-    loss = loss_builder.compute(comb_method=training_regimen.loss_comb_method)
-    training_regimen.backward(loss)
-    # importantly: no update() here because that would zero out the dynet gradients
-
-    if xnmt.backend_dynet:
-      actual_grads = training_regimen.model.src_embedder.embeddings.grad_as_array()
-    else:
-      actual_grads = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].grad)
-      val = val.T
-    np.testing.assert_almost_equal(actual_grads, val, decimal=places)
 
   def test_loss_basic(self):
     self.assert_loss_value(1.386299, places=5, num_layers=1, bi_encoder=False, epochs=1, lr=0.1)
