@@ -178,6 +178,10 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
   # def test_loss_bidirectional(self):
   #   self.assert_loss_value(9.657083, places=5, num_layers=1, bi_encoder=True, epochs=1, lr=0.1)
 
+  def test_emb_grads(self):
+    expected = np.asarray(
+      [[0, 0], [1.84304245e-5, 3.68608489e-5], [3.49941438e-5, 6.99882876e-5], [3.91686735e-5, 7.83373471e-5], [0, 0]])
+    self.assert_trained_emb_grads(expected, places=9, num_layers=1, bi_encoder=False, lr=0.1)
 
 class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
 
@@ -286,7 +290,7 @@ class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
   def test_emb_grads(self):
     expected = np.asarray(
       [[0, 0], [1.2468663e-6, 2.49373261e-6], [-5.26151271e-5, -1.05230254e-4], [5.41623740e-5, 1.08324748e-4], [0, 0]])
-    self.assert_trained_emb_grads(expected, places=7, num_layers=1, bi_encoder=False, lr=0.1)
+    self.assert_trained_emb_grads(expected, places=9, num_layers=1, bi_encoder=False, lr=0.1)
 
 
 
