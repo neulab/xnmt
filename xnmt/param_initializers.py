@@ -301,7 +301,7 @@ class NumpyInitializerDynet(ParamInitializerDynet, Serializable):
 
   def initializer(self, dim: Tuple[numbers.Integral], is_lookup: bool = False, num_shared: numbers.Integral = 1) -> 'dy.NumpyInitializer':
     if dim != self.array.shape:
-      raise ValueError(f"expected same dims, got: {dim} != {self.array.shape}")
+      raise ValueError(f"the passed initializer array has different dimensions than the parameters to be initialized: : {self.array.shape} != {dim}")
     return dy.NumpyInitializer(array=self.array)
 
 @xnmt.require_torch
@@ -320,7 +320,7 @@ class NumpyInitializerTorch(ParamInitializerTorch, Serializable):
 
   def initialize(self, weights: tt.Tensor) -> None:
     if weights.size() != self.array.shape:
-      raise ValueError(f"Assuming equal dims, got: {weights.size()} != {self.array.shape}")
+      raise ValueError(f"The passed initializer array has different dimensions than the parameter: {self.array.shape} != {weights.size()}")
     weights.data = torch.Tensor(self.array).to(xnmt.device)
 
 NumpyInitializer = xnmt.resolve_backend(NumpyInitializerDynet, NumpyInitializerTorch)
