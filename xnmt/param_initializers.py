@@ -35,15 +35,11 @@ class ParamInitializerDynet(object):
       a dynet initializer object
     """
     raise NotImplementedError("subclasses must implement initializer()")
-  def initializer_pos(self,
-                      index: numbers.Integral,
-                      dim: Tuple[numbers.Integral],
-                      is_lookup: bool = False,
-                      num_shared: numbers.Integral = 1) -> 'dy.Initializer':
+  def __getitem__(self, key):
     """
     Return initializer at given position. Default is to use same initializer across positions, unless InitializerSequence is used.
     """
-    return self.initializer(dim=dim, is_lookup=is_lookup, num_shared=num_shared)
+    return self
 
 @xnmt.require_torch
 class ParamInitializerTorch(object):
@@ -60,11 +56,11 @@ class ParamInitializerTorch(object):
       weights: parameter tensor to be initialized
     """
     raise NotImplementedError("subclasses must implement initializer()")
-  def initialize_pos(self, index: numbers.Integral, weights: tt.Tensor) -> None:
+  def __getitem__(self, key) -> None:
     """
     Initialize using position-specific initializer. Default is to use same initializer across positions, unless InitializerSequence is used.
     """
-    return self.initialize(weights=weights)
+    return self
 
 ParamInitializer = xnmt.resolve_backend(ParamInitializerDynet, ParamInitializerTorch)
 
@@ -86,14 +82,14 @@ class InitializerSequence(Serializable, ParamInitializer):
   @serializable_init
   def __init__(self, sequence: Sequence[ParamInitializer]):
     self.sequence = sequence
-  def initialize_pos(self, index, *args, **kwargs):
-    if index >= len(self.sequence):
+  def initialize(self, *args, **kwargs):
+    raise ValueError(f"InitializerSequence.initialize() cannot be called directly, choose a sequence item.")
+  def initializer(self, *args, **kwargs):
+    raise ValueError(f"InitializerSequence.initializer() cannot be called directly, choose a sequence item.")
+  def __getitem__(self, key: numbers.Integral):
+    if key >= len(self.sequence):
       raise ValueError(f"initializer sequence of {len(self.sequence)} is too short")
-    return self.sequence[index].initialize(*args, **kwargs)
-  def initializer_pos(self, index: numbers.Integral, *args, **kwargs):
-    if index >= len(self.sequence):
-      raise ValueError(f"initializer sequence of {len(self.sequence)} is too short")
-    return self.sequence[index].initializer(*args, **kwargs)
+    return self.sequence[key]
 
 
 @xnmt.require_dynet

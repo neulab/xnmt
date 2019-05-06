@@ -229,10 +229,10 @@ class InitializableModuleList(nn.ModuleList if xnmt.backend_torch else object):
     weights_cnt, bias_cnt = 0,0
     for name, param in self.named_parameters():
       if 'weight' in name:
-        param_init.initialize_pos(weights_cnt, param)
+        param_init[weights_cnt].initialize(param)
         weights_cnt += 1
       if bias_init is not None and 'bias' in name:
-        bias_init.initialize_pos(bias_cnt, param)
+        bias_init[bias_cnt].initialize(param)
         bias_cnt += 1
 
 @xnmt.require_torch

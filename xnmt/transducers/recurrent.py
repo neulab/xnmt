@@ -123,13 +123,13 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
 
     # [i; f; o; g]
     self.p_Wx = [my_params.add_parameters(dim=(hidden_dim*4, self.total_input_dim),
-                                          init=param_init.initializer_pos(0, (hidden_dim*4, self.total_input_dim), num_shared=4))]
+                                          init=param_init[0].initializer((hidden_dim*4, self.total_input_dim), num_shared=4))]
     self.p_Wx += [my_params.add_parameters(dim=(hidden_dim*4, hidden_dim),
-                                           init=param_init.initializer_pos(i*2, (hidden_dim*4, hidden_dim), num_shared=4)) for i in range(1, layers)]
+                                           init=param_init[i*2].initializer((hidden_dim*4, hidden_dim), num_shared=4)) for i in range(1, layers)]
     self.p_Wh = [my_params.add_parameters(dim=(hidden_dim*4, hidden_dim),
-                                          init=param_init.initializer_pos(i*2+1, (hidden_dim*4, hidden_dim), num_shared=4)) for i in range(layers)]
+                                          init=param_init[i*2+1].initializer((hidden_dim*4, hidden_dim), num_shared=4)) for i in range(layers)]
     self.p_b  = [my_params.add_parameters(dim=(hidden_dim*4,),
-                                          init=bias_init.initializer_pos(i, (hidden_dim*4,), num_shared=4)) for i in range(layers)]
+                                          init=bias_init[i].initializer((hidden_dim*4,), num_shared=4)) for i in range(layers)]
 
     self.dropout_mask_x = None
     self.dropout_mask_h = None
