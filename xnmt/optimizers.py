@@ -60,6 +60,7 @@ class XnmtOptimizerDynet(XnmtOptimizer):
 
   def __init__(self, optimizer: 'dy.Trainer', skip_noisy: bool = False, clip_grads: numbers.Real = 5.0) -> None:
     self.optimizer = optimizer
+    self.optimizer.set_sparse_updates(False)
     self.optimizer.set_clip_threshold(clip_grads)
     self.skip_noisy = skip_noisy
     if skip_noisy:
