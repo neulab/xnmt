@@ -420,10 +420,8 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     input_dim: input dimension
     hidden_dim: hidden dimension
     var_dropout: dropout probability (variational recurrent + vertical dropout)
-    param_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
-                specifying how to initialize weight matrices. If a list is given, each entry denotes one layer.
-    bias_init: a :class:`xnmt.param_init.ParamInitializer` or list of :class:`xnmt.param_init.ParamInitializer` objects
-               specifying how to initialize bias vectors. If a list is given, each entry denotes one layer.
+    param_init: how to initialize weight matrices. In case of an InitializerSequence, the order is fwd_l0, bwd_l0, fwd_l1, bwd_l1, ..
+    bias_init: how to initialize bias vectors. In case of an InitializerSequence, the order is fwd_l0, bwd_l0, fwd_l1, bwd_l1, ..
     forward_layers: set automatically
     backward_layers: set automatically
   """
@@ -449,16 +447,16 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                                                           lambda: [UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim,
                                                                                         hidden_dim=hidden_dim // 2,
                                                                                         var_dropout=var_dropout,
-                                                                                        param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
-                                                                                        bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init)
+                                                                                        param_init=param_init[i*2],
+                                                                                        bias_init=bias_init[i*2])
                                                                    for i in range(layers)])
     self.backward_layers = self.add_serializable_component("backward_layers",
                                                            backward_layers,
                                                            lambda: [UniLSTMSeqTransducer(input_dim=input_dim if i == 0 else hidden_dim,
                                                                                          hidden_dim=hidden_dim // 2,
                                                                                          var_dropout=var_dropout,
-                                                                                         param_init=param_init[i] if isinstance(param_init, collections.abc.Sequence) else param_init,
-                                                                                         bias_init=bias_init[i] if isinstance(bias_init, collections.abc.Sequence) else bias_init)
+                                                                                         param_init=param_init[i*2+1],
+                                                                                         bias_init=bias_init[i*2+1])
                                                                     for i in range(layers)])
 
   @handle_xnmt_event
