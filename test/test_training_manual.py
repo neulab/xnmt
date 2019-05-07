@@ -44,8 +44,9 @@ class ManualTestingBaseClass(object):
       val = val.T
     np.testing.assert_almost_equal(trained_src_emb, val, decimal=places)
 
-  def assert_trained_emb_grads(self, val, places, *args, **kwargs):
-    training_regimen = self.run_training(epochs=0, *args, **kwargs)
+  def assert_trained_emb_grads(self, val, places, epochs=1, *args, **kwargs):
+    training_regimen = self.run_training(epochs=epochs-1, *args, **kwargs)
+    # last epoch is done manually and without calling update():
     src, trg = next(training_regimen.next_minibatch())
     tt.reset_graph()
     event_trigger.set_train(True)
@@ -68,7 +69,7 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-  def run_training(self, num_layers, bi_encoder, epochs, lr):
+  def run_training(self, num_layers=1, bi_encoder=False, epochs=1, lr=0.1):
     layer_dim = 2
     batcher = SrcBatcher(batch_size=2, break_ties_randomly=False)
     train_args = {}
@@ -119,11 +120,11 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
       encoder = BiLSTMSeqTransducer(input_dim=layer_dim,
                                     hidden_dim=layer_dim,
                                     param_init=InitializerSequence([InitializerSequence([
-                                                                     NumpyInitializer(lstm_arr_4_2),  # fwd_l0_ih
+                                                                     NumpyInitializer(lstm_arr_4_2),   # fwd_l0_ih
                                                                      NumpyInitializer(lstm_arr_4_1)]), # fwd_l0_hh
                                                                    InitializerSequence([
-                                                                     NumpyInitializer(lstm_arr_4_2),  # bwd_l0_ih
-                                                                     NumpyInitializer(lstm_arr_4_1)])]  # bwd_l0_hh
+                                                                     NumpyInitializer(lstm_arr_4_2),   # bwd_l0_ih
+                                                                     NumpyInitializer(lstm_arr_4_1)])] # bwd_l0_hh
                                     ),
                                     layers=num_layers)
     else:
@@ -153,7 +154,10 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
           bridge=NoBridge(dec_dim=layer_dim, dec_layers=num_layers)),
       )
     train_args['dev_tasks'] = []
-    train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr)
+    if xnmt.backend_dynet:
+      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=-1)
+    else:
+      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=0, rescale_grads=False)
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = epochs
     train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
@@ -161,27 +165,44 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
+  ####### OK #########
   def test_loss_basic(self):
-    self.assert_loss_value(9.657152, places=5, num_layers=1, bi_encoder=False, epochs=1, lr=0.1)
+    self.assert_loss_value(9.657152, places=5)
 
   def test_loss_two_epochs(self):
-    self.assert_loss_value(6.585153, places=2, num_layers=1, bi_encoder=False, epochs=2, lr=10)
+    self.assert_loss_value(6.585153, places=2, epochs=2, lr=10)
+
+  def test_loss_two_layers(self):
+    self.assert_loss_value(9.656650, places=5, num_layers=2)
+
+  def test_loss_bidirectional(self):
+    self.assert_loss_value(9.657083, places=5, bi_encoder=True)
+
+  def test_emb_weights_one_epoch(self):
+    expected = np.asarray(
+      [[-0.1, 0.1], [-0.20184304, 0.19631392], [-0.30349943, 0.29300117], [-0.40391687, 0.39216626], [-0.5, 0.5]])
+    self.assert_trained_emb_params(expected, places=5, lr=100)
+
+  def test_emb_grads_one_epoch(self):
+    expected = np.asarray(
+      [[0, 0], [1.84304245e-5, 3.68608489e-5], [3.49941438e-5, 6.99882876e-5], [3.91686735e-5, 7.83373471e-5], [0, 0]])
+    self.assert_trained_emb_grads(expected, places=9, lr=10)
   #
+
+  ##### TODO ###########
+
+  # ok in torch, not in dynet:
   # def test_emb_weights_two_epochs(self):
   #   expected = np.asarray(
   #     [[-0.1, 0.1], [-0.19995555, 0.19998002], [-0.2998707, 0.30003682], [-0.39986575, 0.40003762], [-0.5, 0.5]])
-  #   self.assert_trained_emb_params(expected, places=5, num_layers=1, bi_encoder=False, epochs=2, lr=10)
+  #   self.assert_trained_emb_params(expected, places=5, epochs=2, lr=10)
 
-  # def test_loss_two_layers(self):
-  #   self.assert_loss_value(9.656650, places=5, num_layers=2, bi_encoder=False, epochs=1, lr=0.1)
-  #
-  # def test_loss_bidirectional(self):
-  #   self.assert_loss_value(9.657083, places=5, num_layers=1, bi_encoder=True, epochs=1, lr=0.1)
+  # ok in dynet, not in torch
+  # def test_emb_grads_two_epochs(self):
+  #   expected = np.asarray(
+  #     [[ 0, 0], [-1.43307407e-05, -2.18112727e-05], [-2.92414807e-05, -4.44276811e-05], [-3.09737370e-05, -4.77675057e-05], [ 0,  0]])
+  #   self.assert_trained_emb_grads(expected, places=9, lr=10, epochs=2)
 
-  def test_emb_grads(self):
-    expected = np.asarray(
-      [[0, 0], [1.84304245e-5, 3.68608489e-5], [3.49941438e-5, 6.99882876e-5], [3.91686735e-5, 7.83373471e-5], [0, 0]])
-    self.assert_trained_emb_grads(expected, places=9, num_layers=1, bi_encoder=False, lr=0.1)
 
 class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
 
@@ -189,7 +210,7 @@ class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-  def run_training(self, num_layers, bi_encoder, epochs, lr):
+  def run_training(self, num_layers=1, bi_encoder=False, epochs=1, lr=0.1):
     layer_dim = 2
     batcher = SrcBatcher(batch_size=2, break_ties_randomly=False)
     train_args = {}
@@ -231,11 +252,11 @@ class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
       encoder = BiLSTMSeqTransducer(input_dim=layer_dim,
                                     hidden_dim=layer_dim,
                                     param_init=InitializerSequence([InitializerSequence([
-                                                                     NumpyInitializer(lstm_arr_4_2),  # fwd_l0_ih
+                                                                     NumpyInitializer(lstm_arr_4_2),   # fwd_l0_ih
                                                                      NumpyInitializer(lstm_arr_4_1)]), # fwd_l0_hh
                                                                    InitializerSequence([
-                                                                     NumpyInitializer(lstm_arr_4_2),  # bwd_l0_ih
-                                                                     NumpyInitializer(lstm_arr_4_1)])]  # bwd_l0_hh
+                                                                     NumpyInitializer(lstm_arr_4_2),   # bwd_l0_ih
+                                                                     NumpyInitializer(lstm_arr_4_1)])] # bwd_l0_hh
                                     ),
                                     layers=num_layers)
     else:
@@ -261,36 +282,47 @@ class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
+  #### OK #########
 
   def test_loss_basic(self):
-    self.assert_loss_value(1.386299, places=5, num_layers=1, bi_encoder=False, epochs=1, lr=0.1)
+    self.assert_loss_value(1.386299, places=5)
 
   def test_loss_twolayer(self):
-    self.assert_loss_value(1.386294, places=5, num_layers=2, bi_encoder=False, epochs=1, lr=0.1)
+    self.assert_loss_value(1.386294, places=5, num_layers=2)
 
   def test__loss_bidirectional(self):
-    self.assert_loss_value(1.386302, places=5, num_layers=1, bi_encoder=True, epochs=1, lr=0.1)
+    self.assert_loss_value(1.386302, places=5, bi_encoder=True)
 
   def test_loss_two_epochs(self):
-    self.assert_loss_value(1.386635, places=5, num_layers=1, bi_encoder=False, epochs=2, lr=100)
+    self.assert_loss_value(1.386635, places=5, epochs=2, lr=100)
 
   def test_loss_five_epochs(self):
-    self.assert_loss_value(2.661108, places=2, num_layers=1, bi_encoder=False, epochs=5, lr=10)
+    self.assert_loss_value(2.661108, places=2, epochs=5, lr=10)
 
   def test_emb_weights_two_epochs(self):
     expected = np.asarray(
       [[-0.1, 0.1], [-0.19894804, 0.20147263], [-0.28823119, 0.32002223], [-0.41040528, 0.3818686], [-0.5, 0.5]])
-    self.assert_trained_emb_params(expected, places=4, num_layers=1, bi_encoder=False, epochs=2, lr=100)
+    self.assert_trained_emb_params(expected, places=4, epochs=2, lr=100)
 
   def test_emb_weights_five_epochs(self):
     expected = np.asarray(
       [[-0.1, 0.1], [-0.20250981, 0.19391325], [-0.29897961, 0.30119216], [-0.40397269, 0.39145479], [-0.5, 0.5]])
-    self.assert_trained_emb_params(expected, places=3, num_layers=1, bi_encoder=False, epochs=5, lr=10)
+    self.assert_trained_emb_params(expected, places=3, epochs=5, lr=10)
 
   def test_emb_grads(self):
     expected = np.asarray(
       [[0, 0], [1.2468663e-6, 2.49373261e-6], [-5.26151271e-5, -1.05230254e-4], [5.41623740e-5, 1.08324748e-4], [0, 0]])
-    self.assert_trained_emb_grads(expected, places=9, num_layers=1, bi_encoder=False, lr=0.1)
+    self.assert_trained_emb_grads(expected, places=9)
+
+  def test_emb_grads_two_epochs(self):
+    expected = np.asarray(
+      [[ 0, 0], [ 1.23475911e-06, 2.46928539e-06], [-5.26270887e-05, -1.05221523e-04], [ 5.41591871e-05, 1.08285341e-04], [ 0, 0]])
+    self.assert_trained_emb_grads(expected, places=9, epochs=2)
+
+  def test_emb_grads_five_epochs(self):
+    expected = np.asarray(
+      [[ 0, 0], [ 1.20434561e-06, 2.40851659e-06], [-5.26594959e-05, -1.05188665e-04], [ 5.41539921e-05, 1.08175940e-04], [ 0, 0]])
+    self.assert_trained_emb_grads(expected, places=8, epochs=5)
 
 
 
