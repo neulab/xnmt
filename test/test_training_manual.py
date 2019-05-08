@@ -9,7 +9,7 @@ import numpy as np
 import xnmt, xnmt.tensor_tools as tt
 from xnmt import event_trigger
 from xnmt.param_initializers import NumpyInitializer, InitializerSequence
-from xnmt.modelparts.attenders import DotAttender
+from xnmt.modelparts.attenders import DotAttender, MlpAttender
 from xnmt.batchers import SrcBatcher
 from xnmt.models.classifiers import SequenceClassifier
 from xnmt.modelparts.bridges import NoBridge
@@ -20,6 +20,7 @@ from xnmt.input_readers import PlainTextReader, IDReader, H5Reader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import MLELoss
 from xnmt.loss_trackers import TrainLossTracker
+from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt import optimizers
 from xnmt.param_collections import ParamManager
 from xnmt.train import regimens
@@ -62,6 +63,15 @@ class ManualTestingBaseClass(object):
       val = val.T
     np.testing.assert_almost_equal(actual_grads, val, decimal=places)
 
+  def convert_pytorch_lstm_weights(self, weights):
+    # change ifgo -> ifog; subtract 1-initialized forget gates
+    h_dim = weights[0].shape[1] // 4
+    return np.concatenate([weights[0][:, :h_dim * 2], weights[0][:, h_dim * 3:],
+                           weights[0][:, h_dim * 2:h_dim * 3]], axis=1), \
+           np.concatenate([weights[1][:, :h_dim * 2], weights[1][:, h_dim * 3:],
+                           weights[1][:, h_dim * 2:h_dim * 3]], axis=1), \
+           np.concatenate([weights[2][:h_dim], weights[2][h_dim:h_dim * 2] - 1,
+                           weights[2][h_dim * 3:], weights[2][h_dim * 2:h_dim * 3]], axis=0),
 
 class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
 
@@ -69,9 +79,103 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-  def run_training(self, num_layers=1, bi_encoder=False, epochs=1, lr=0.1):
+  def assert_trained_seq2seq_params(self, val, places, *args, **kwargs):
+    training_regimen = self.run_training(*args, **kwargs)
+    if xnmt.backend_dynet:
+      trained_enc_l0_fwd = training_regimen.model.encoder.builder_layers[0][0].Wx[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[0][0].Wh[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[0][0].b[0].as_array()
+      trained_enc_l0_bwd = training_regimen.model.encoder.builder_layers[0][1].Wx[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[0][1].Wh[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[0][1].b[0].as_array()
+      trained_enc_l1_fwd = training_regimen.model.encoder.builder_layers[1][0].Wx[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[1][0].Wh[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[1][0].b[0].as_array()
+      trained_enc_l1_bwd = training_regimen.model.encoder.builder_layers[1][1].Wx[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[1][1].Wh[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[1][1].b[0].as_array()
+      trained_enc_l2_fwd = training_regimen.model.encoder.builder_layers[2][0].Wx[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[2][0].Wh[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[2][0].b[0].as_array()
+      trained_enc_l2_bwd = training_regimen.model.encoder.builder_layers[2][1].Wx[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[2][1].Wh[0].as_array(), \
+                           training_regimen.model.encoder.builder_layers[2][1].b[0].as_array()
+      trained_decoder = training_regimen.model.decoder.rnn.Wx[0].as_array(), \
+                        training_regimen.model.decoder.rnn.Wh[0].as_array(), \
+                        training_regimen.model.decoder.rnn.b[0].as_array()
+      trained_trg_emb = training_regimen.model.decoder.embedder.embeddings.as_array()
+      trained_transform = training_regimen.model.decoder.transform.W1.as_array(), \
+                          training_regimen.model.decoder.transform.b1.as_array()
+      trained_out = training_regimen.model.decoder.scorer.output_projector.W1.as_array(), \
+                    training_regimen.model.decoder.scorer.output_projector.b1.as_array()
+    else:
+      trained_trg_emb = tt.npvalue(training_regimen.model.decoder.embedder.embeddings._parameters['weight'].data)
+      trained_transform = tt.npvalue(training_regimen.model.decoder.transform.linear._parameters['weight'].data), \
+                          tt.npvalue(training_regimen.model.decoder.transform.linear._parameters['bias'].data)
+      trained_out= tt.npvalue(training_regimen.model.decoder.scorer.output_projector.linear._parameters['weight'].data), \
+                   tt.npvalue(training_regimen.model.decoder.scorer.output_projector.linear._parameters['bias'].data)
+      trained_enc_l0_fwd = tt.npvalue(training_regimen.model.encoder.builder_layers[0][0].layers[0]._parameters['weight_ih'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[0][0].layers[0]._parameters['weight_hh'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[0][0].layers[0]._parameters['bias_ih'].data)
+      trained_enc_l0_bwd = tt.npvalue(training_regimen.model.encoder.builder_layers[0][1].layers[0]._parameters['weight_ih'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[0][1].layers[0]._parameters['weight_hh'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[0][1].layers[0]._parameters['bias_ih'].data)
+      trained_enc_l1_fwd = tt.npvalue(training_regimen.model.encoder.builder_layers[1][0].layers[0]._parameters['weight_ih'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[1][0].layers[0]._parameters['weight_hh'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[1][0].layers[0]._parameters['bias_ih'].data)
+      trained_enc_l1_bwd = tt.npvalue(training_regimen.model.encoder.builder_layers[1][1].layers[0]._parameters['weight_ih'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[1][1].layers[0]._parameters['weight_hh'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[1][1].layers[0]._parameters['bias_ih'].data)
+      trained_enc_l2_fwd = tt.npvalue(training_regimen.model.encoder.builder_layers[2][0].layers[0]._parameters['weight_ih'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[2][0].layers[0]._parameters['weight_hh'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[2][0].layers[0]._parameters['bias_ih'].data)
+      trained_enc_l2_bwd = tt.npvalue(training_regimen.model.encoder.builder_layers[2][1].layers[0]._parameters['weight_ih'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[2][1].layers[0]._parameters['weight_hh'].data), \
+                           tt.npvalue(training_regimen.model.encoder.builder_layers[2][1].layers[0]._parameters['bias_ih'].data)
+      trained_enc_l0_fwd = self.convert_pytorch_lstm_weights(trained_enc_l0_fwd)
+      trained_enc_l0_bwd = self.convert_pytorch_lstm_weights(trained_enc_l0_bwd)
+      trained_enc_l1_fwd = self.convert_pytorch_lstm_weights(trained_enc_l1_fwd)
+      trained_enc_l1_bwd = self.convert_pytorch_lstm_weights(trained_enc_l1_bwd)
+      trained_enc_l2_fwd = self.convert_pytorch_lstm_weights(trained_enc_l2_fwd)
+      trained_enc_l2_bwd = self.convert_pytorch_lstm_weights(trained_enc_l2_bwd)
+      trained_decoder = tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_ih'].data), \
+                        tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_hh'].data), \
+                        tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['bias_ih'].data)
+      trained_decoder = self.convert_pytorch_lstm_weights(trained_decoder)
+      for k,v in val.items():
+        if type(v)==tuple: val[k] = tuple(vi.T for vi in v)
+        else: val[k] = v.T
+    np.testing.assert_almost_equal(trained_trg_emb, val['trg_emb'], decimal=places)
+    np.testing.assert_almost_equal(trained_transform[0], val['transform'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_transform[1], val['transform'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_out[0], val['out'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_out[1], val['out'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l0_fwd[0], val['enc_l0_fwd'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l0_fwd[1], val['enc_l0_fwd'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l0_fwd[2], val['enc_l0_fwd'][2], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l0_bwd[0], val['enc_l0_bwd'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l0_bwd[1], val['enc_l0_bwd'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l0_bwd[2], val['enc_l0_bwd'][2], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l1_fwd[0], val['enc_l1_fwd'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l1_fwd[1], val['enc_l1_fwd'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l1_fwd[2], val['enc_l1_fwd'][2], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l1_bwd[0], val['enc_l1_bwd'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l1_bwd[1], val['enc_l1_bwd'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l1_bwd[2], val['enc_l1_bwd'][2], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l2_fwd[0], val['enc_l2_fwd'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l2_fwd[1], val['enc_l2_fwd'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l2_fwd[2], val['enc_l2_fwd'][2], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l2_bwd[0], val['enc_l2_bwd'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l2_bwd[1], val['enc_l2_bwd'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_enc_l2_bwd[2], val['enc_l2_bwd'][2], decimal=places)
+    np.testing.assert_almost_equal(trained_decoder[0], val['decoder'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_decoder[1], val['decoder'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_decoder[2], val['decoder'][2], decimal=places)
+    # TODO: mlp attender weights
+
+  def run_training(self, epochs=1, lr=0.1):
     layer_dim = 2
-    batcher = SrcBatcher(batch_size=2, break_ties_randomly=False)
+    batcher = SrcBatcher(batch_size=2, break_ties_randomly=False, pad_src_to_multiple=4)
     train_args = {}
     train_args['src_file'] = "test/data/LDC94S13A.h5"
     train_args['trg_file'] = "test/data/ab-ba-ab-ba-ab.txt"
@@ -83,7 +187,14 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
       [-0.1, -0.2, -0.3, -0.4],
       [0.1, 0.2, 0.3, 0.4],
     ])
-    # note: dynet uses i|f|o|g, while pytorch uses i|f|g|o order; let's make sure to initialize output and update matrices to the same value
+    proj_arr_2_2 = np.asarray([
+      [-0.1, -0.2],
+      [0.1, 0.2],
+    ])
+    proj_arr_1_2 = np.asarray([
+      [-0.1, -0.2],
+    ])
+    # note: dynet uses i|f|o|g, while pytorch uses i|f|g|o order; must make sure to initialize output and update matrices to the same value
     lstm_arr_8_2 = np.asarray([
       [-0.1, -0.2],
       [0.1, 0.2],
@@ -116,42 +227,49 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
       [-0.1, -0.2, -0.1, -0.2],
       [0.1, 0.2, 0.1, 0.2],
     ])
-    if bi_encoder:
-      assert num_layers==1
-      encoder = BiLSTMSeqTransducer(input_dim=layer_dim,
-                                    hidden_dim=layer_dim,
-                                    param_init=InitializerSequence([InitializerSequence([
-                                                                     NumpyInitializer(lstm_arr_4_2),   # fwd_l0_ih
-                                                                     NumpyInitializer(lstm_arr_4_1)]), # fwd_l0_hh
-                                                                   InitializerSequence([
-                                                                     NumpyInitializer(lstm_arr_4_2),   # bwd_l0_ih
-                                                                     NumpyInitializer(lstm_arr_4_1)])] # bwd_l0_hh
-                                    ),
-                                    layers=num_layers)
-    else:
-      encoder = UniLSTMSeqTransducer(input_dim=layer_dim,
-                                     hidden_dim=layer_dim,
-                                     param_init=NumpyInitializer(lstm_arr_8_2),
-                                     layers=num_layers)
+    encoder = PyramidalLSTMSeqTransducer(input_dim=layer_dim,
+                                         hidden_dim=layer_dim,
+                                         downsampling_method='skip',
+                                         param_init=InitializerSequence([
+                                           InitializerSequence([
+                                             NumpyInitializer(lstm_arr_4_2),  # fwd_l0_ih
+                                             NumpyInitializer(lstm_arr_4_1)]),  # fwd_l0_hh
+                                           InitializerSequence([
+                                             NumpyInitializer(lstm_arr_4_2),  # bwd_l0_ih
+                                             NumpyInitializer(lstm_arr_4_1)]),  # bwd_l0_hh
+                                           InitializerSequence([
+                                             NumpyInitializer(lstm_arr_4_2),  # bwd_l1_ih
+                                             NumpyInitializer(lstm_arr_4_1)]),  # bwd_l1_hh
+                                           InitializerSequence([
+                                             NumpyInitializer(lstm_arr_4_2),  # bwd_l1_ih
+                                             NumpyInitializer(lstm_arr_4_1)]),  # bwd_l1_hh
+                                           InitializerSequence([
+                                             NumpyInitializer(lstm_arr_4_2),  # bwd_l2_ih
+                                             NumpyInitializer(lstm_arr_4_1)]),  # bwd_l2_hh
+                                           InitializerSequence([
+                                             NumpyInitializer(lstm_arr_4_2),  # bwd_l2_ih
+                                             NumpyInitializer(lstm_arr_4_1)]),  # bwd_l2_hh
+                                         ]),
+                                         layers=3)
     train_args['model'] = \
       DefaultTranslator(
         src_reader=H5Reader(transpose=True, feat_to=2),
         src_embedder=NoopEmbedder(emb_dim=layer_dim),
         encoder=encoder,
-        attender=DotAttender(),
+        attender=MlpAttender(input_dim=layer_dim, hidden_dim=layer_dim, state_dim=2, param_init=InitializerSequence([NumpyInitializer(proj_arr_2_2), NumpyInitializer(proj_arr_2_2), NumpyInitializer(proj_arr_1_2)])),
         decoder=AutoRegressiveDecoder(
           input_dim=layer_dim,
           embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr_5_2)),
           rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
                                    hidden_dim=layer_dim,
                                    decoder_input_dim=layer_dim,
-                                   layers=num_layers,
+                                   layers=1,
                                    param_init=InitializerSequence(
-                                     [NumpyInitializer(dec_lstm_arr_8_4)] + [NumpyInitializer(lstm_arr_8_2)] * (num_layers*2-1)),
+                                     [NumpyInitializer(dec_lstm_arr_8_4)] + [NumpyInitializer(lstm_arr_8_2)]),
                                    yaml_path="model.decoder.rnn"),
           transform=NonLinear(input_dim=layer_dim * 2, output_dim=layer_dim, param_init=NumpyInitializer(proj_arr_2_4)),
           scorer=Softmax(input_dim=layer_dim, vocab_size=vocab_size ,param_init=NumpyInitializer(emb_arr_5_2)),
-          bridge=NoBridge(dec_dim=layer_dim, dec_layers=num_layers)),
+          bridge=NoBridge(dec_dim=layer_dim, dec_layers=1)),
         trg_reader=PlainTextReader(vocab=vocab),
       )
     train_args['dev_tasks'] = []
@@ -163,22 +281,50 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
     train_args['run_for_epochs'] = epochs
     train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
     train_args['max_num_train_sents'] = 2
+    train_args['loss_comb_method'] = 'avg'
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
-  def test_loss_basic(self):
-    self.assert_loss_value(9.657152, places=5)
+  # def test_loss_basic(self):
+  #   self.assert_loss_value(9.657181739807129, places=5)
+  #
+  # def test_loss_three_epochs(self):
+  #   self.assert_loss_value(6.6084442138671875, places=2, epochs=3, lr=10)
 
-  # def test_loss_two_epochs(self):
-  #   self.assert_loss_value(6.585153, places=2, epochs=2, lr=10)
-  #
-  # def test_loss_two_layers(self):
-  #   self.assert_loss_value(9.656650, places=5, num_layers=2)
-  #
-  # def test_loss_bidirectional(self):
-  #   self.assert_loss_value(9.657083, places=5, bi_encoder=True)
-  #
+  def test_all_params_one_epoch(self):
+    # useful regex: (?<!\[)\s+      ->      ,
+    expected = {
+      'trg_emb': np.asarray([[-0.09861219,0.10277563],[-0.2,0.2,],[-0.30253038,0.29493928],[-0.40563947,0.38872105],[-0.5,0.5,]]),
+      'transform': (np.asarray([[-0.11121798,-0.18756917,-0.29991898,-0.3999308,],[0.11121798,0.18756917,0.29991898,0.3999308,]]),
+                    np.asarray([0.00775795,-0.00775795])),
+      'out': (np.asarray([[-0.06123007,0.06123007],[-0.23437549,0.23437549],[-0.32270569,0.32270569],[-0.42070729,0.42070729],[-0.46098152,0.46098152]]),
+              np.asarray([-5.98445415,4.00778484,4.00001287,3.99222732,-6.01556969])),
+      'enc_l0_fwd': (np.asarray([[-0.09994701,-0.19994733],[-0.09992201,-0.19992527],[-0.09993522,-0.19993694],[-0.09981435,-0.1998308,]]),
+                     np.asarray(),
+                     np.asarray()),
+      'enc_l0_bwd': (np.asarray(),
+                     np.asarray(),
+                     np.asarray()),
+      'enc_l1_fwd': (np.asarray(),
+                     np.asarray(),
+                     np.asarray()),
+      'enc_l1_bwd': (np.asarray(),
+                     np.asarray(),
+                     np.asarray()),
+      'enc_l2_fwd': (np.asarray(),
+                     np.asarray(),
+                     np.asarray()),
+      'enc_l2_bwd': (np.asarray(),
+                     np.asarray(),
+                     np.asarray()),
+      'decoder': (np.asarray(),
+                  np.asarray(),
+                  np.asarray()),
+    }
+    self.assert_trained_seq2seq_params(expected, places=5, lr=10)
+
+
   # def test_emb_weights_one_epoch(self):
   #   expected = np.asarray(
   #     [[-0.1, 0.1], [-0.20184304, 0.19631392], [-0.30349943, 0.29300117], [-0.40391687, 0.39216626], [-0.5, 0.5]])
@@ -250,18 +396,11 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
       trained_encoder= tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['weight_ih'].data), \
                        tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['weight_hh'].data), \
                        tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['bias_ih'].data)
-      h_dim = trained_encoder[0].shape[1]//4
-      # change ifgo -> ifog; subtract 1-initialized forget gates
-      trained_encoder = np.concatenate([trained_encoder[0][:, :h_dim*2], trained_encoder[0][:, h_dim*3:], trained_encoder[0][:, h_dim*2:h_dim*3]], axis=1), \
-                        np.concatenate([trained_encoder[1][:, :h_dim*2], trained_encoder[1][:, h_dim*3:], trained_encoder[1][:, h_dim*2:h_dim * 3]], axis=1), \
-                        np.concatenate([trained_encoder[2][:h_dim], trained_encoder[2][h_dim:h_dim*2]-1, trained_encoder[2][h_dim*3:], trained_encoder[2][h_dim*2:h_dim*3]], axis=0),
+      trained_encoder = self.convert_pytorch_lstm_weights(trained_encoder)
       trained_decoder = tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_ih'].data), \
                         tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_hh'].data), \
                         tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['bias_ih'].data)
-      h_dim = trained_decoder[0].shape[1]//4
-      trained_decoder = np.concatenate([trained_decoder[0][:, :h_dim*2], trained_decoder[0][:, h_dim*3:], trained_decoder[0][:, h_dim*2:h_dim*3]], axis=1), \
-                        np.concatenate([trained_decoder[1][:, :h_dim*2], trained_decoder[1][:, h_dim*3:], trained_decoder[1][:, h_dim*2:h_dim * 3]], axis=1), \
-                        np.concatenate([trained_decoder[2][:h_dim], trained_decoder[2][h_dim:h_dim*2]-1, trained_decoder[2][h_dim*3:], trained_decoder[2][h_dim*2:h_dim*3]], axis=0),
+      trained_decoder = self.convert_pytorch_lstm_weights(trained_decoder)
       for k,v in val.items():
         if type(v)==tuple: val[k] = tuple(vi.T for vi in v)
         else: val[k] = v.T
@@ -292,7 +431,7 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
       [-0.1, -0.2, -0.3, -0.4],
       [0.1, 0.2, 0.3, 0.4],
     ])
-    # note: dynet uses i|f|o|g, while pytorch uses i|f|g|o order; let's make sure to initialize output and update matrices to the same value
+    # note: dynet uses i|f|o|g, while pytorch uses i|f|g|o order; must make sure to initialize output and update matrices to the same value
     lstm_arr_8_2 = np.asarray([
       [-0.1, -0.2],
       [0.1, 0.2],
@@ -398,7 +537,7 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
   #   self.assert_trained_emb_grads(expected, places=9, lr=10)
   #
   #
-  # def test_all_grads_one_epoch(self):
+  # def test_all_params_one_epoch(self):
   #   expected = {
   #     'src_emb': np.asarray([[-0.1, 0.1 ], [-0.2001843, 0.19963139], [-0.30034995, 0.29930013], [-0.4003917, 0.39921662], [-0.5, 0.5]]),
   #     'trg_emb': np.asarray([[-0.09716769, 0.10566463], [-0.2, 0.2], [-0.30496135, 0.29007733], [-0.41122547, 0.37754905], [-0.5, 0.5 ]]),
