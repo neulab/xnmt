@@ -3,8 +3,8 @@ import numbers
 
 import xnmt.tensor_tools as tt
 from xnmt.transducers import recurrent
-from xnmt import expression_seqs, events
-from xnmt.persistence import serializable_init, Serializable, Ref
+from xnmt import expression_seqs, events, param_initializers
+from xnmt.persistence import bare, serializable_init, Serializable, Ref
 from xnmt.transducers import base as transducers
 
 class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
@@ -21,6 +21,8 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     downsampling_method: how to perform downsampling (concat|skip)
     reduce_factor: integer, or list of ints (different skip for each layer)
     var_dropout: dropout probability; if None, use exp_global.dropout
+    param_init: how to initialize weight matrices. Position-specific initializers are ordered Wx_l0, Wh_l0, Wx_l1, Wh_l1, ...
+    bias_init: how to initialize bias vectors. Must be a zero initializer.
     builder_layers: set automatically
   """
   yaml_tag = '!PyramidalLSTMSeqTransducer'
@@ -34,6 +36,8 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                downsampling_method: str = "concat",
                reduce_factor: Union[numbers.Integral, Sequence[numbers.Integral]] = 2,
                var_dropout: float = Ref("exp_global.dropout", default=0.0),
+               param_init: param_initializers.ParamInitializer = Ref("exp_global.param_init", default=bare(param_initializers.GlorotInitializer)),
+               bias_init: param_initializers.ParamInitializer = Ref("exp_global.bias_init", default=bare(param_initializers.ZeroInitializer)),
                builder_layers: Any = None):
     self.dropout = var_dropout
     assert layers > 0
@@ -49,17 +53,23 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                                                           lambda: self.make_builder_layers(input_dim, hidden_dim,
                                                                                            layers, var_dropout,
                                                                                            downsampling_method,
-                                                                                           reduce_factor))
+                                                                                           reduce_factor, param_init,
+                                                                                           bias_init))
 
-  def make_builder_layers(self, input_dim, hidden_dim, layers, var_dropout, downsampling_method, reduce_factor):
+  def make_builder_layers(self, input_dim, hidden_dim, layers, var_dropout, downsampling_method, reduce_factor,
+                          param_init, bias_init):
     builder_layers = []
-    f = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout)
-    b = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout)
+    f = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout,
+                                       param_init=param_init[0], bias_init=bias_init[0])
+    b = recurrent.UniLSTMSeqTransducer(input_dim=input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout,
+                                       param_init=param_init[1], bias_init=bias_init[1])
     builder_layers.append([f, b])
-    for _ in range(layers - 1):
+    for layer_i in range(1,layers):
       layer_input_dim = hidden_dim if downsampling_method=="skip" else hidden_dim*reduce_factor
-      f = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout)
-      b = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout)
+      f = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout,
+                                         param_init=param_init[layer_i*2], bias_init=bias_init[layer_i*2])
+      b = recurrent.UniLSTMSeqTransducer(input_dim=layer_input_dim, hidden_dim=hidden_dim // 2, var_dropout=var_dropout,
+                                         param_init=param_init[layer_i*2+1], bias_init=bias_init[layer_i*2+1])
       builder_layers.append([f, b])
     return builder_layers
 
