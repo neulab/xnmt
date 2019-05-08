@@ -88,7 +88,7 @@ class InitializerSequence(Serializable, ParamInitializer):
     raise ValueError(f"InitializerSequence.initializer() cannot be called directly, choose a sequence item.")
   def __getitem__(self, key: numbers.Integral):
     if key >= len(self.sequence):
-      raise ValueError(f"initializer sequence of {len(self.sequence)} is too short")
+      raise ValueError(f"initializer sequence of length {len(self.sequence)} is too short")
     return self.sequence[key]
 
 
