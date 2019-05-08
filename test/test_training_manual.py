@@ -108,6 +108,10 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
                           training_regimen.model.decoder.transform.b1.as_array()
       trained_out = training_regimen.model.decoder.scorer.output_projector.W1.as_array(), \
                     training_regimen.model.decoder.scorer.output_projector.b1.as_array()
+      trained_attender = training_regimen.model.attender.pV.as_array(), \
+                         training_regimen.model.attender.pW.as_array(), \
+                         training_regimen.model.attender.pb.as_array(), \
+                         training_regimen.model.attender.pU.as_array()
     else:
       trained_trg_emb = tt.npvalue(training_regimen.model.decoder.embedder.embeddings._parameters['weight'].data)
       trained_transform = tt.npvalue(training_regimen.model.decoder.transform.linear._parameters['weight'].data), \
@@ -141,6 +145,10 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
       trained_decoder = tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_ih'].data), \
                         tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_hh'].data), \
                         tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['bias_ih'].data)
+      trained_attender = tt.npvalue(training_regimen.model.attender.linear_context._parameters['weight'].data), \
+                         tt.npvalue(training_regimen.model.attender.linear_query._parameters['weight'].data), \
+                         tt.npvalue(training_regimen.model.attender.linear_query._parameters['bias'].data), \
+                         tt.npvalue(training_regimen.model.attender.pU._parameters['weight'].data)
       trained_decoder = self.convert_pytorch_lstm_weights(trained_decoder)
       for k,v in val.items():
         if type(v)==tuple: val[k] = tuple(vi.T for vi in v)
@@ -171,9 +179,13 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
     np.testing.assert_almost_equal(trained_decoder[0], val['decoder'][0], decimal=places)
     np.testing.assert_almost_equal(trained_decoder[1], val['decoder'][1], decimal=places)
     np.testing.assert_almost_equal(trained_decoder[2], val['decoder'][2], decimal=places)
-    # TODO: mlp attender weights
+    np.testing.assert_almost_equal(trained_attender[0], val['attender'][0], decimal=places)
+    np.testing.assert_almost_equal(trained_attender[1], val['attender'][1], decimal=places)
+    np.testing.assert_almost_equal(trained_attender[2], val['attender'][2], decimal=places)
+    np.testing.assert_almost_equal(trained_attender[3].flatten(), val['attender'][3].flatten(), decimal=places)
 
   def run_training(self, epochs=1, lr=0.1):
+    # TODO: fix_norm=1, label_smoothing: 0.1, AdamTrainer, lr_decay, restart_trainer
     layer_dim = 2
     batcher = SrcBatcher(batch_size=2, break_ties_randomly=False, pad_src_to_multiple=4)
     train_args = {}
@@ -301,28 +313,32 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
       'out': (np.asarray([[-0.06123007,0.06123007],[-0.23437549,0.23437549],[-0.32270569,0.32270569],[-0.42070729,0.42070729],[-0.46098152,0.46098152]]),
               np.asarray([-5.98445415,4.00778484,4.00001287,3.99222732,-6.01556969])),
       'enc_l0_fwd': (np.asarray([[-0.09994701,-0.19994733],[-0.09992201,-0.19992527],[-0.09993522,-0.19993694],[-0.09981435,-0.1998308,]]),
-                     np.asarray(),
-                     np.asarray()),
-      'enc_l0_bwd': (np.asarray(),
-                     np.asarray(),
-                     np.asarray()),
-      'enc_l1_fwd': (np.asarray(),
-                     np.asarray(),
-                     np.asarray()),
-      'enc_l1_bwd': (np.asarray(),
-                     np.asarray(),
-                     np.asarray()),
-      'enc_l2_fwd': (np.asarray(),
-                     np.asarray(),
-                     np.asarray()),
-      'enc_l2_bwd': (np.asarray(),
-                     np.asarray(),
-                     np.asarray()),
-      'decoder': (np.asarray(),
-                  np.asarray(),
-                  np.asarray()),
+                     np.asarray([[-0.10001278],[-0.10002383],[-0.10001866],[-0.10007333]]),
+                     np.asarray([-1.63314235e-05,-4.27153063e-05,-3.06596921e-05,-3.71809409e-04])),
+      'enc_l0_bwd': (np.asarray([[-0.09989825,-0.19989796],[-0.09986131,-0.19986473],[-0.09987242,-0.19987658],[-0.09968179,-0.19970807]]),
+                     np.asarray([[-0.10002301],[-0.1000396,],[-0.10003426],[-0.10011333]]),
+                     np.asarray([-2.71735644e-05,-5.84927693e-05,-5.25462310e-05,-7.42260891e-04])),
+      'enc_l1_fwd': (np.asarray([[-0.10002792,-0.20002818],[-0.10003673,-0.20003335],[-0.10002745,-0.20002575],[-0.09957173,-0.19960675]]),
+                     np.asarray([[-0.09999456],[-0.09999242],[-0.09999441],[-0.10008817]]),
+                     np.asarray([-6.05798996e-05,-8.41094879e-05,-6.14972960e-05,2.14566896e-03])),
+      'enc_l1_bwd': (np.asarray([[-0.1000514,-0.20005019],[-0.10005816,-0.20006065],[-0.10004973,-0.2000515,],[-0.09924537,-0.19932547]]),
+                     np.asarray([[-0.09999049],[-0.0999877,],[-0.09998979],[-0.10012402]]),
+                     np.asarray([-0.00010664,-0.00012292,-0.00010882,0.00420955])),
+      'enc_l2_fwd': (np.asarray([[-0.09999475,-0.19999456],[-0.09999293,-0.19999412],[-0.09999496,-0.19999558],[-0.09953924,-0.19958295]]),
+                     np.asarray([[-0.10000111],[-0.10000169],[-0.10000117],[-0.10011031]]),
+                     np.asarray([-5.84902155e-05,-8.42274603e-05,-5.86622264e-05,-1.02572152e-02])),
+      'enc_l2_bwd': (np.asarray([[-0.09999135,-0.19999167],[-0.0999911,-0.19999023],[-0.09999228,-0.19999148],[-0.09927367,-0.199393,]]),
+                     np.asarray([[-0.1000017,],[-0.10000224],[-0.10000192],[-0.10012975]]),
+                     np.asarray([-8.93682227e-05,-9.82385609e-05,-8.95038829e-05,-1.80559810e-02])),
+      'decoder': (np.asarray([[-0.10046237,-0.19953763,-0.09998767,-0.19998942],[ 0.10097443,0.19902557,0.09997417,0.19997783],[-0.10015962,-0.1998404,-0.09999573,-0.19999632],[ 0.10033238,0.19966763,0.09999109,0.19999233],[-0.10046785,-0.19953215,-0.09998686,-0.19998875],[ 0.10098667,0.19901334,0.09997237,0.19997634],[-0.07916601,-0.220834,-0.10061275,-0.20052442],[ 0.14621191,0.15378809,0.09866491,0.19885671]]),
+                  np.asarray([[-0.10001083,-0.19998838],[ 0.1000226,0.19997576],[-0.10000481,-0.19999482],[ 0.10001002,0.1999892,],[-0.10001773,-0.19998081],[ 0.10003724,0.19995971],[-0.09945071,-0.20059064],[ 0.10119081,0.19871996]]),
+                  np.asarray([ 0.00118265,-0.00250852,0.00045747,-0.00095398,0.0011847,-0.00250983,-0.04527986,-0.10430307])),
+      'attender': (np.asarray([[-0.1,-0.2],[ 0.1,0.2]]),
+                    np.asarray([[-0.09999974,-0.19999968],[ 0.10000052,0.20000066]]),
+                    np.asarray([-1.0444559e-08,-2.0889118e-08]),
+                    np.asarray([[-0.09999909,-0.20000091]])),
     }
-    self.assert_trained_seq2seq_params(expected, places=5, lr=10)
+    self.assert_trained_seq2seq_params(expected, places=6, lr=10)
 
 
   # def test_emb_weights_one_epoch(self):
