@@ -254,8 +254,8 @@ def forward_hook_ignore_bias_hh(module, input):
   for name, param in module.named_parameters():
     if 'bias_hh' in name:
       # pytorch using redundant biases 'bias_ih' and 'bias_hh'. this is neither useful nor hurtful.
-      # however, the two biases make direct comparison against dynet difficult, so let's turn this off by setting
-      # bias_hh to 0 before every forward pass
+      # however, the two biases make direct comparison against dynet difficult (as done in test_training_manual.py),
+      # so let's turn this off by setting bias_hh to 0 before every forward pass
       param.data[:].fill_(0)
 
 @xnmt.require_torch
