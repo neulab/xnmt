@@ -61,7 +61,7 @@ class MlpAttenderDynet(Attender, Serializable):
     input_dim: input dimension
     state_dim: dimension of state inputs
     hidden_dim: hidden MLP dimension
-    param_init: how to initialize weight matrices
+    param_init: how to initialize weight matrices. In case of an InitializerSequence, the order is pW, pV, pU
     bias_init: how to initialize bias vectors
   """
 
@@ -79,10 +79,10 @@ class MlpAttenderDynet(Attender, Serializable):
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
     my_params = param_collections.ParamManager.my_params(self)
-    self.pW = my_params.add_parameters((hidden_dim, input_dim), init=param_init.initializer((hidden_dim, input_dim)))
-    self.pV = my_params.add_parameters((hidden_dim, state_dim), init=param_init.initializer((hidden_dim, state_dim)))
+    self.pW = my_params.add_parameters((hidden_dim, input_dim), init=param_init[0].initializer((hidden_dim, input_dim)))
+    self.pV = my_params.add_parameters((hidden_dim, state_dim), init=param_init[1].initializer((hidden_dim, state_dim)))
     self.pb = my_params.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
-    self.pU = my_params.add_parameters((1, hidden_dim), init=param_init.initializer((1, hidden_dim)))
+    self.pU = my_params.add_parameters((1, hidden_dim), init=param_init[2].initializer((1, hidden_dim)))
     self.curr_sent = None
     self.attention_vecs = None
     self.WI = None
