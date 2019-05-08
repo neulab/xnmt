@@ -303,11 +303,11 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     my_params.init_params(param_init, bias_init)
     # init forget gate biases to 1
     for name, param in self.layers.named_parameters():
-      if 'bias_ih' in name:
-        # pytorch using redundant biases 'bias_ih' and 'bias_hh'. choose one and initialize only that to 1:
+      if 'bias' in name:
+        # pytorch using redundant biases 'bias_ih' and 'bias_hh'. initializing both to .5 will amount to a total of 1:
         n = param.size(0)
         start, end = n // 4, n // 2
-        param.data[start:end].fill_(1.)
+        param.data[start:end].fill_(0.5)
 
     self.dropout_mask_x = None
     self.dropout_mask_h = None
