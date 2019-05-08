@@ -93,19 +93,19 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
                    tt.npvalue(training_regimen.model.decoder.scorer.output_projector.linear._parameters['bias'].data)
       trained_encoder= tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['weight_ih'].data), \
                        tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['weight_hh'].data), \
-                       tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['bias_ih'].data) + tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['bias_hh'].data)
+                       tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['bias_ih'].data)
       h_dim = trained_encoder[0].shape[1]//4
-      # change ifgo -> ifog; subtract 1-initialized forget gates; divide by 2 two account for duplicate bias
+      # change ifgo -> ifog; subtract 1-initialized forget gates
       trained_encoder = np.concatenate([trained_encoder[0][:, :h_dim*2], trained_encoder[0][:, h_dim*3:], trained_encoder[0][:, h_dim*2:h_dim*3]], axis=1), \
                         np.concatenate([trained_encoder[1][:, :h_dim*2], trained_encoder[1][:, h_dim*3:], trained_encoder[1][:, h_dim*2:h_dim * 3]], axis=1), \
-                        0.5*np.concatenate([trained_encoder[2][:h_dim], trained_encoder[2][h_dim:h_dim*2]-1, trained_encoder[2][h_dim*3:], trained_encoder[2][h_dim*2:h_dim*3]], axis=0),
+                        np.concatenate([trained_encoder[2][:h_dim], trained_encoder[2][h_dim:h_dim*2]-1, trained_encoder[2][h_dim*3:], trained_encoder[2][h_dim*2:h_dim*3]], axis=0),
       trained_decoder = tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_ih'].data), \
                         tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_hh'].data), \
-                        tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['bias_ih'].data) + tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['bias_hh'].data)
+                        tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['bias_ih'].data)
       h_dim = trained_decoder[0].shape[1]//4
       trained_decoder = np.concatenate([trained_decoder[0][:, :h_dim*2], trained_decoder[0][:, h_dim*3:], trained_decoder[0][:, h_dim*2:h_dim*3]], axis=1), \
                         np.concatenate([trained_decoder[1][:, :h_dim*2], trained_decoder[1][:, h_dim*3:], trained_decoder[1][:, h_dim*2:h_dim * 3]], axis=1), \
-                        0.5*np.concatenate([trained_decoder[2][:h_dim], trained_decoder[2][h_dim:h_dim*2]-1, trained_decoder[2][h_dim*3:], trained_decoder[2][h_dim*2:h_dim*3]], axis=0),
+                        np.concatenate([trained_decoder[2][:h_dim], trained_decoder[2][h_dim:h_dim*2]-1, trained_decoder[2][h_dim*3:], trained_decoder[2][h_dim*2:h_dim*3]], axis=0),
       for k,v in val.items():
         if type(v)==tuple: val[k] = tuple(vi.T for vi in v)
         else: val[k] = v.T
