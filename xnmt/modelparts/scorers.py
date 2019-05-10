@@ -451,7 +451,8 @@ class SoftmaxTorch(Scorer, Serializable):
       n_class = self.output_dim
       gold = torch.tensor(y).to(xnmt.device)
       one_hot = torch.zeros_like(pred).scatter(1, gold.view(-1,1), 1)
-      one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / n_class
+      # one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / n_class  # original version does not add up to 1
+      one_hot = one_hot * (1 - eps) + eps / n_class
       log_prb = F.log_softmax(pred, dim=1)
       return -(torch.matmul(one_hot.unsqueeze(1), log_prb.unsqueeze(2)).squeeze(2)) # neg dot product
     else:
