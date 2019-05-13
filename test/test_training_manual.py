@@ -177,39 +177,51 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
                          tt.npvalue(training_regimen.model.attender.pU._parameters['weight'].data)
       trained_decoder = self.convert_pytorch_lstm_weights(trained_decoder)
       for k,v in val.items():
+        if v is None: continue
         if type(v)==tuple: val[k] = tuple(vi.T for vi in v)
         else: val[k] = v.T
-    np.testing.assert_almost_equal(trained_trg_emb, val['trg_emb'], decimal=places)
-    np.testing.assert_almost_equal(trained_transform[0], val['transform'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_transform[1], val['transform'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_out[0], val['out'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_out[1], val['out'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l0_fwd[0], val['enc_l0_fwd'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l0_fwd[1], val['enc_l0_fwd'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l0_fwd[2], val['enc_l0_fwd'][2], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l0_bwd[0], val['enc_l0_bwd'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l0_bwd[1], val['enc_l0_bwd'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l0_bwd[2], val['enc_l0_bwd'][2], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l1_fwd[0], val['enc_l1_fwd'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l1_fwd[1], val['enc_l1_fwd'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l1_fwd[2], val['enc_l1_fwd'][2], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l1_bwd[0], val['enc_l1_bwd'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l1_bwd[1], val['enc_l1_bwd'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l1_bwd[2], val['enc_l1_bwd'][2], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l2_fwd[0], val['enc_l2_fwd'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l2_fwd[1], val['enc_l2_fwd'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l2_fwd[2], val['enc_l2_fwd'][2], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l2_bwd[0], val['enc_l2_bwd'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l2_bwd[1], val['enc_l2_bwd'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_enc_l2_bwd[2], val['enc_l2_bwd'][2], decimal=places)
-    np.testing.assert_almost_equal(trained_decoder[0], val['decoder'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_decoder[1], val['decoder'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_decoder[2], val['decoder'][2], decimal=places)
-    # below 3 are mismatched:
-    np.testing.assert_almost_equal(trained_attender[0], val['attender'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_attender[1], val['attender'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_attender[2], val['attender'][2], decimal=places)
-    np.testing.assert_almost_equal(trained_attender[3].flatten(), val['attender'][3].flatten(), decimal=places)
+    if val['trg_emb'] is not None:
+      np.testing.assert_almost_equal(trained_trg_emb, val['trg_emb'], decimal=places)
+    if val['transform'] is not None:
+      np.testing.assert_almost_equal(trained_transform[0], val['transform'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_transform[1], val['transform'][1], decimal=places)
+    if val['out'] is not None:
+      np.testing.assert_almost_equal(trained_out[0], val['out'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_out[1], val['out'][1], decimal=places)
+    if val['enc_l0_fwd'] is not None:
+      np.testing.assert_almost_equal(trained_enc_l0_fwd[0], val['enc_l0_fwd'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l0_fwd[1], val['enc_l0_fwd'][1], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l0_fwd[2], val['enc_l0_fwd'][2], decimal=places)
+    if val['enc_l0_bwd'] is not None:
+      np.testing.assert_almost_equal(trained_enc_l0_bwd[0], val['enc_l0_bwd'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l0_bwd[1], val['enc_l0_bwd'][1], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l0_bwd[2], val['enc_l0_bwd'][2], decimal=places)
+    if val['enc_l1_fwd'] is not None:
+      np.testing.assert_almost_equal(trained_enc_l1_fwd[0], val['enc_l1_fwd'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l1_fwd[1], val['enc_l1_fwd'][1], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l1_fwd[2], val['enc_l1_fwd'][2], decimal=places)
+    if val['enc_l1_bwd'] is not None:
+      np.testing.assert_almost_equal(trained_enc_l1_bwd[0], val['enc_l1_bwd'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l1_bwd[1], val['enc_l1_bwd'][1], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l1_bwd[2], val['enc_l1_bwd'][2], decimal=places)
+    if val['enc_l2_fwd'] is not None:
+      np.testing.assert_almost_equal(trained_enc_l2_fwd[0], val['enc_l2_fwd'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l2_fwd[1], val['enc_l2_fwd'][1], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l2_fwd[2], val['enc_l2_fwd'][2], decimal=places)
+    if val['enc_l2_bwd'] is not None:
+      np.testing.assert_almost_equal(trained_enc_l2_bwd[0], val['enc_l2_bwd'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l2_bwd[1], val['enc_l2_bwd'][1], decimal=places)
+      np.testing.assert_almost_equal(trained_enc_l2_bwd[2], val['enc_l2_bwd'][2], decimal=places)
+    if val['decoder'] is not None:
+      np.testing.assert_almost_equal(trained_decoder[0], val['decoder'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_decoder[1], val['decoder'][1], decimal=places)
+      np.testing.assert_almost_equal(trained_decoder[2], val['decoder'][2], decimal=places)
+    if val['attender'] is not None:
+      # below 3 are mismatched:
+      np.testing.assert_almost_equal(trained_attender[0], val['attender'][0], decimal=places)
+      np.testing.assert_almost_equal(trained_attender[1], val['attender'][1], decimal=places)
+      np.testing.assert_almost_equal(trained_attender[2], val['attender'][2], decimal=places)
+      np.testing.assert_almost_equal(trained_attender[3].flatten(), val['attender'][3].flatten(), decimal=places)
 
   def run_training(self, epochs=1, lr=0.1, adam=False):
     # TODO: AdamTrainer, lr_decay, restart_trainer
@@ -346,12 +358,19 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
   #               np.asarray([[-1.09920165e-07,1.09920165e-07]]))
   #   self.assert_trained_mlp_att_grads(expected, places=7, epochs=1, adam=True)
 
-  def test_mlp_att_grads_trained(self):
-    expected = (np.asarray([[ 6.15145327e-05,5.41474146e-05],[-1.41641664e-04,-1.24026701e-04]]),
-                np.asarray([[-9.45401825e-06,-1.82743112e-04],[ 1.28936317e-05,2.54007202e-04]]),
-                np.asarray([-0.00021929,0.0002702,]),
-                np.asarray([[ 0.00020377,-0.00013509]]))
-    self.assert_trained_mlp_att_grads(expected, places=7, epochs=3, adam=True, lr=100)
+  # def test_mlp_att_grads_two_epochs_adam(self):
+  #   expected = (np.asarray([[1.9886029e-05, 2.2218173e-05], [-5.5424091e-05, -6.2103529e-05]]),
+  #               np.asarray([[-1.9301253e-07, -1.1546918e-08], [7.1632535e-06, 4.7493609e-07]]),
+  #               np.asarray([ 3.0994852e-07, -1.1994176e-05]),
+  #               np.asarray([-1.3820918e-05,  8.8202738e-05]))
+  #   self.assert_trained_mlp_att_grads(expected, places=7, epochs=2, adam=True, lr=100)
+
+  # def test_mlp_att_grads_trained(self):
+  #   expected = (np.asarray([[ 6.15145327e-05,5.41474146e-05],[-1.41641664e-04,-1.24026701e-04]]),
+  #               np.asarray([[-9.45401825e-06,-1.82743112e-04],[ 1.28936317e-05,2.54007202e-04]]),
+  #               np.asarray([-0.00021929,0.0002702,]),
+  #               np.asarray([[ 0.00020377,-0.00013509]]))
+  #   self.assert_trained_mlp_att_grads(expected, places=7, epochs=3, adam=True, lr=100)
 
   # def test_loss_three_epochs_adam(self):
   #   self.assert_loss_value(8.912698745727539, places=2, epochs=3, lr=10, adam=True)
@@ -393,6 +412,43 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
   #                   np.asarray([[-0.0999989,-0.20000111]])),
   #   }
   #   self.assert_trained_seq2seq_params(expected, places=6, lr=10)
+
+  def test_all_params_one_epoch_sgd_must_fail(self):
+    # useful regex: (?<!\[)\s+      ->      ,
+    expected = {
+      'trg_emb': None,
+      'transform': None,
+      'out': None,
+      'enc_l0_fwd': None,
+      'enc_l0_bwd': None,
+      'enc_l1_fwd': None,
+      'enc_l1_bwd': None,
+      'enc_l2_fwd': None,
+      'enc_l2_bwd': None,
+      'decoder': None,
+      'attender': (np.asarray([[-0.100004, -0.200005], [ 0.099993,  0.199991]]),
+                    np.asarray([[-0.099909, -0.199649], [ 0.100183,  0.200702]]),
+                    np.asarray([1.710342e-05, 3.421417e-05]),
+                    np.asarray([-0.0992, -0.2008])),
+    }
+    self.assert_trained_seq2seq_params(expected, places=6, lr=100, epochs=10)
+
+  # def test_all_params_one_epoch_sgd_must_not_fail(self):
+  #   # useful regex: (?<!\[)\s+      ->      ,
+  #   expected = {
+  #     'trg_emb': np.asarray([[-0.46045405 ,0.43411583] ,[-0.2 ,0.2 ,] ,[-0.39914325 ,0.20037407] ,[-0.54675782 ,0.28116238] ,[-0.5 ,0.5 ,]]),
+  #     'transform': None,
+  #     'out': None,
+  #     'enc_l0_fwd': None,
+  #     'enc_l0_bwd': None,
+  #     'enc_l1_fwd': None,
+  #     'enc_l1_bwd': None,
+  #     'enc_l2_fwd': None,
+  #     'enc_l2_bwd': None,
+  #     'decoder': None,
+  #     'attender':None,
+  #   }
+  #   self.assert_trained_seq2seq_params(expected, places=5, lr=100, epochs=10)
 
 
   # def test_all_params_one_epoch_adam(self):
