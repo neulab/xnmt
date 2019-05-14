@@ -78,8 +78,10 @@ class ManualTestingBaseClass(object):
 
 
   TYPE_EMB = ([lambda x: x.embeddings], [lambda x: x.embeddings._parameters['weight']])
-  TYPE_NONLINEAR = ([lambda x: x.W1, lambda x: x.b1],
-                    [lambda x: x.linear._parameters['weight'], lambda x: x.linear._parameters['bias']])
+  TYPE_TRANFORM = ([lambda x: x.W1, lambda x: x.b1],
+                   [lambda x: x.linear._parameters['weight'], lambda x: x.linear._parameters['bias']])
+  TYPE_LSTM = ([lambda x: x.Wx[0], lambda x: x.Wh[0], lambda x: x.b[0]],
+               [lambda x: x.layers[0]._parameters['weight_ih'], lambda x: x.layers[0]._parameters['weight_hh'], lambda x: x.layers[0]._parameters['bias_ih']])
 
   def assert_loss_value(self, desired, rtol=1e-12, atol=0, *args, **kwargs):
     training_regimen = self.run_training(*args, **kwargs)
@@ -87,7 +89,7 @@ class ManualTestingBaseClass(object):
                                desired=desired,
                                rtol=rtol, atol=atol)
 
-  def assert_trained_params(self, desired, rtol=1e-6, atol=0,
+  def assert_trained_params(self, desired, rtol=1e-6, atol=0, is_lstm = False,
                                     param_type=TYPE_EMB, subpath="model.src_embedder", *args, **kwargs):
     training_regimen = self.run_training(*args, **kwargs)
     component = training_regimen
@@ -96,12 +98,14 @@ class ManualTestingBaseClass(object):
       actual = [type_lamb(component).as_array() for type_lamb in param_type[0]]
     else:
       actual = [type_lamb(component).data for type_lamb in param_type[1]]
+      if is_lstm: actual = self.convert_pytorch_lstm_weights(actual)
     for sub_param_i, sub_param in enumerate(desired):
       with self.subTest(sub_param_i):
         np.testing.assert_allclose(actual=actual[sub_param_i], desired=sub_param, rtol=rtol, atol=atol)
 
   def assert_trained_grads(self, desired, rtol=1e-3, atol=0, param_type=TYPE_EMB, subpath="model.src_embedder",
                                epochs=1, *args, **kwargs):
+    assert type(desired) in (list,tuple)
     training_regimen = self.run_training(epochs=epochs-1, *args, **kwargs)
     # last epoch is done manually and without calling update():
     src, trg = next(training_regimen.next_minibatch())
@@ -150,11 +154,11 @@ class ManualTestingBaseClass(object):
 
   def convert_pytorch_lstm_weights(self, weights):
     # change ifgo -> ifog; subtract 1-initialized forget gates
-    h_dim = weights[0].shape[1] // 4
-    return np.concatenate([weights[0][:, :h_dim * 2], weights[0][:, h_dim * 3:],
-                           weights[0][:, h_dim * 2:h_dim * 3]], axis=1), \
-           np.concatenate([weights[1][:, :h_dim * 2], weights[1][:, h_dim * 3:],
-                           weights[1][:, h_dim * 2:h_dim * 3]], axis=1), \
+    h_dim = weights[0].shape[0] // 4
+    return np.concatenate([weights[0][:h_dim * 2,:], weights[0][h_dim * 3:,:],
+                           weights[0][h_dim * 2:h_dim * 3, :]], axis=0), \
+           np.concatenate([weights[1][:h_dim * 2,:], weights[1][h_dim * 3:,:],
+                           weights[1][h_dim * 2:h_dim * 3,:]], axis=0), \
            np.concatenate([weights[2][:h_dim], weights[2][h_dim:h_dim * 2] - 1,
                            weights[2][h_dim * 3:], weights[2][h_dim * 2:h_dim * 3]], axis=0),
 
@@ -593,52 +597,6 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-  def assert_trained_seq2seq_params(self, val, places, *args, **kwargs):
-    training_regimen = self.run_training(num_layers=1, bi_encoder=False, *args, **kwargs)
-    if xnmt.backend_dynet:
-      trained_src_emb = training_regimen.model.src_embedder.embeddings.as_array()
-      trained_encoder = training_regimen.model.encoder.Wx[0].as_array(), \
-                        training_regimen.model.encoder.Wh[0].as_array(), \
-                        training_regimen.model.encoder.b[0].as_array()
-      trained_decoder = training_regimen.model.decoder.rnn.Wx[0].as_array(), \
-                        training_regimen.model.decoder.rnn.Wh[0].as_array(), \
-                        training_regimen.model.decoder.rnn.b[0].as_array()
-      trained_trg_emb = training_regimen.model.decoder.embedder.embeddings.as_array()
-      trained_transform = training_regimen.model.decoder.transform.W1.as_array(), \
-                          training_regimen.model.decoder.transform.b1.as_array()
-      trained_out = training_regimen.model.decoder.scorer.output_projector.W1.as_array(), \
-                    training_regimen.model.decoder.scorer.output_projector.b1.as_array()
-    else:
-      trained_src_emb = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].data)
-      trained_trg_emb = tt.npvalue(training_regimen.model.decoder.embedder.embeddings._parameters['weight'].data)
-      trained_transform = tt.npvalue(training_regimen.model.decoder.transform.linear._parameters['weight'].data), \
-                          tt.npvalue(training_regimen.model.decoder.transform.linear._parameters['bias'].data)
-      trained_out= tt.npvalue(training_regimen.model.decoder.scorer.output_projector.linear._parameters['weight'].data), \
-                   tt.npvalue(training_regimen.model.decoder.scorer.output_projector.linear._parameters['bias'].data)
-      trained_encoder= tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['weight_ih'].data), \
-                       tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['weight_hh'].data), \
-                       tt.npvalue(training_regimen.model.encoder.layers[0]._parameters['bias_ih'].data)
-      trained_encoder = self.convert_pytorch_lstm_weights(trained_encoder)
-      trained_decoder = tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_ih'].data), \
-                        tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['weight_hh'].data), \
-                        tt.npvalue(training_regimen.model.decoder.rnn.layers[0]._parameters['bias_ih'].data)
-      trained_decoder = self.convert_pytorch_lstm_weights(trained_decoder)
-      for k,v in val.items():
-        if type(v)==tuple: val[k] = tuple(vi.T for vi in v)
-        else: val[k] = v.T
-    np.testing.assert_almost_equal(trained_src_emb, val['src_emb'], decimal=places)
-    np.testing.assert_almost_equal(trained_trg_emb, val['trg_emb'], decimal=places)
-    np.testing.assert_almost_equal(trained_transform[0], val['transform'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_transform[1], val['transform'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_out[0], val['out'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_out[1], val['out'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_encoder[0], val['encoder'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_encoder[1], val['encoder'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_encoder[2], val['encoder'][2], decimal=places)
-    np.testing.assert_almost_equal(trained_decoder[0], val['decoder'][0], decimal=places)
-    np.testing.assert_almost_equal(trained_decoder[1], val['decoder'][1], decimal=places)
-    np.testing.assert_almost_equal(trained_decoder[2], val['decoder'][2], decimal=places)
-
   def run_training(self, num_layers=1, bi_encoder=False, epochs=1, lr=0.1):
     layer_dim = 2
     batcher = SrcBatcher(batch_size=2, break_ties_randomly=False)
@@ -738,23 +696,20 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
     }
     self.assert_trained_params(desired=expected['src_emb'], lr=10, param_type=self.TYPE_EMB, subpath="model.src_embedder", rtol=1e-6)
     self.assert_trained_params(desired=expected['trg_emb'], lr=10, param_type=self.TYPE_EMB, subpath="model.decoder.embedder", rtol=1e-6)
-    self.assert_trained_params(desired=expected['transform'], lr=10, param_type=self.TYPE_NONLINEAR, subpath="model.decoder.transform", rtol=1e-6)
+    self.assert_trained_params(desired=expected['transform'], lr=10, param_type=self.TYPE_TRANFORM, subpath="model.decoder.transform", rtol=1e-4)
+    self.assert_trained_params(desired=expected['out'], lr=10, param_type=self.TYPE_TRANFORM, subpath="model.decoder.scorer.output_projector", rtol=1e-6)
+    self.assert_trained_params(desired=expected['encoder'], lr=10, is_lstm=True, param_type=self.TYPE_LSTM, subpath="model.encoder", rtol=1e-3)
+    self.assert_trained_params(desired=expected['decoder'], lr=10, is_lstm=True, param_type=self.TYPE_LSTM, subpath="model.decoder.rnn", rtol=1e-3)
 
-    # self.assert_trained_seq2seq_params(expected, places=5, lr=10)
+  def test_emb_weights_two_epochs(self):
+    desired = [np.asarray(
+      [[-0.1, 0.1], [-0.20195894, 0.19691031], [-0.30414006, 0.29530725], [-0.40498427, 0.3935459], [-0.5, 0.5]])]
+    self.assert_trained_params(desired=desired, epochs=2, lr=100, param_type=self.TYPE_EMB, subpath="model.src_embedder", rtol=1e-4)
 
-
-  #
-  # # ok in dynet, not in torch:
-  # def test_emb_weights_two_epochs(self):
-  #   expected = np.asarray(
-  #     [[-0.1, 0.1], [-0.20195894, 0.19691031], [-0.30414006, 0.29530725], [-0.40498427, 0.3935459], [-0.5, 0.5]])
-  #   self.assert_trained_src_emb_params(expected, places=4, epochs=2, lr=100)
-  #
-  # # ok in dynet, not in torch
-  # def test_emb_grads_two_epochs(self):
-  #   expected = np.asarray(
-  #     [[ 0, 0], [-1.43307407e-05, -2.18112727e-05], [-2.92414807e-05, -4.44276811e-05], [-3.09737370e-05, -4.77675057e-05], [ 0,  0]])
-  #   self.assert_trained_emb_grads(expected, places=8, lr=10, epochs=2)
+  def test_emb_grads_two_epochs(self):
+    desired = [np.asarray(
+      [[ 0, 0], [-1.43307407e-05, -2.18112727e-05], [-2.92414807e-05, -4.44276811e-05], [-3.09737370e-05, -4.77675057e-05], [ 0,  0]])]
+    self.assert_trained_grads(desired=desired, lr=10, epochs=2, param_type=self.TYPE_EMB, subpath="model.src_embedder", rtol=1e-4)
 
 
 class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
