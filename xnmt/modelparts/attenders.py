@@ -141,8 +141,8 @@ class MlpAttenderTorch(Attender, Serializable):
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
     my_params = param_collections.ParamManager.my_params(self)
-    self.linear_context = nn.Linear(input_dim, hidden_dim, bias=False).to(xnmt.device)
-    self.linear_query = nn.Linear(state_dim, hidden_dim, bias=True).to(xnmt.device)
+    self.linear_context = nn.Linear(input_dim, hidden_dim, bias=True).to(xnmt.device)
+    self.linear_query = nn.Linear(state_dim, hidden_dim, bias=False).to(xnmt.device)
     self.pU = nn.Linear(hidden_dim, 1, bias=False).to(xnmt.device)
     my_params.append(self.linear_context)
     my_params.append(self.linear_query)

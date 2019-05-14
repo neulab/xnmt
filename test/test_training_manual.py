@@ -82,7 +82,7 @@ class ManualTestingBaseClass(object):
     else:
       actual_grads = tt.npvalue(training_regimen.model.attender.linear_context._parameters['weight'].grad).T, \
                      tt.npvalue(training_regimen.model.attender.linear_query._parameters['weight'].grad).T, \
-                     tt.npvalue(training_regimen.model.attender.linear_query._parameters['bias'].grad).T, \
+                     tt.npvalue(training_regimen.model.attender.linear_context._parameters['bias'].grad).T, \
                      tt.npvalue(training_regimen.model.attender.pU._parameters['weight'].grad).T,
     np.testing.assert_almost_equal(actual_grads[0], val[0], decimal=places)
     np.testing.assert_almost_equal(actual_grads[1], val[1], decimal=places)
@@ -351,12 +351,12 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
   # def test_loss_three_epochs(self):
   #   self.assert_loss_value(8.524262428283691, places=2, epochs=3, lr=10)
   #
-  # def test_mlp_att_grads(self):
-  #   expected = (np.asarray([[-3.15510178e-08,-3.91636625e-08],[-6.31020356e-08,-7.83273251e-08]]),
-  #               np.asarray([[-1.15501116e-10,1.41344131e-10],[-2.31002231e-10,2.82688262e-10]]),
-  #               np.asarray([1.65015179e-09,3.30030359e-09]),
-  #               np.asarray([[-1.09920165e-07,1.09920165e-07]]))
-  #   self.assert_trained_mlp_att_grads(expected, places=7, epochs=1, adam=True)
+  def test_mlp_att_grads(self):
+    expected = (np.asarray([[-3.15510178e-08,-3.91636625e-08],[-6.31020356e-08,-7.83273251e-08]]),
+                np.asarray([[-1.15501116e-10,1.41344131e-10],[-2.31002231e-10,2.82688262e-10]]),
+                np.asarray([1.65015179e-09,3.30030359e-09]),
+                np.asarray([[-1.09920165e-07,1.09920165e-07]]))
+    self.assert_trained_mlp_att_grads(expected, places=11, epochs=1)
 
   # def test_mlp_att_grads_two_epochs_adam(self):
   #   expected = (np.asarray([[1.9886029e-05, 2.2218173e-05], [-5.5424091e-05, -6.2103529e-05]]),
@@ -413,25 +413,25 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
   #   }
   #   self.assert_trained_seq2seq_params(expected, places=6, lr=10)
 
-  def test_all_params_one_epoch_sgd_must_fail(self):
-    # useful regex: (?<!\[)\s+      ->      ,
-    expected = {
-      'trg_emb': None,
-      'transform': None,
-      'out': None,
-      'enc_l0_fwd': None,
-      'enc_l0_bwd': None,
-      'enc_l1_fwd': None,
-      'enc_l1_bwd': None,
-      'enc_l2_fwd': None,
-      'enc_l2_bwd': None,
-      'decoder': None,
-      'attender': (np.asarray([[-0.100004, -0.200005], [ 0.099993,  0.199991]]),
-                    np.asarray([[-0.099909, -0.199649], [ 0.100183,  0.200702]]),
-                    np.asarray([1.710342e-05, 3.421417e-05]),
-                    np.asarray([-0.0992, -0.2008])),
-    }
-    self.assert_trained_seq2seq_params(expected, places=6, lr=100, epochs=10)
+  # def test_all_params_one_epoch_sgd_must_fail(self):
+  #   # useful regex: (?<!\[)\s+      ->      ,
+  #   expected = {
+  #     'trg_emb': None,
+  #     'transform': None,
+  #     'out': None,
+  #     'enc_l0_fwd': None,
+  #     'enc_l0_bwd': None,
+  #     'enc_l1_fwd': None,
+  #     'enc_l1_bwd': None,
+  #     'enc_l2_fwd': None,
+  #     'enc_l2_bwd': None,
+  #     'decoder': None,
+  #     'attender': (np.asarray([[-0.100004, -0.200005], [ 0.099993,  0.199991]]),
+  #                   np.asarray([[-0.099909, -0.199649], [ 0.100183,  0.200702]]),
+  #                   np.asarray([1.710342e-05, 3.421417e-05]),
+  #                   np.asarray([-0.0992, -0.2008])),
+  #   }
+  #   self.assert_trained_seq2seq_params(expected, places=6, lr=100, epochs=10)
 
   # def test_all_params_one_epoch_sgd_must_not_fail(self):
   #   # useful regex: (?<!\[)\s+      ->      ,
