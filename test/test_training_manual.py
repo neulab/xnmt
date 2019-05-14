@@ -32,20 +32,59 @@ from xnmt.vocabs import Vocab
 
 class ManualTestingBaseClass(object):
 
-  def assert_loss_value(self, val, places, *args, **kwargs):
-    training_regimen = self.run_training(*args, **kwargs)
-    self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors(), val, places=places)
+  EMB_ARR_5_2 = np.asarray([[-0.1, 0.1], [-0.2, 0.2], [-0.3, 0.3], [-0.4, 0.4], [-0.5, 0.5], ])
+  OUT_ARR_2_2 = np.asarray([[-0.1, 0.1], [-0.2, 0.2], ])
+  PROJ_ARR_2_2 = np.asarray([
+    [-0.1, -0.2],
+    [0.1, 0.2],
+  ])
+  LSTM_ARR_8_2 = np.asarray([
+    [-0.1, -0.2],
+    [0.1, 0.2],
+    [-0.1, -0.2],
+    [0.1, 0.2],
+    [-0.1, -0.2],
+    [0.1, 0.2],
+    [-0.1, -0.2],
+    [0.1, 0.2],
+  ])
+  LSTM_ARR_4_2 = np.asarray([
+    [-0.1, -0.2],
+    [-0.1, -0.2],
+    [-0.1, -0.2],
+    [-0.1, -0.2],
+  ])
+  LSTM_ARR_4_1 = np.asarray([
+    [-0.1],
+    [-0.1],
+    [-0.1],
+    [-0.1],
+  ])
 
-  def assert_trained_src_emb_params(self, val, places, *args, **kwargs):
+
+
+  TYPE_EMB = (lambda x: x.embeddings, lambda x: x.embeddings._parameters['weight'])
+
+  def assert_loss_value(self, desired, rtol=1e-12, atol=0, *args, **kwargs):
     training_regimen = self.run_training(*args, **kwargs)
+    np.testing.assert_allclose(actual=training_regimen.train_loss_tracker.epoch_loss.sum_factors(),
+                               desired=desired,
+                               rtol=rtol, atol=atol)
+
+  def assert_trained_params(self, desired, rtol=1e-6, atol=0,
+                                    param_type=TYPE_EMB, subpath="model.src_embedder", *args, **kwargs):
+    training_regimen = self.run_training(*args, **kwargs)
+    component = training_regimen
+    for path_elem in subpath.split("."): component = getattr(component, path_elem)
     if xnmt.backend_dynet:
-      trained_src_emb = training_regimen.model.src_embedder.embeddings.as_array()
+      actual = param_type[0](component).as_array()
     else:
-      trained_src_emb = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].data)
-      val = val.T
-    np.testing.assert_almost_equal(trained_src_emb, val, decimal=places)
+      actual = param_type[1](component).data
+      desired = desired
+    np.testing.assert_allclose(actual=actual, desired=desired, rtol=rtol, atol=atol)
 
-  def assert_trained_emb_grads(self, val, places, epochs=1, *args, **kwargs):
+  def assert_trained_grads(self, desired, rtol=1e-3, atol=0, param_type=TYPE_EMB, subpath="model.src_embedder",
+                               epochs=1, *args, **kwargs):
     training_regimen = self.run_training(epochs=epochs-1, *args, **kwargs)
     # last epoch is done manually and without calling update():
     src, trg = next(training_regimen.next_minibatch())
@@ -56,12 +95,13 @@ class ManualTestingBaseClass(object):
     training_regimen.backward(loss)
     # importantly: no update() here because that would zero out the dynet gradients
 
+    component = training_regimen
+    for path_elem in subpath.split("."): component = getattr(component, path_elem)
     if xnmt.backend_dynet:
-      actual_grads = training_regimen.model.src_embedder.embeddings.grad_as_array()
+      actual = param_type[0](component).grad_as_array()
     else:
-      actual_grads = tt.npvalue(training_regimen.model.src_embedder.embeddings._parameters['weight'].grad)
-      val = val.T
-    np.testing.assert_almost_equal(actual_grads, val, decimal=places)
+      actual = param_type[1](component).grad
+    np.testing.assert_allclose(actual=actual, desired=desired, rtol=rtol, atol=atol)
 
   def assert_trained_mlp_att_grads(self, val, places, epochs=1, *args, **kwargs):
     training_regimen = self.run_training(epochs=epochs-1, *args, **kwargs)
@@ -351,13 +391,13 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
   # def test_loss_three_epochs(self):
   #   self.assert_loss_value(8.524262428283691, places=2, epochs=3, lr=10)
   #
-  def test_mlp_att_grads(self):
-    expected = (np.asarray([[-3.15510178e-08,-3.91636625e-08],[-6.31020356e-08,-7.83273251e-08]]),
-                np.asarray([[-1.15501116e-10,1.41344131e-10],[-2.31002231e-10,2.82688262e-10]]),
-                np.asarray([1.65015179e-09,3.30030359e-09]),
-                np.asarray([[-1.09920165e-07,1.09920165e-07]]))
-    self.assert_trained_mlp_att_grads(expected, places=11, epochs=1)
-
+  # def test_mlp_att_grads(self):
+  #   expected = (np.asarray([[-3.15510178e-08,-3.91636625e-08],[-6.31020356e-08,-7.83273251e-08]]),
+  #               np.asarray([[-1.15501116e-10,1.41344131e-10],[-2.31002231e-10,2.82688262e-10]]),
+  #               np.asarray([1.65015179e-09,3.30030359e-09]),
+  #               np.asarray([[-1.09920165e-07,1.09920165e-07]]))
+  #   self.assert_trained_mlp_att_grads(expected, places=11, epochs=1)
+  #
   # def test_mlp_att_grads_two_epochs_adam(self):
   #   expected = (np.asarray([[1.9886029e-05, 2.2218173e-05], [-5.5424091e-05, -6.2103529e-05]]),
   #               np.asarray([[-1.9301253e-07, -1.1546918e-08], [7.1632535e-06, 4.7493609e-07]]),
@@ -745,59 +785,32 @@ class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
     train_args['loss_calculator'] = MLELoss()
     vocab = Vocab(i2w=['<s>', '</s>', 'a', 'b', '<unk>'])
     vocab_size = 5
-    emb_arr_5_2 = np.asarray([[-0.1, 0.1],[-0.2, 0.2],[-0.3, 0.3],[-0.4, 0.4],[-0.5, 0.5],])
-    out_arr_2_2 = np.asarray([[-0.1, 0.1],[-0.2, 0.2],])
-    proj_arr_2_2 = np.asarray([
-      [-0.1, -0.2],
-      [0.1, 0.2],
-    ])
-    lstm_arr_8_2 = np.asarray([
-      [-0.1, -0.2],
-      [0.1, 0.2],
-      [-0.1, -0.2],
-      [0.1, 0.2],
-      [-0.1, -0.2],
-      [0.1, 0.2],
-      [-0.1, -0.2],
-      [0.1, 0.2],
-    ])
-    lstm_arr_4_2 = np.asarray([
-      [-0.1, -0.2],
-      [-0.1, -0.2],
-      [-0.1, -0.2],
-      [-0.1, -0.2],
-    ])
-    lstm_arr_4_1 = np.asarray([
-      [-0.1],
-      [-0.1],
-      [-0.1],
-      [-0.1],
-    ])
+
     if bi_encoder:
       assert num_layers==1
       encoder = BiLSTMSeqTransducer(input_dim=layer_dim,
                                     hidden_dim=layer_dim,
                                     param_init=InitializerSequence([InitializerSequence([
-                                                                     NumpyInitializer(lstm_arr_4_2),   # fwd_l0_ih
-                                                                     NumpyInitializer(lstm_arr_4_1)]), # fwd_l0_hh
+                                                                     NumpyInitializer(self.LSTM_ARR_4_2),   # fwd_l0_ih
+                                                                     NumpyInitializer(self.LSTM_ARR_4_1)]), # fwd_l0_hh
                                                                    InitializerSequence([
-                                                                     NumpyInitializer(lstm_arr_4_2),   # bwd_l0_ih
-                                                                     NumpyInitializer(lstm_arr_4_1)])] # bwd_l0_hh
+                                                                     NumpyInitializer(self.LSTM_ARR_4_2),   # bwd_l0_ih
+                                                                     NumpyInitializer(self.LSTM_ARR_4_1)])] # bwd_l0_hh
                                     ),
                                     layers=num_layers)
     else:
       encoder = UniLSTMSeqTransducer(input_dim=layer_dim,
                                      hidden_dim=layer_dim,
-                                     param_init=NumpyInitializer(lstm_arr_8_2),
+                                     param_init=NumpyInitializer(self.LSTM_ARR_8_2),
                                      layers=num_layers)
     train_args['model'] = \
       SequenceClassifier(
         src_reader=PlainTextReader(vocab=vocab),
         trg_reader=IDReader(),
-        src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(emb_arr_5_2)),
+        src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(self.EMB_ARR_5_2)),
         encoder=encoder,
-        transform=NonLinear(input_dim=layer_dim, output_dim=layer_dim, param_init=NumpyInitializer(proj_arr_2_2)),
-        scorer=Softmax(input_dim=layer_dim, vocab_size=2 ,param_init=NumpyInitializer(out_arr_2_2)),
+        transform=NonLinear(input_dim=layer_dim, output_dim=layer_dim, param_init=NumpyInitializer(self.PROJ_ARR_2_2)),
+        scorer=Softmax(input_dim=layer_dim, vocab_size=2 ,param_init=NumpyInitializer(self.OUT_ARR_2_2)),
       )
     train_args['dev_tasks'] = []
     train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr)
@@ -808,46 +821,45 @@ class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
-  # def test_loss_basic(self):
-  #   self.assert_loss_value(1.386299, places=5)
-  #
-  # def test_loss_twolayer(self):
-  #   self.assert_loss_value(1.386294, places=5, num_layers=2)
-  #
-  # def test__loss_bidirectional(self):
-  #   self.assert_loss_value(1.386302, places=5, bi_encoder=True)
-  #
-  # def test_loss_two_epochs(self):
-  #   self.assert_loss_value(1.386635, places=5, epochs=2, lr=100)
-  #
-  # def test_loss_five_epochs(self):
-  #   self.assert_loss_value(2.661108, places=2, epochs=5, lr=10)
-  #
-  # def test_emb_weights_two_epochs(self):
-  #   expected = np.asarray(
-  #     [[-0.1, 0.1], [-0.19894804, 0.20147263], [-0.28823119, 0.32002223], [-0.41040528, 0.3818686], [-0.5, 0.5]])
-  #   self.assert_trained_src_emb_params(expected, places=4, epochs=2, lr=100)
-  #
-  # def test_emb_weights_five_epochs(self):
-  #   expected = np.asarray(
-  #     [[-0.1, 0.1], [-0.20250981, 0.19391325], [-0.29897961, 0.30119216], [-0.40397269, 0.39145479], [-0.5, 0.5]])
-  #   self.assert_trained_src_emb_params(expected, places=3, epochs=5, lr=10)
-  #
-  # def test_emb_grads(self):
-  #   expected = np.asarray(
-  #     [[0, 0], [1.2468663e-6, 2.49373261e-6], [-5.26151271e-5, -1.05230254e-4], [5.41623740e-5, 1.08324748e-4], [0, 0]])
-  #   self.assert_trained_emb_grads(expected, places=9)
-  #
-  # def test_emb_grads_two_epochs(self):
-  #   expected = np.asarray(
-  #     [[ 0, 0], [ 1.23475911e-06, 2.46928539e-06], [-5.26270887e-05, -1.05221523e-04], [ 5.41591871e-05, 1.08285341e-04], [ 0, 0]])
-  #   self.assert_trained_emb_grads(expected, places=9, epochs=2)
-  #
-  # def test_emb_grads_five_epochs(self):
-  #   expected = np.asarray(
-  #     [[ 0, 0], [ 1.20434561e-06, 2.40851659e-06], [-5.26594959e-05, -1.05188665e-04], [ 5.41539921e-05, 1.08175940e-04], [ 0, 0]])
-  #   self.assert_trained_emb_grads(expected, places=8, epochs=5)
+  def test_loss_basic(self):
+    self.assert_loss_value(1.3862998485565186, rtol=1e-12)
 
+  def test_loss_twolayer(self):
+    self.assert_loss_value(1.3862943649291992, num_layers=2, rtol=1e-12)
+
+  def test__loss_bidirectional(self):
+    self.assert_loss_value(1.3863017559051514, bi_encoder=True, rtol=1e-12)
+
+  def test_loss_two_epochs(self):
+    self.assert_loss_value(1.3866344690322876, epochs=2, lr=100, rtol=1e-12)
+
+  def test_loss_five_epochs(self):
+    self.assert_loss_value(2.6611084938049316, epochs=5, lr=10, rtol=1e-12)
+
+  def test_emb_weights_two_epochs(self):
+    desired = np.asarray(
+      [[-0.1, 0.1], [-0.19894804, 0.20147263], [-0.28823119, 0.32002223], [-0.41040528, 0.3818686], [-0.5, 0.5]])
+    self.assert_trained_params(desired=desired, epochs=2, lr=100, param_type=self.TYPE_EMB, subpath="model.src_embedder")
+
+  def test_emb_weights_five_epochs(self):
+    expected = np.asarray(
+      [[-0.1, 0.1], [-0.20250981, 0.19391325], [-0.29897961, 0.30119216], [-0.40397269, 0.39145479], [-0.5, 0.5]])
+    self.assert_trained_params(expected, epochs=5, lr=10, param_type=self.TYPE_EMB, subpath="model.src_embedder")
+
+  def test_emb_grads(self):
+    desired = np.asarray(
+      [[0, 0], [1.2468663e-6, 2.49373261e-6], [-5.26151271e-5, -1.05230254e-4], [5.41623740e-5, 1.08324748e-4], [0, 0]])
+    self.assert_trained_grads(desired=desired, param_type=self.TYPE_EMB, subpath="model.src_embedder")
+
+  def test_emb_grads_two_epochs(self):
+    desired = np.asarray(
+      [[ 0, 0], [ 1.23475911e-06, 2.46928539e-06], [-5.26270887e-05, -1.05221523e-04], [ 5.41591871e-05, 1.08285341e-04], [ 0, 0]])
+    self.assert_trained_grads(desired=desired, epochs=2, param_type=self.TYPE_EMB, subpath="model.src_embedder")
+
+  def test_emb_grads_five_epochs(self):
+    desired = np.asarray(
+      [[ 0, 0], [ 1.20434561e-06, 2.40851659e-06], [-5.26594959e-05, -1.05188665e-04], [ 5.41539921e-05, 1.08175940e-04], [ 0, 0]])
+    self.assert_trained_grads(desired=desired, epochs=5 ,param_type=self.TYPE_EMB, subpath="model.src_embedder")
 
 
 if __name__ == '__main__':
