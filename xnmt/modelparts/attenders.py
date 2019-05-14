@@ -79,9 +79,9 @@ class MlpAttenderDynet(Attender, Serializable):
     self.state_dim = state_dim
     self.hidden_dim = hidden_dim
     my_params = param_collections.ParamManager.my_params(self)
-    self.pW = my_params.add_parameters((hidden_dim, input_dim), init=param_init[0].initializer((hidden_dim, input_dim)))
-    self.pV = my_params.add_parameters((hidden_dim, state_dim), init=param_init[1].initializer((hidden_dim, state_dim)))
-    self.pb = my_params.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
+    self.linear_context = my_params.add_parameters((hidden_dim, input_dim), init=param_init[0].initializer((hidden_dim, input_dim)))
+    self.bias_context = my_params.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
+    self.linear_query = my_params.add_parameters((hidden_dim, state_dim), init=param_init[1].initializer((hidden_dim, state_dim)))
     self.pU = my_params.add_parameters((1, hidden_dim), init=param_init[2].initializer((1, hidden_dim)))
     self.curr_sent = None
     self.attention_vecs = None
@@ -91,9 +91,7 @@ class MlpAttenderDynet(Attender, Serializable):
     self.attention_vecs = []
     self.curr_sent = sent
     I = self.curr_sent.as_tensor()
-    W = dy.parameter(self.pW)
-    b = dy.parameter(self.pb)
-    self.WI = dy.affine_transform([b, W, I])
+    self.WI = dy.affine_transform([self.bias_context, self.linear_context, I])
     wi_dim = self.WI.dim()
     # TODO(philip30): dynet affine transform bug, should be fixed upstream
     # if the input size is "1" then the last dimension will be dropped.
@@ -101,13 +99,10 @@ class MlpAttenderDynet(Attender, Serializable):
       self.WI = dy.reshape(self.WI, (wi_dim[0][0], 1), batch_size=wi_dim[1])
 
   def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
-    V = dy.parameter(self.pV)
-    U = dy.parameter(self.pU)
-
     WI = self.WI
     curr_sent_mask = self.curr_sent.mask
-    h = dy.tanh(dy.colwise_add(WI, V * state))
-    scores = dy.transpose(U * h)
+    h = dy.tanh(dy.colwise_add(WI, self.linear_query * state))
+    scores = dy.transpose(self.pU * h)
     if curr_sent_mask is not None:
       scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)

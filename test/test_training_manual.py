@@ -85,9 +85,9 @@ class ManualTestingBaseClass(object):
                    [lambda x: x.linear._parameters['weight'], lambda x: x.linear._parameters['bias']])
   TYPE_LSTM = ([lambda x: x.Wx[0], lambda x: x.Wh[0], lambda x: x.b[0]],
                [lambda x: x.layers[0]._parameters['weight_ih'], lambda x: x.layers[0]._parameters['weight_hh'], lambda x: x.layers[0]._parameters['bias_ih']])
-  TYPE_MLP_ATT = ([lambda x: x.pV, lambda x: x.pW, lambda x: x.pb, lambda x: x.pU],
-                  [lambda x: x.linear_context._parameters['weight'], lambda x: x.linear_query._parameters['weight'],
-                   lambda x: x.linear_context._parameters['bias'], lambda x: x.pU._parameters['weight']])
+  TYPE_MLP_ATT = ([lambda x: x.linear_context, lambda x: x.bias_context, lambda x: x.linear_query, lambda x: x.pU],
+                  [lambda x: x.linear_context._parameters['weight'], lambda x: x.linear_context._parameters['bias'],
+                   lambda x: x.linear_query._parameters['weight'], lambda x: x.pU._parameters['weight']])
 
 
   def assert_loss_value(self, desired, rtol=1e-12, atol=0, *args, **kwargs):
@@ -110,7 +110,7 @@ class ManualTestingBaseClass(object):
       with self.subTest(sub_param_i):
         np.testing.assert_allclose(actual=actual[sub_param_i], desired=sub_param, rtol=rtol, atol=atol)
 
-  def assert_trained_grads(self, desired, rtol=1e-3, atol=0, param_type=TYPE_EMB, subpath="model.src_embedder",
+  def assert_trained_grads(self, desired, rtol=1e-3, atol=0, flatten=False, param_type=TYPE_EMB, subpath="model.src_embedder",
                                epochs=1, *args, **kwargs):
     assert type(desired) in (list,tuple)
     training_regimen = self.run_training(epochs=epochs-1, *args, **kwargs)
@@ -131,7 +131,11 @@ class ManualTestingBaseClass(object):
       actual = [type_lamb(component).grad for type_lamb in param_type[1]]
     for sub_param_i, sub_param in enumerate(desired):
       with self.subTest(sub_param_i):
-        np.testing.assert_allclose(actual=actual[sub_param_i], desired=sub_param, rtol=rtol, atol=atol)
+        if flatten:
+          np.testing.assert_allclose(actual=actual[sub_param_i].flatten(), desired=sub_param.flatten(), rtol=rtol,
+                                     atol=atol)
+        else:
+          np.testing.assert_allclose(actual=actual[sub_param_i], desired=sub_param, rtol=rtol, atol=atol)
 
   def assert_trained_mlp_att_grads(self, val, places, epochs=1, *args, **kwargs):
     training_regimen = self.run_training(epochs=epochs-1, *args, **kwargs)
@@ -378,33 +382,31 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
 
   def test_mlp_att_grads(self):
     desired = (np.asarray([[-3.15510178e-08,-3.91636625e-08],[-6.31020356e-08,-7.83273251e-08]]),
-                np.asarray([[-1.15501116e-10,1.41344131e-10],[-2.31002231e-10,2.82688262e-10]]),
-                np.asarray([1.65015179e-09,3.30030359e-09]),
-                np.asarray([[-1.09920165e-07,1.09920165e-07]]))
-    self.assert_trained_grads(desired, epochs=1, param_type=self.TYPE_MLP_ATT, subpath="model.attender")
+               np.asarray([1.65015179e-09,3.30030359e-09]),
+               np.asarray([[-1.15501116e-10,1.41344131e-10],[-2.31002231e-10,2.82688262e-10]]),
+               np.asarray([[-1.09920165e-07,1.09920165e-07]]))
+    self.assert_trained_grads(desired, epochs=1, param_type=self.TYPE_MLP_ATT, subpath="model.attender", rtol=1e-2)
 
+  def test_mlp_att_grads_two_epochs_adam(self):
+    desired = (np.asarray([[1.9886029e-05, 2.2218173e-05], [-5.5424091e-05, -6.2103529e-05]]),
+               np.asarray([ 3.0994852e-07, -1.1994176e-05]),
+               np.asarray([[-1.9301253e-07, -1.1546918e-08], [7.1632535e-06, 4.7493609e-07]]),
+               np.asarray([-1.3820918e-05,  8.8202738e-05]))
+    self.assert_trained_grads(desired=desired, epochs=2, adam=True, lr=100, flatten=True,
+                              param_type=self.TYPE_MLP_ATT, subpath="model.attender", rtol=1e-2)
 
+  def test_mlp_att_grads_trained(self):
+    desired = (np.asarray([[ 6.15145327e-05,5.41474146e-05],[-1.41641664e-04,-1.24026701e-04]]),
+               np.asarray([-0.00021929,0.0002702,]),
+               np.asarray([[-9.45401825e-06,-1.82743112e-04],[ 1.28936317e-05,2.54007202e-04]]),
+               np.asarray([[ 0.00020377,-0.00013509]]))
+    self.assert_trained_grads(desired=desired, epochs=3, adam=True, lr=100, param_type=self.TYPE_MLP_ATT, subpath="model.attender")
 
-  # TODO: update below tests
+  def test_loss_three_epochs_adam(self):
+    self.assert_loss_value(8.912698745727539, epochs=3, lr=10, adam=True, rtol=1e-6)
 
-  # def test_mlp_att_grads_two_epochs_adam(self):
-  #   expected = (np.asarray([[1.9886029e-05, 2.2218173e-05], [-5.5424091e-05, -6.2103529e-05]]),
-  #               np.asarray([[-1.9301253e-07, -1.1546918e-08], [7.1632535e-06, 4.7493609e-07]]),
-  #               np.asarray([ 3.0994852e-07, -1.1994176e-05]),
-  #               np.asarray([-1.3820918e-05,  8.8202738e-05]))
-  #   self.assert_trained_mlp_att_grads(expected, places=7, epochs=2, adam=True, lr=100)
-
-  # def test_mlp_att_grads_trained(self):
-  #   expected = (np.asarray([[ 6.15145327e-05,5.41474146e-05],[-1.41641664e-04,-1.24026701e-04]]),
-  #               np.asarray([[-9.45401825e-06,-1.82743112e-04],[ 1.28936317e-05,2.54007202e-04]]),
-  #               np.asarray([-0.00021929,0.0002702,]),
-  #               np.asarray([[ 0.00020377,-0.00013509]]))
-  #   self.assert_trained_mlp_att_grads(expected, places=7, epochs=3, adam=True, lr=100)
-
-  # def test_loss_three_epochs_adam(self):
-  #   self.assert_loss_value(8.912698745727539, places=2, epochs=3, lr=10, adam=True)
-  # def test_loss_ten_epochs_adam(self):
-  #   self.assert_loss_value(7.670589447021484, places=2, epochs=10, lr=10, adam=True)
+  def test_loss_ten_epochs_adam(self):
+    self.assert_loss_value(7.670589447021484, epochs=10, lr=10, adam=True)
 
   # def test_all_params_one_epoch(self):
   #   # useful regex: (?<!\[)\s+      ->      ,
