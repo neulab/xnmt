@@ -1,6 +1,9 @@
 import os
 import re
 import numbers
+import pickle
+
+import numpy as np
 
 import xnmt
 from xnmt import logger
@@ -258,7 +261,30 @@ class ParamCollectionTorch(BaseParamCollection):
     return new_subcol
 
   def load_subcol_from_data_file(self, subcol_name: str, data_file: str) -> None:
+    try:
+      self.load_subcol_from_data_file_torch(subcol_name=subcol_name, data_file=data_file)
+    except pickle.UnpicklingError:
+      self.load_subcol_from_data_file_dynet(subcol_name=subcol_name, data_file=data_file)
+
+  def load_subcol_from_data_file_torch(self, subcol_name: str, data_file: str) -> None:
     loaded = torch.load(data_file).state_dict()
+    self.subcols[subcol_name].load_state_dict(loaded)
+
+  def load_subcol_from_data_file_dynet(self, subcol_name: str, data_file: str) -> None:
+    state_dict = self.subcols[subcol_name].state_dict()
+    tensors = []
+    with open(data_file) as f:
+      try:
+        while True:
+          meta_line = next(f)
+          content_line = next(f)
+          dims = tuple([int(s) for s in meta_line.split()[2][1:-1].split(",")])
+          numbers = [float(s) for s in content_line.split()]
+          array = np.asarray(numbers)
+          array.resize(dims) # TODO: not sure if this is column or row major..
+          tensors.append(torch.Tensor(array.T))
+      except StopIteration: pass
+    loaded = {k:tensors[i] for i,k in enumerate(state_dict.keys()) if not "bias_hh" in k}
     self.subcols[subcol_name].load_state_dict(loaded)
 
   def save(self) -> None:
