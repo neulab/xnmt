@@ -530,6 +530,9 @@ class SimpleWordEmbedderTorch(SentEmbedder, Serializable):
       ret = ret + noise
     return ret
 
+  def params_from_dynet(self, arrays, state_dict):
+    assert len(arrays)==1
+    return {'0.weight':arrays[0].T}
 
 
 

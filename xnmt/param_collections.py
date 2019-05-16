@@ -272,7 +272,7 @@ class ParamCollectionTorch(BaseParamCollection):
 
   def load_subcol_from_data_file_dynet(self, subcol_name: str, data_file: str) -> None:
     state_dict = self.subcols[subcol_name].state_dict()
-    tensors = []
+    arrays = []
     with open(data_file) as f:
       try:
         while True:
@@ -281,10 +281,15 @@ class ParamCollectionTorch(BaseParamCollection):
           dims = tuple([int(s) for s in meta_line.split()[2][1:-1].split(",")])
           numbers = [float(s) for s in content_line.split()]
           array = np.asarray(numbers)
-          array.resize(dims) # TODO: not sure if this is column or row major..
-          tensors.append(torch.Tensor(array.T))
+          array.resize(tuple(reversed(dims)))
+          array = array.transpose(tuple(reversed(range(0,len(dims)))))
+          arrays.append(array)
       except StopIteration: pass
-    loaded = {k:tensors[i] for i,k in enumerate(state_dict.keys()) if not "bias_hh" in k}
+    subcol_owner = None
+    for owner in self.all_subcol_owners:
+      if owner.xnmt_subcol_name==subcol_name: subcol_owner = owner
+    loaded = subcol_owner.params_from_dynet(arrays, state_dict)
+    loaded = {k:torch.Tensor(v) for (k,v) in loaded.items()}
     self.subcols[subcol_name].load_state_dict(loaded)
 
   def save(self) -> None:

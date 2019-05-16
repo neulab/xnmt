@@ -80,8 +80,8 @@ class MlpAttenderDynet(Attender, Serializable):
     self.hidden_dim = hidden_dim
     my_params = param_collections.ParamManager.my_params(self)
     self.linear_context = my_params.add_parameters((hidden_dim, input_dim), init=param_init[0].initializer((hidden_dim, input_dim)))
-    self.bias_context = my_params.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
     self.linear_query = my_params.add_parameters((hidden_dim, state_dim), init=param_init[1].initializer((hidden_dim, state_dim)))
+    self.bias_context = my_params.add_parameters((hidden_dim,), init=bias_init.initializer((hidden_dim,)))
     self.pU = my_params.add_parameters((1, hidden_dim), init=param_init[2].initializer((1, hidden_dim)))
     self.curr_sent = None
     self.attention_vecs = None
@@ -164,6 +164,13 @@ class MlpAttenderTorch(Attender, Serializable):
     normalized = F.softmax(scores,dim=-1)
     self.attention_vecs.append(normalized)
     return normalized
+
+  def params_from_dynet(self, arrays, state_dict):
+    assert len(arrays)==4
+    return {'0.weight': arrays[0],
+            '0.bias': arrays[2],
+            '1.weight': arrays[1],
+            '2.weight': arrays[3]}
 
 MlpAttender = xnmt.resolve_backend(MlpAttenderDynet, MlpAttenderTorch)
 

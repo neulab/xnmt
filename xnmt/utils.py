@@ -6,6 +6,7 @@ import unicodedata
 import string
 import functools
 import numbers
+import errno
 from typing import List, MutableMapping, Optional
 
 import numpy as np
@@ -38,7 +39,7 @@ def make_parent_dir(filename: str) -> None:
     try:
       os.makedirs(os.path.dirname(filename))
     except OSError as exc: # Guard against race condition
-      if exc.errno != os.errno.EEXIST:
+      if exc.errno != errno.EEXIST:
         raise
 
 

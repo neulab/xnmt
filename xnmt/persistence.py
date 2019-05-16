@@ -31,7 +31,7 @@ import copy
 from functools import lru_cache, wraps
 from collections import OrderedDict
 import collections.abc
-from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Any
+from typing import List, Set, Callable, TypeVar, Type, Union, Optional, Dict, Any, Sequence
 import random
 
 import yaml
@@ -205,6 +205,25 @@ class Serializable(yaml.YAMLObject):
       return f"bare({self.__class__.__name__}{self._bare_kwargs if self._bare_kwargs else ''})"
     else:
       return f"{self.__class__.__name__}@{id(self)}"
+
+  def params_from_dynet(self, arrays: Sequence['numpy.ndarray'], state_dict: dict):
+    """
+    Convert DyNet parameters loaded from disk into the Pytorch format by doing appropriate rearranging and transposing.
+
+    The default implementation simply assumes that the order of saved parameter arrays is identical, and that no
+    transposing needs to be done. Can be overwritten by submodels as needed.
+
+    Args:
+      arrays: List of arrays, as found in a parameter file written out by dynet.
+      state_dict: The state_dict, indicating keys and dimensions expected by PyTorch.
+
+    Returns:
+      a dictionary with the same keys as state_dict, and with the appropriate numpy arrays as values.
+    """
+    if xnmt.backend_dynet:
+      raise RuntimeError("params_from_dynet can only be invoked with 'torch' as active backend")
+    assert len(arrays)==len(state_dict)
+    return {k:arrays[i] for i,k in enumerate(state_dict.keys()) if not "bias_hh" in k}
 
 
 class UninitializedYamlObject(object):

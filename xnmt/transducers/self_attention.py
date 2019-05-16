@@ -111,7 +111,7 @@ class MultiHeadAttentionSeqTransducerDynet(transducers.SeqTransducer, Serializab
 
     return expr_seq
 
-
+# TODO: consider replacing custom code by torch.nn.MultiheadAttention (new in pytorch 1.1)
 @xnmt.require_torch
 class MultiHeadAttentionSeqTransducerTorch(transducers.SeqTransducer, Serializable):
   """

@@ -416,6 +416,21 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
 
     return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=mask)
 
+  def params_from_dynet(self, arrays, state_dict):
+    assert len(arrays)==3
+    h_dim = arrays[0].shape[0] // 4
+    arrays[0] = np.concatenate([arrays[0][:h_dim * 2,:], arrays[0][h_dim * 3:,:],
+                         arrays[0][h_dim * 2:h_dim * 3, :]], axis=0)
+    arrays[1] = np.concatenate([arrays[1][:h_dim * 2,:], arrays[1][h_dim * 3:,:],
+                         arrays[1][h_dim * 2:h_dim * 3,:]], axis=0)
+    arrays[2] = np.concatenate([arrays[2][:h_dim], arrays[2][h_dim:h_dim * 2] + 1,
+                         arrays[2][h_dim * 3:], arrays[2][h_dim * 2:h_dim * 3]], axis=0)
+
+    return {'0.0.weight_ih':arrays[0],
+            '0.0.weight_hh':arrays[1],
+            '0.0.bias_ih':arrays[2],
+            '0.0.bias_hh':np.zeros_like(arrays[2])}
+
 UniLSTMSeqTransducer = xnmt.resolve_backend(UniLSTMSeqTransducerDynet, UniLSTMSeqTransducerTorch)
 
 class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
@@ -630,6 +645,8 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
       seq_lengths = es.mask.seq_lengths()
     else:
       seq_lengths = [tt.sent_len(es.as_tensor())] * batch_size
+
+    # TODO: as of pytorch 1.1, the sorting can be handled by pytorch using `enforce_sorted` option: https://github.com/pytorch/pytorch/pull/15225
 
     # length sorting / unsorting according to:
     # https://github.com/pytorch/pytorch/issues/4927
