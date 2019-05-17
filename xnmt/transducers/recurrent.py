@@ -250,14 +250,6 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
 
     return expression_seqs.ExpressionSequence(expr_list=h[1:], mask=expr_seq[0].mask)
 
-def forward_hook_ignore_bias_hh(module, input):
-  for name, param in module.named_parameters():
-    if 'bias_hh' in name:
-      # pytorch using redundant biases 'bias_ih' and 'bias_hh'. this is neither useful nor hurtful.
-      # however, the two biases make direct comparison against dynet difficult (as done in test_training_manual.py),
-      # so let's turn this off by setting bias_hh to 0 before every forward pass
-      param.data[:].fill_(0)
-
 @xnmt.require_torch
 class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
   """
@@ -313,10 +305,13 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     # init forget gate biases to 1
     for name, param in self.layers.named_parameters():
       if 'bias_ih' in name:
-        # pytorch using redundant biases 'bias_ih' and 'bias_hh'. initializing only one to 1, the other one to zero:
+        # Pytorch using redundant biases 'bias_ih' and 'bias_hh'. Initializing only one to 1, the other one to zero:
         n = param.size(0)
         start, end = n // 4, n // 2
         param.data[start:end].fill_(1)
+      if 'bias_hh' in name:
+        # Don't update params for the unused redundant bias. This ensures consistency with DyNet LSTM implementation.
+        param.requires_grad = False
 
     self.dropout_mask_x = None
     self.dropout_mask_h = None
