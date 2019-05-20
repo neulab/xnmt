@@ -352,10 +352,7 @@ class TestOverfitting(unittest.TestCase):
                                             ref_file="test/data/head.en",
                                             batcher=batcher)]
     train_args['run_for_epochs'] = 1
-    if xnmt.backend_torch:
-      train_args['trainer'] = optimizers.AdamTrainer(alpha=0.1, clip_grads=5.0, rescale_grads=0.0, skip_noisy=True)
-    else:
-      train_args['trainer'] = optimizers.AdamTrainer(alpha=0.1, clip_grads=5.0, skip_noisy=True)
+    train_args['trainer'] = optimizers.AdamTrainer(alpha=0.1, rescale_grads=5.0, skip_noisy=True)
 
     train_args['batcher'] = batcher
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)

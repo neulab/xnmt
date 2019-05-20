@@ -55,13 +55,14 @@ class XnmtOptimizerDynet(XnmtOptimizer):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
 
-  def __init__(self, optimizer: 'dy.Trainer', skip_noisy: bool = False, clip_grads: numbers.Real = 5.0) -> None:
+  def __init__(self, optimizer: 'dy.Trainer', skip_noisy: bool = False, rescale_grads: Optional[numbers.Real] = 5.0) \
+          -> None:
     self.optimizer = optimizer
     self.optimizer.set_sparse_updates(False)
-    self.optimizer.set_clip_threshold(clip_grads)
+    self.optimizer.set_clip_threshold(rescale_grads or -1)
     self.skip_noisy = skip_noisy
     if skip_noisy:
       self.rolling_stats = utils.RollingStatistic()
@@ -132,20 +133,16 @@ class XnmtOptimizerTorch(XnmtOptimizer):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
     rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
 
   def __init__(self,
                optimizer: 'torch.optim.Optimizer',
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 0.0,
-               rescale_grads: numbers.Real = 15.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     self.optimizer = optimizer
-    self.clip_grads = clip_grads
     self.rescale_grads = rescale_grads
-    if self.clip_grads > 0.0 and self.rescale_grads > 0.0:
-      raise ValueError("either rescale_grads or clip_grads must be deactivated")
+    self.rescale_grads = rescale_grads
     self.lr_factor = 1.0
     self.scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=self.optimizer,
                                                        lr_lambda = lambda epoch: self.lr_factor, last_epoch=-1)
@@ -156,10 +153,8 @@ class XnmtOptimizerTorch(XnmtOptimizer):
 
   def update(self) -> None:
     self.global_step += 1
-    if self.rescale_grads > 0.0:
+    if self.rescale_grads:
       torch.nn.utils.clip_grad_norm_(ParamManager.global_collection().parameters(), self.rescale_grads)
-    elif self.clip_grads > 0.0:
-      torch.nn.utils.clip_grad_value_(ParamManager.global_collection().parameters(), self.clip_grads)
     self.scheduler.step()
     if not (self.skip_noisy and self._check_gradients_noisy()):
       self.optimizer.step()
@@ -207,15 +202,15 @@ class SimpleSGDTrainerDynet(XnmtOptimizerDynet, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!SimpleSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0: numbers.Real = 0.1, skip_noisy: bool = False, clip_grads: numbers.Real = 5.0) -> None:
+  def __init__(self, e0: numbers.Real = 0.1, skip_noisy: bool = False, rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.SimpleSGDTrainer(ParamManager.global_collection(), e0),
                      skip_noisy=skip_noisy,
-                     clip_grads=clip_grads)
+                     rescale_grads=rescale_grads)
 
 @xnmt.require_torch
 class SimpleSGDTrainerTorch(XnmtOptimizerTorch, Serializable):
@@ -233,7 +228,6 @@ class SimpleSGDTrainerTorch(XnmtOptimizerTorch, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
     rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!SimpleSGDTrainer'
@@ -246,8 +240,7 @@ class SimpleSGDTrainerTorch(XnmtOptimizerTorch, Serializable):
                dampening: numbers.Real = 0.0,
                nesterov: bool = False,
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 0.0,
-               rescale_grads: numbers.Real = 15.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=torch.optim.SGD(params=ParamManager.global_collection().parameters(),
                                                lr=e0,
                                                momentum=momentum,
@@ -255,7 +248,6 @@ class SimpleSGDTrainerTorch(XnmtOptimizerTorch, Serializable):
                                                dampening=dampening,
                                                nesterov=nesterov),
                      skip_noisy=skip_noisy,
-                     clip_grads=clip_grads,
                      rescale_grads=rescale_grads)
 
 SimpleSGDTrainer = xnmt.resolve_backend(SimpleSGDTrainerDynet, SimpleSGDTrainerTorch)
@@ -273,7 +265,7 @@ class MomentumSGDTrainer(XnmtOptimizerDynet, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!MomentumSGDTrainer'
 
@@ -282,10 +274,10 @@ class MomentumSGDTrainer(XnmtOptimizerDynet, Serializable):
                e0: numbers.Real = 0.01,
                mom: numbers.Real = 0.9,
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 5.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom),
                      skip_noisy=skip_noisy,
-                     clip_grads=clip_grads)
+                     rescale_grads=rescale_grads)
 
 @xnmt.require_dynet
 class AdagradTrainer(XnmtOptimizerDynet, Serializable):
@@ -300,7 +292,7 @@ class AdagradTrainer(XnmtOptimizerDynet, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!AdagradTrainer'
 
@@ -309,10 +301,10 @@ class AdagradTrainer(XnmtOptimizerDynet, Serializable):
                e0: numbers.Real = 0.1,
                eps: numbers.Real = 1e-20,
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 5.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps),
                      skip_noisy=skip_noisy,
-                     clip_grads=clip_grads)
+                     rescale_grads=rescale_grads)
 
 @xnmt.require_dynet
 class AdadeltaTrainer(XnmtOptimizerDynet, Serializable):
@@ -327,7 +319,7 @@ class AdadeltaTrainer(XnmtOptimizerDynet, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!AdadeltaTrainer'
 
@@ -336,10 +328,10 @@ class AdadeltaTrainer(XnmtOptimizerDynet, Serializable):
                eps: numbers.Real = 1e-6,
                rho: numbers.Real = 0.95,
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 5.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho),
                      skip_noisy=skip_noisy,
-                     clip_grads=clip_grads)
+                     rescale_grads=rescale_grads)
 
 @xnmt.require_dynet
 class AdamTrainerDynet(XnmtOptimizerDynet, Serializable):
@@ -356,7 +348,7 @@ class AdamTrainerDynet(XnmtOptimizerDynet, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!AdamTrainer'
 
@@ -367,9 +359,9 @@ class AdamTrainerDynet(XnmtOptimizerDynet, Serializable):
                beta_2: numbers.Real = 0.999,
                eps: numbers.Real = 1e-8,
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 5.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps),
-                     skip_noisy=skip_noisy, clip_grads=clip_grads)
+                     skip_noisy=skip_noisy, rescale_grads=rescale_grads)
 
 @xnmt.require_torch
 class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
@@ -388,7 +380,6 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
     rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!AdamTrainer'
@@ -402,8 +393,7 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
                weight_decay: numbers.Real = 0.0,
                amsgrad: bool = False,
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 0.0,
-               rescale_grads: numbers.Real = 15.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
                                                 lr=alpha,
                                                 betas=(beta_1, beta_2),
@@ -411,7 +401,6 @@ class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
                                                 weight_decay=weight_decay,
                                                 amsgrad=amsgrad),
                      skip_noisy=skip_noisy,
-                     clip_grads=clip_grads,
                      rescale_grads=rescale_grads,
                      )
 
@@ -434,7 +423,7 @@ class NoamTrainerDynet(XnmtOptimizerDynet, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!NoamTrainer'
 
@@ -447,14 +436,14 @@ class NoamTrainerDynet(XnmtOptimizerDynet, Serializable):
                beta_2: numbers.Real = 0.98,
                eps: numbers.Real = 1e-9,
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 5.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(),
                                     alpha=alpha,
                                     beta_1=beta_1,
                                     beta_2=beta_2,
                                     eps=eps),
                      skip_noisy=skip_noisy,
-                     clip_grads=clip_grads)
+                     rescale_grads=rescale_grads)
     self.dim = dim
     self.warmup_steps = warmup_steps
     self.steps = 0
@@ -488,7 +477,6 @@ class NoamTrainerTorch(XnmtOptimizerTorch, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
-    clip_grads: threshold for gradient clipping (to deactivate clipping, set the threshold to be <=0)
     rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!NoamTrainer'
@@ -502,12 +490,10 @@ class NoamTrainerTorch(XnmtOptimizerTorch, Serializable):
                beta_2: numbers.Real = 0.98,
                eps: numbers.Real = 1e-9,
                skip_noisy: bool = False,
-               clip_grads: numbers.Real = 0.0,
-               rescale_grads: numbers.Real = 15.0) -> None:
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
                                                 lr=alpha, betas=(beta_1, beta_2), eps=eps),
                      skip_noisy=skip_noisy,
-                     clip_grads=clip_grads,
                      rescale_grads=rescale_grads)
     self.dim = dim
     self.warmup_steps = warmup_steps

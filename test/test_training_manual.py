@@ -226,16 +226,10 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
         trg_reader=PlainTextReader(vocab=vocab),
       )
     train_args['dev_tasks'] = []
-    if xnmt.backend_dynet:
-      if adam:
-        train_args['trainer'] = optimizers.AdamTrainer(alpha=lr*0.01, clip_grads=-1)
-      else:
-        train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=-1)
+    if adam:
+      train_args['trainer'] = optimizers.AdamTrainer(alpha=lr * 0.01, rescale_grads=False)
     else:
-      if adam:
-        train_args['trainer'] = optimizers.AdamTrainer(alpha=lr * 0.01, clip_grads=0, rescale_grads=False)
-      else:
-        train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=0, rescale_grads=False)
+      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, rescale_grads=False)
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = epochs
     train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
@@ -282,9 +276,9 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
   def test_loss_three_epochs_adam(self):
     self.assert_loss_value(8.912698745727539, epochs=3, lr=10, adam=True, rtol=1e-6)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
+  #@unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_ten_epochs_adam(self):
-    self.assert_loss_value(7.670589447021484, epochs=10, lr=10, adam=True)
+    self.assert_loss_value(7.670589447021484, epochs=10, lr=10, adam=True, rtol=1e-7)
 
   @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_all_params_one_epoch(self):
@@ -437,10 +431,7 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
           bridge=NoBridge(dec_dim=layer_dim, dec_layers=num_layers)),
       )
     train_args['dev_tasks'] = []
-    if xnmt.backend_dynet:
-      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=-1)
-    else:
-      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=0, rescale_grads=False)
+    train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, rescale_grads=False)
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = epochs
     train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
@@ -646,7 +637,7 @@ class TestGradientClippingManual(unittest.TestCase, ManualTestingBaseClass):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-  def run_training(self, lr=0.1, rescale_grads=None):
+  def run_training(self, lr=0.1, rescale_grads=False):
     layer_dim = 2
     batcher = SrcBatcher(batch_size=2, break_ties_randomly=False)
     train_args = {}
@@ -681,10 +672,7 @@ class TestGradientClippingManual(unittest.TestCase, ManualTestingBaseClass):
           bridge=NoBridge(dec_dim=layer_dim, dec_layers=1)),
       )
     train_args['dev_tasks'] = []
-    if xnmt.backend_dynet:
-      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=rescale_grads or -1)
-    else:
-      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=0, rescale_grads=rescale_grads or 0)
+    train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, rescale_grads=rescale_grads)
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 0
     train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
@@ -736,6 +724,7 @@ class TestGradientClippingManual(unittest.TestCase, ManualTestingBaseClass):
        [-0.5, 0.5]])]
     self.assert_trained_grads(desired=desired, rescale_grads=None, param_type=self.TYPE_EMB, subpath="model.src_embedder")
 
+  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_clipping(self):
     desired = [np.asarray(
       [[-0.10000000149011612,0.10000000149011612],
