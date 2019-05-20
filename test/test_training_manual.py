@@ -29,7 +29,7 @@ from xnmt.models.translators.default import DefaultTranslator
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 
-TEST_ALL = True
+TEST_ALL = False
 
 np.set_printoptions(floatmode='unique', linewidth=10000, edgeitems=100)
 
@@ -286,7 +286,7 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
   def test_loss_ten_epochs_adam(self):
     self.assert_loss_value(7.670589447021484, epochs=10, lr=10, adam=True)
 
-  # @unittest.skipUnless(TEST_ALL, reason="quick subtest")
+  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_all_params_one_epoch(self):
     # useful regex: (?<!\[)\s+      ->      ,
     expected = {
@@ -637,6 +637,113 @@ class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
     desired = [np.asarray(
       [[ 0, 0], [ 1.20434561e-06, 2.40851659e-06], [-5.26594959e-05, -1.05188665e-04], [ 5.41539921e-05, 1.08175940e-04], [ 0, 0]])]
     self.assert_trained_grads(desired=desired, epochs=5 ,param_type=self.TYPE_EMB, subpath="model.src_embedder")
+
+
+
+class TestGradientClippingManual(unittest.TestCase, ManualTestingBaseClass):
+
+  def setUp(self):
+    xnmt.events.clear()
+    ParamManager.init_param_col()
+
+  def run_training(self, lr=0.1, rescale_grads=None):
+    layer_dim = 2
+    batcher = SrcBatcher(batch_size=2, break_ties_randomly=False)
+    train_args = {}
+    train_args['src_file'] = "test/data/ab-ba.txt"
+    train_args['trg_file'] = "test/data/ab-ba.txt"
+    train_args['loss_calculator'] = MLELoss()
+    vocab = Vocab(i2w=['<s>', '</s>', 'a', 'b', '<unk>'])
+    vocab_size = 5
+    encoder = UniLSTMSeqTransducer(input_dim=layer_dim,
+                                   hidden_dim=layer_dim,
+                                   param_init=NumpyInitializer(self.LSTM_ARR_8_2),
+                                   layers=1)
+    train_args['model'] = \
+      DefaultTranslator(
+        src_reader=PlainTextReader(vocab=vocab),
+        trg_reader=PlainTextReader(vocab=vocab),
+        src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(self.EMB_ARR_5_2)),
+        encoder=encoder,
+        attender=DotAttender(),
+        decoder=AutoRegressiveDecoder(
+          input_dim=layer_dim,
+          embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=vocab_size, param_init=NumpyInitializer(self.EMB_ARR_5_2)),
+          rnn=UniLSTMSeqTransducer(input_dim=layer_dim,
+                                   hidden_dim=layer_dim,
+                                   decoder_input_dim=layer_dim,
+                                   layers=1,
+                                   param_init=InitializerSequence(
+                                     [NumpyInitializer(self.DEC_LSTM_ARR_8_4)] + [NumpyInitializer(self.LSTM_ARR_8_2)]),
+                                   yaml_path="model.decoder.rnn"),
+          transform=NonLinear(input_dim=layer_dim * 2, output_dim=layer_dim, param_init=NumpyInitializer(self.PROJ_ARR_2_4)),
+          scorer=Softmax(input_dim=layer_dim, vocab_size=vocab_size ,param_init=NumpyInitializer(self.EMB_ARR_5_2)),
+          bridge=NoBridge(dec_dim=layer_dim, dec_layers=1)),
+      )
+    train_args['dev_tasks'] = []
+    if xnmt.backend_dynet:
+      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=rescale_grads or -1)
+    else:
+      train_args['trainer'] = optimizers.SimpleSGDTrainer(e0=lr, clip_grads=0, rescale_grads=rescale_grads or 0)
+    train_args['batcher'] = batcher
+    train_args['run_for_epochs'] = 0
+    train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
+    training_regimen = regimens.SimpleTrainingRegimen(**train_args)
+    # training_regimen.run_training(save_fct = lambda: None)
+    return training_regimen
+
+  def assert_trained_grads(self, desired, rtol=1e-3, atol=0, flatten=False, is_lstm=False,
+                           param_type=ManualTestingBaseClass.TYPE_EMB, subpath="model.src_embedder", *args, **kwargs):
+    assert type(desired) in (list,tuple)
+    training_regimen = self.run_training(*args, **kwargs)
+    # last epoch is done manually and without calling update():
+    src, trg = next(training_regimen.next_minibatch())
+    tt.reset_graph()
+    event_trigger.set_train(True)
+    loss_builder = training_regimen.training_step(src, trg)
+    loss = loss_builder.compute(comb_method=training_regimen.loss_comb_method)
+    loss = 1000 * loss
+    training_regimen.backward(loss)
+    training_regimen.update(training_regimen.trainer)
+
+    component = training_regimen
+    for path_elem in subpath.split("."):
+      try:
+        component = component[int(path_elem)]
+      except ValueError:
+        component = getattr(component, path_elem)
+    if xnmt.backend_dynet:
+      actual = [type_lamb(component).as_array() for type_lamb in param_type[0]]
+    else:
+      actual = [type_lamb(component).data for type_lamb in param_type[1]]
+      if is_lstm: actual = self.convert_pytorch_lstm_weights(actual, adjust_forget=False)
+
+    for sub_param_i, sub_param in enumerate(desired):
+      with self.subTest(sub_param_i):
+        if flatten:
+          np.testing.assert_allclose(actual=actual[sub_param_i].flatten(), desired=sub_param.flatten(), rtol=rtol,
+                                     atol=atol)
+        else:
+          np.testing.assert_allclose(actual=actual[sub_param_i], desired=sub_param, rtol=rtol, atol=atol)
+
+  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
+  def test_no_clipping(self):
+    desired = [np.asarray(
+      [[-0.10000000149011612, 0.10000000149011612],
+       [-0.2018430382013321, 0.19631394743919373],
+       [-0.30349940061569214, 0.2930012345314026],
+       [-0.4039168357849121, 0.3921663165092468],
+       [-0.5, 0.5]])]
+    self.assert_trained_grads(desired=desired, rescale_grads=None, param_type=self.TYPE_EMB, subpath="model.src_embedder")
+
+  def test_clipping(self):
+    desired = [np.asarray(
+      [[-0.10000000149011612,0.10000000149011612],
+       [-0.2000042051076889,0.1999915987253189,],
+       [-0.30000799894332886,0.29998403787612915],
+       [-0.4000089466571808,0.39998212456703186],
+       [-0.5,0.5,]])]
+    self.assert_trained_grads(desired=desired, rescale_grads=5, param_type=self.TYPE_EMB, subpath="model.src_embedder")
 
 
 if __name__ == '__main__':
