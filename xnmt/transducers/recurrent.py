@@ -299,7 +299,6 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       )
       for layer in range(layers)
     ]).to(xnmt.device)
-    for layer in range(layers): self.layers[layer].register_forward_pre_hook(forward_hook_ignore_bias_hh)
     my_params.append(self.layers)
     my_params.init_params(param_init, bias_init)
     # init forget gate biases to 1
