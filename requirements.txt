@@ -11,4 +11,4 @@ Unidecode>=1.0.22
 beautifulsoup4
 nltk
 pylru
-tensorboardX
+tensorboardX==1.6
