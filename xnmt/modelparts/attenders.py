@@ -320,13 +320,10 @@ class LatticeBiasedMlpAttender(MlpAttender, Serializable):
     self.cur_sent_bias_expr = None
 
   def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
-    V = dy.parameter(self.pV)
-    U = dy.parameter(self.pU)
-
     WI = self.WI
     curr_sent_mask = self.curr_sent.mask
-    h = dy.tanh(dy.colwise_add(WI, V * state))
-    scores = dy.transpose(U * h)
+    h = dy.tanh(dy.colwise_add(WI, self.linear_query * state))
+    scores = dy.transpose(self.pU * h)
     if curr_sent_mask is not None:
       scores = curr_sent_mask.add_to_tensor_expr(scores, multiplicator = -1e10)
     if self.cur_sent_bias_expr is None: self.cur_sent_bias_expr = dy.inputTensor(self.cur_sent_bias, batched=True)
