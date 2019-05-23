@@ -77,8 +77,8 @@ class MultiHeadAttentionSeqTransducerDynet(transducers.SeqTransducer, Serializab
 
     # Start with a [(length, model_size) x batch] tensor
     x = expr_seq.as_transposed_tensor()
-    x_len = x.dim()[0][0]
-    x_batch = x.dim()[1]
+    x_len = tt.sent_len_transp(x)
+    x_batch = tt.batch_size(x)
     # Get the query key and value vectors
     # TODO: do we need bias broadcasting in DyNet?
     # q = dy.affine_transform([bq, x, Wq])

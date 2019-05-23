@@ -40,8 +40,7 @@ class LinearSent(object):
     output = self.L(input)
     if not reconstruct_shape:
         return output
-    (_, seq_len), batch_size = input_expr.dim()
-    return ReverseTimeDistributed()(output, seq_len, batch_size)
+    return ReverseTimeDistributed()(output, input_expr.sent_len(), input_expr.batch_size())
 
 @xnmt.require_dynet
 class LinearNoBiasSent(object):

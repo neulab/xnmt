@@ -78,6 +78,16 @@ class BaseExpressionSequence(object):
     elif self.expr_tensor is not None: return tt.sent_len(self.expr_tensor)
     else: return tt.sent_len_transp(self.expr_transposed_tensor)
 
+  def batch_size(self):
+    """Return length.
+
+    Returns:
+      length of sequence
+    """
+    if self.expr_list: return tt.batch_size(self.expr_list[0])
+    elif self.expr_tensor is not None: return tt.batch_size(self.expr_tensor)
+    else: return tt.batch_size(self.expr_transposed_tensor)
+
   def __iter__(self):
     """Return iterator.
 
@@ -338,12 +348,19 @@ class LazyNumpyExpressionSequenceDynet(ExpressionSequence):
     self.expr_list, self.expr_tensor, self.expr_transposed_tensor = None, None, None
     self.mask = mask
   def sent_len(self):
-    if self.expr_list or self.expr_tensor:
+    if self.expr_list or self.expr_tensor or self.expr_transposed_tensor:
       return super().sent_len()
     else:
       if batchers.is_batched(self.lazy_data):
         return self.lazy_data[0].get_array().shape[1]
       else: return self.lazy_data.get_array().shape[1]
+  def batch_size(self):
+    if self.expr_list or self.expr_tensor or self.expr_transposed_tensor:
+      return super().batch_size()
+    else:
+      if batchers.is_batched(self.lazy_data):
+        return self.lazy_data.batch_size()
+      else: return 1
   def __iter__(self):
     if not (self.expr_list or self.expr_tensor):
       self.expr_list = [self[i] for i in range(len(self))]
@@ -380,12 +397,21 @@ class LazyNumpyExpressionSequenceTorch(ExpressionSequence):
     self.expr_list, self.expr_tensor, self.expr_transposed_tensor = None, None, None
     self.mask = mask
   def sent_len(self):
-    if self.expr_list or self.expr_tensor:
+    if self.expr_list or self.expr_tensor is not None or self.expr_transposed_tensor is not None:
       return super().sent_len()
     else:
       if batchers.is_batched(self.lazy_data):
         return self.lazy_data[0].get_array().shape[0]
       else: return self.lazy_data.get_array().shape[0]
+
+  def batch_size(self):
+    if self.expr_list or self.expr_tensor is not None or self.expr_transposed_tensor is not None:
+      return super().batch_size()
+    else:
+      if batchers.is_batched(self.lazy_data):
+        return self.lazy_data.batch_size()
+      else: return 1
+
   def __iter__(self):
     if not (self.expr_list or self.expr_tensor):
       self.expr_list = [self[i] for i in range(len(self))]
@@ -426,7 +452,10 @@ class BaseReversedExpressionSequence(BaseExpressionSequence):
       self.mask = base_expr_seq.mask.reversed()
 
   def sent_len(self):
-    return len(self.base_expr_seq)
+    return self.base_expr_seq.sent_len()
+
+  def batch_size(self):
+    return self.base_expr_seq.batch_size()
 
   def __iter__(self):
     if self.expr_list is None:

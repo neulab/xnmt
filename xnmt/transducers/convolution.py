@@ -73,8 +73,8 @@ class ConvConnectedSeqTransducer(transducers.SeqTransducer, Serializable):
   def transduce(self, embed_sent: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
     src = embed_sent.as_tensor()
 
-    sent_len = src.dim()[0][1]
-    batch_size = src.dim()[1]
+    sent_len = tt.sent_len(src)
+    batch_size = tt.batch_size(src)
     pad_size = (self.window_receptor-1)/2 #TODO adapt it also for even window size
 
     src = dy.concatenate([dy.zeroes((self.input_dim,pad_size),batch_size=batch_size),src,dy.zeroes((self.input_dim,pad_size), batch_size=batch_size)],d=1)

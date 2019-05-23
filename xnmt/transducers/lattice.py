@@ -72,7 +72,7 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
       self.dropout_mask_h = dy.random_bernoulli((self.hidden_dim,), retention_rate, scale, batch_size=batch_size)
 
   def transduce(self, expr_seq: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
-    if expr_seq.dim()[1] > 1: raise ValueError(f"LatticeLSTMTransducer requires batch size 1, got {expr_seq.dim()[1]}")
+    if expr_seq.batch_size() > 1: raise ValueError(f"LatticeLSTMTransducer requires batch size 1, got {expr_seq.batch_size()}")
     lattice = self.cur_src[0]
     Wx_iog = dy.parameter(self.p_Wx_iog)
     Wh_iog = dy.parameter(self.p_Wh_iog)
@@ -84,7 +84,7 @@ class LatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
     c = {}
     h_list = []
 
-    batch_size = expr_seq.dim()[1]
+    batch_size = expr_seq.batch_size()
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
 

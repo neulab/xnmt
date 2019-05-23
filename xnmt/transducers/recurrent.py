@@ -203,7 +203,7 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
     """
     if isinstance(expr_seq, expression_seqs.ExpressionSequence):
       expr_seq = [expr_seq]
-    batch_size = expr_seq[0][0].dim()[1]
+    batch_size = expr_seq[0].batch_size()
     seq_len = expr_seq[0].sent_len()
 
     if self.dropout_rate > 0.0 and self.train:

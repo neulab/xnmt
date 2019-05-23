@@ -202,7 +202,7 @@ class DotAttenderDynet(Attender, Serializable):
   def calc_attention(self, state: tt.Tensor) -> tt.Tensor:
     scores = self.I * state
     if self.scale:
-      scores /= math.sqrt(state.dim()[0][0])
+      scores /= math.sqrt(tt.hidden_size(state))
     if self.curr_sent.mask is not None:
       scores = self.curr_sent.mask.add_to_tensor_expr(scores, multiplicator = -100.0)
     normalized = dy.softmax(scores)

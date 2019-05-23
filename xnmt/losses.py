@@ -130,7 +130,7 @@ class FactoredLossExprDynet(BaseFactoredLossExpr):
     if comb_method == "sum":
       return dy.sum_batches(batched_expr)
     elif comb_method == "avg":
-      return dy.sum_batches(batched_expr) * (1.0 / batched_expr.dim()[1])
+      return dy.sum_batches(batched_expr) * (1.0 / tt.batch_size(batched_expr))
     else:
       raise ValueError(f"Unknown batch combination method '{comb_method}', expected 'sum' or 'avg'.'")
 
