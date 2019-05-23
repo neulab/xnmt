@@ -177,7 +177,7 @@ def unmerge_time_batch_dims(x: Tensor, batch_size_: numbers.Integral) -> Tensor:
     hidden_dim = x.size()[1:]
     return x.view((batch_size_, seq_len) + hidden_dim)
 
-def aggregate_masked_loss(x: Tensor, mask: xnmt.batchers.Mask=None) -> Tensor:
+def aggregate_masked_loss(x: Tensor, mask: 'xnmt.batchers.Mask'=None) -> Tensor:
   """
   Aggregate loss values for unmasked entries.
 
