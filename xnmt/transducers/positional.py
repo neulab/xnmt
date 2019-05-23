@@ -57,7 +57,7 @@ class PositionalSeqTransducerDynet(transducers.SeqTransducer, Serializable):
     return self._final_states
 
   def transduce(self, src: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
-    sent_len = len(src)
+    sent_len = src.sent_len()
     embeddings = dy.strided_select(dy.parameter(self.embedder), [1,1], [0,0], [self.input_dim, sent_len])
     if self.op == 'sum':
       output = embeddings + src.as_tensor()
@@ -111,7 +111,7 @@ class PositionalSeqTransducerTorch(transducers.SeqTransducer, Serializable):
     return self._final_states
 
   def transduce(self, src: expression_seqs.ExpressionSequence) -> expression_seqs.ExpressionSequence:
-    sent_len = len(src)
+    sent_len = src.sent_len()
     batch_size = tt.batch_size(src[0])
     embeddings = self.embeddings(torch.tensor([list(range(sent_len))] * batch_size).to(xnmt.device))
     # embeddings = dy.strided_select(dy.parameter(self.embedder), [1,1], [0,0], [self.input_dim, sent_len])

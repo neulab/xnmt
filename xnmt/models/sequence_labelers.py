@@ -69,7 +69,7 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
       if self.auto_cut_pad:
         trg = self._cut_or_pad_targets(seq_len, trg)
       else:
-        raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
+        raise ValueError(f"src/trg length do not match: {seq_len} != {trg.sent_len()}")
 
     ref_action = np.asarray([trg_sent.words for trg_sent in trg]).reshape((seq_len * batch_size,))
     loss_expr_perstep = self.scorer.calc_loss(outputs, batchers.mark_as_batch(ref_action))
@@ -80,13 +80,13 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
 
   def _cut_or_pad_targets(self, seq_len: numbers.Integral, trg: batchers.Batch) -> batchers.Batch:
     old_mask = trg.mask
-    if len(trg[0]) > seq_len:
-      trunc_len = len(trg[0]) - seq_len
+    if trg.sent_len() > seq_len:
+      trunc_len = trg.sent_len() - seq_len
       trg = batchers.mark_as_batch([trg_sent.create_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
       if old_mask:
         trg.mask = batchers.Mask(np_arr=old_mask.np_arr[:, :-trunc_len])
     else:
-      pad_len = seq_len - len(trg[0])
+      pad_len = seq_len - trg.sent_len()
       trg = batchers.mark_as_batch([trg_sent.create_padded_sent(pad_len=pad_len) for trg_sent in trg])
       if old_mask:
         trg.mask = np.pad(old_mask.np_arr, pad_width=((0, 0), (0, pad_len)), mode="constant", constant_values=1)

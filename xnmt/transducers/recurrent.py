@@ -204,7 +204,7 @@ class UniLSTMSeqTransducerDynet(transducers.SeqTransducer, Serializable):
     if isinstance(expr_seq, expression_seqs.ExpressionSequence):
       expr_seq = [expr_seq]
     batch_size = expr_seq[0][0].dim()[1]
-    seq_len = len(expr_seq[0])
+    seq_len = expr_seq[0].sent_len()
 
     if self.dropout_rate > 0.0 and self.train:
       self.set_dropout_masks(batch_size=batch_size)
@@ -377,7 +377,7 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
       expr_seq = [expr_seq]
     concat_inputs = len(expr_seq)>=2
     batch_size = tt.batch_size(expr_seq[0][0])
-    seq_len = len(expr_seq[0])
+    seq_len = expr_seq[0].sent_len()
     mask = expr_seq[0].mask
 
     if self.dropout_rate > 0.0 and self.train:
@@ -503,7 +503,7 @@ class BiLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                                        tt.concatenate([self.forward_layers[layer_i].get_final_states()[0].cell_expr(),
                                                        self.backward_layers[layer_i].get_final_states()[0].cell_expr()])) \
       for layer_i in range(len(self.forward_layers))]
-    return expression_seqs.ExpressionSequence(expr_list=[tt.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(len(forward_es))], mask=mask)
+    return expression_seqs.ExpressionSequence(expr_list=[tt.concatenate([forward_es[i],rev_backward_es[-i-1]]) for i in range(forward_es.sent_len())], mask=mask)
 
 @xnmt.require_dynet
 class CustomLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
@@ -638,7 +638,7 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     if es.mask:
       seq_lengths = es.mask.seq_lengths()
     else:
-      seq_lengths = [tt.sent_len(es.as_tensor())] * batch_size
+      seq_lengths = [es.sent_len()] * batch_size
 
     # TODO: as of pytorch 1.1, the sorting can be handled by pytorch using `enforce_sorted` option: https://github.com/pytorch/pytorch/pull/15225
 

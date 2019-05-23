@@ -46,7 +46,7 @@ class SAAMTimeDistributed(object):
   A Callable that puts the time-dimension of an input expression into the batch dimension via a reshape.
   """
 
-  def __call__(self, x: tt.Tensor) -> tt.Tensor:
+  def __call__(self, x: ExpressionSequence) -> tt.Tensor:
     """
     Move the time-dimension of an input expression into the batch dimension via a reshape.
 
@@ -58,7 +58,7 @@ class SAAMTimeDistributed(object):
     """
     batch_size = x[0].dim()[1]
     model_dim = x[0].dim()[0][0]
-    seq_len = len(x)
+    seq_len = x.sent_len()
     total_words = seq_len * batch_size
     input_tensor = x.as_tensor()
     return dy.reshape(input_tensor, (model_dim,), batch_size=total_words)
@@ -440,7 +440,7 @@ class TransformerEncoderLayer(Serializable):
     self.dropout = dropout
 
   def transduce(self, x: ExpressionSequence) -> ExpressionSequence:
-    seq_len = len(x)
+    seq_len = x.sent_len()
     batch_size = x[0].dim()[1]
 
     att_mask = None
@@ -586,12 +586,12 @@ class SAAMSeqTransducer(transducers.SeqTransducer, Serializable):
 
   def transduce(self, sent: ExpressionSequence) -> ExpressionSequence:
     if self.pos_encoding_type == "trigonometric":
-      if self.position_encoding_block is None or self.position_encoding_block.shape[2] < len(sent):
-        self.initialize_position_encoding(int(len(sent) * 1.2),
+      if self.position_encoding_block is None or self.position_encoding_block.shape[2] < sent.sent_len():
+        self.initialize_position_encoding(int(sent.sent_len() * 1.2),
                                           self.input_dim if self.pos_encoding_combine == "add" else self.pos_encoding_size)
-      encoding = dy.inputTensor(self.position_encoding_block[0, :, :len(sent)])
+      encoding = dy.inputTensor(self.position_encoding_block[0, :, :sent.sent_len()])
     elif self.pos_encoding_type == "embedding":
-      encoding = self.positional_embedder.embed_sent(len(sent)).as_tensor()
+      encoding = self.positional_embedder.embed_sent(sent.sent_len()).as_tensor()
     if self.pos_encoding_type:
       if self.pos_encoding_combine == "add":
         sent = ExpressionSequence(expr_tensor=sent.as_tensor() + encoding, mask=sent.mask)

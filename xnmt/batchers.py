@@ -47,8 +47,6 @@ class ListBatch(list, Batch):
   def batch_size(self) -> int: return super().__len__()
   def sent_len(self) -> int: return self[0].sent_len()
   def __len__(self):
-    warnings.warn("use of ListBatch.__len__() is discouraged, use ListBatch.batch_size() "
-                  "[or ListBatch.sent_len()] instead.", DeprecationWarning)
     return self.batch_size()
   def __getitem__(self, key):
     ret = super().__getitem__(key)

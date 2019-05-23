@@ -66,6 +66,14 @@ class BaseExpressionSequence(object):
     Returns:
       length of sequence
     """
+    return self.sent_len()
+
+  def sent_len(self):
+    """Return length.
+
+    Returns:
+      length of sequence
+    """
     if self.expr_list: return len(self.expr_list)
     elif self.expr_tensor is not None: return tt.sent_len(self.expr_tensor)
     else: return tt.sent_len_transp(self.expr_transposed_tensor)
@@ -329,9 +337,9 @@ class LazyNumpyExpressionSequenceDynet(ExpressionSequence):
     self.lazy_data = lazy_data
     self.expr_list, self.expr_tensor, self.expr_transposed_tensor = None, None, None
     self.mask = mask
-  def __len__(self):
+  def sent_len(self):
     if self.expr_list or self.expr_tensor:
-      return super().__len__()
+      return super().sent_len()
     else:
       if batchers.is_batched(self.lazy_data):
         return self.lazy_data[0].get_array().shape[1]
@@ -371,9 +379,9 @@ class LazyNumpyExpressionSequenceTorch(ExpressionSequence):
     self.lazy_data = lazy_data
     self.expr_list, self.expr_tensor, self.expr_transposed_tensor = None, None, None
     self.mask = mask
-  def __len__(self):
+  def sent_len(self):
     if self.expr_list or self.expr_tensor:
-      return super().__len__()
+      return super().sent_len()
     else:
       if batchers.is_batched(self.lazy_data):
         return self.lazy_data[0].get_array().shape[0]
@@ -417,7 +425,7 @@ class BaseReversedExpressionSequence(BaseExpressionSequence):
     else:
       self.mask = base_expr_seq.mask.reversed()
 
-  def __len__(self):
+  def sent_len(self):
     return len(self.base_expr_seq)
 
   def __iter__(self):

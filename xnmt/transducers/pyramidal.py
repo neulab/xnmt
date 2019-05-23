@@ -105,9 +105,9 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
       if es_list[0].mask is None: mask_out = None
       else: mask_out = es_list[0].mask.lin_subsampled(reduce_factor)
 
-      if self.downsampling_method=="concat" and len(es_list[0]) % reduce_factor != 0:
+      if self.downsampling_method=="concat" and es_list[0].sent_len() % reduce_factor != 0:
         raise ValueError(f"For 'concat' subsampling, sequence lengths must be multiples of the total reduce factor, "
-                         f"but got sequence length={len(es_list[0])} for reduce_factor={reduce_factor}. "
+                         f"but got sequence length={es_list[0].sent_len()} for reduce_factor={reduce_factor}. "
                          f"Set Batcher's pad_src_to_multiple argument accordingly.")
       fs = fb.transduce(es_list)
       bs = bb.transduce([expression_seqs.ReversedExpressionSequence(es_item) for es_item in es_list])
@@ -116,7 +116,7 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
           es_list = [expression_seqs.ExpressionSequence(expr_list=fs[::reduce_factor], mask=mask_out),
                      expression_seqs.ExpressionSequence(expr_list=bs[::reduce_factor][::-1], mask=mask_out)]
         elif self.downsampling_method=="concat":
-          es_len = len(es_list[0])
+          es_len = es_list[0].sent_len()
           es_list_fwd = []
           es_list_bwd = []
           for i in range(0, es_len, reduce_factor):
@@ -125,7 +125,7 @@ class PyramidalLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
                 es_list_fwd.append([])
                 es_list_bwd.append([])
               es_list_fwd[j].append(fs[i+j])
-              es_list_bwd[j].append(bs[len(es_list[0])-reduce_factor+j-i])
+              es_list_bwd[j].append(bs[es_list[0].sent_len()-reduce_factor+j-i])
           es_list = [expression_seqs.ExpressionSequence(expr_list=es_list_fwd[j], mask=mask_out) for j in range(reduce_factor)] + \
                     [expression_seqs.ExpressionSequence(expr_list=es_list_bwd[j], mask=mask_out) for j in range(reduce_factor)]
         else:

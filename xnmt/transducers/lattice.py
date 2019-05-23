@@ -210,4 +210,4 @@ class BiLatticeLSTMTransducer(transducers.SeqTransducer, Serializable):
                                                          0].cell_expr()])) \
       for layer_i in range(len(self.forward_layers))]
     return expression_seqs.ExpressionSequence(expr_list=[dy.concatenate([forward_es[i], rev_backward_es[-i - 1]])
-                                                         for i in range(len(forward_es))])
+                                                         for i in range(forward_es.sent_len())])
