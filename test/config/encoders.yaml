@@ -52,7 +52,7 @@ exp3-pyramidal-encoder: !Experiment
     << : *defaults
     train: !SimpleTrainingRegimen
       << : *defaults_train
-      batcher: !SrcBatcher &batcher3
+      batcher: !SrcBatcher
         _xnmt_id: batcher3
         batch_size: 5
         pad_src_to_multiple: 4
@@ -75,7 +75,7 @@ exp4-modular-encoder: !Experiment
     << : *defaults
     train: !SimpleTrainingRegimen
       << : *defaults_train
-      batcher: !SrcBatcher &batcher4
+      batcher: !SrcBatcher
         _xnmt_id: batcher4
         batch_size: 5
         pad_src_to_multiple: 4

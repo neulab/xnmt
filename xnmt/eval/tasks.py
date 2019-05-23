@@ -1,12 +1,16 @@
 from typing import Sequence, Union, Optional, Any
+import contextlib
 
 import xnmt.tensor_tools as tt
-
+import xnmt
 from xnmt import batchers, event_trigger, events, inferences, input_readers, loss_calculators, losses, reports, utils, \
   xnmt_evaluate
 from xnmt.eval import metrics
 from xnmt.models import base as model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.settings import settings
+if xnmt.backend_torch:
+  import torch
 
 class EvalTask(object):
   """
@@ -77,14 +81,17 @@ class LossEvalTask(EvalTask, Serializable):
     for src, trg in zip(self.src_batches, self.ref_batches):
       with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
         tt.reset_graph()
+        with torch.no_grad() if xnmt.backend_torch else contextlib.nullcontext():
+          loss = self.loss_calculator.calc_loss(self.model, src, trg)
 
-        loss = self.loss_calculator.calc_loss(self.model, src, trg)
-
-        ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
-        loss_val += loss.get_factored_loss_val()
+          ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
+          loss_val += loss.get_factored_loss_val()
+      if settings.PRETEND: break
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
-#
+
+    self.src_data, self.trg_data, self.src_batches, self.trg_batches = None, None, None, None
+
     return metrics.LossScore(sum(loss_stats.values()),
                              loss_stats=loss_stats,
                              num_ref_words=ref_words_cnt,

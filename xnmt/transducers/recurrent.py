@@ -582,8 +582,8 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     input_dim: input dimension
     hidden_dim: hidden dimension
     vert_dropout: dropout probability (on outputs only)
-    param_init: How to initialize weight matrices.
-    bias_init: How to initialize bias vectors (currently, only zero initializer is supported, and forget gates are set to 1)
+    param_init: how to initialize weight matrices. In case of an InitializerSequence, the order is fwd_l0_ih, fwd_l0_hh, fwd_l1_ih, ... for unidirectional and fwd_l0_ih, fwd_l0_hh, bwd_l0_ih, bwd_l0_hh, fwd_l1_ih, .. for bidirectional
+    bias_init: how to initialize bias vectors. In case of an InitializerSequence, the order is fwd_l0, fwd_l1, ... for unidirectional and fwd_l0, bwd_l0, fwd_l1, bwd_l1, .. for bidirectional
   """
   yaml_tag = '!CudnnLSTMSeqTransducer'
 
@@ -602,24 +602,28 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     if bidirectional: assert hidden_dim % 2 == 0
     self.num_dir = 2 if bidirectional else 1
 
-    # for recurrent dropout implementations, see here:
-    # https://towardsdatascience.com/learning-note-dropout-in-recurrent-networks-part-2-f209222481f8
     self.lstm = nn.LSTM(input_size=input_dim,
                         hidden_size=self.hidden_dim//self.num_dir,
                         num_layers=self.num_layers,
                         bidirectional=bidirectional,
-                        dropout=vert_dropout if self.num_layers>1 else 0,
+                        dropout=vert_dropout if self.num_layers>1 else 0, # avoid pytorch warning
                         batch_first=True).to(xnmt.device)
     my_params = param_collections.ParamManager.my_params(self)
     my_params.append(self.lstm)
-    self.dropout_op = nn.Dropout(p=vert_dropout) if vert_dropout else None
     my_params.init_params(param_init, bias_init)
+
     # init forget gate biases to 1
     for name, param in self.lstm.named_parameters():
-      if 'bias' in name:
+      if 'bias_ih' in name:
+        # Pytorch using redundant biases 'bias_ih' and 'bias_hh'. Initializing only one to 1, the other one to zero:
         n = param.size(0)
         start, end = n // 4, n // 2
-        param.data[start:end].fill_(1.)
+        param.data[start:end].fill_(1)
+      if 'bias_hh' in name:
+        # Don't update params for the unused redundant bias. This ensures consistency with DyNet LSTM implementation.
+        param.requires_grad = False
+
+
 
   @handle_xnmt_event
   def on_start_sent(self, src):
@@ -634,44 +638,41 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     return self._final_states
 
   def transduce(self, es: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
+
     batch_size = tt.batch_size(es.as_tensor())
     if es.mask:
       seq_lengths = es.mask.seq_lengths()
     else:
       seq_lengths = [es.sent_len()] * batch_size
 
-    # TODO: as of pytorch 1.1, the sorting can be handled by pytorch using `enforce_sorted` option: https://github.com/pytorch/pytorch/pull/15225
+    # Sort the input and lengths as the descending order
+    seq_lengths = torch.LongTensor(seq_lengths).to(xnmt.device)
+    lengths, perm_index = seq_lengths.sort(0, descending=True)
+    sorted_input = es.as_tensor()[perm_index]
 
-    # length sorting / unsorting according to:
-    # https://github.com/pytorch/pytorch/issues/4927
-    sorted_lens, sorted_idx = torch.sort(torch.autograd.Variable(torch.LongTensor(seq_lengths).to(xnmt.device)), 0, descending=True)
-    sorted_lens = sorted_lens.cpu().data.numpy().tolist()
-    es_tensor = es.as_tensor()
-    if self.train and self.dropout_op:
-      es_tensor = self.dropout_op(es_tensor)
-    sorted_x = torch.index_select(torch.autograd.Variable(es_tensor), dim=0, index=sorted_idx)
-    unsorted_idx = torch.zeros(sorted_idx.size()).long() \
-      .scatter_(0, sorted_idx.cpu().data, torch.LongTensor(list(range(batch_size))))
+    perm_index_rev = [-1] * len(lengths)
+    for i in range(len(lengths)):
+      perm_index_rev[perm_index[i]] = i
+    perm_index_rev = torch.LongTensor(perm_index_rev).to(xnmt.device)
 
-    # apply LSTM
-    packed_x = nn.utils.rnn.pack_padded_sequence(sorted_x, sorted_lens, batch_first=True)
-    state_size = self.num_dir * self.num_layers, batch_size, self.hidden_dim//self.num_dir
-    h0 = sorted_x.new_zeros(*state_size)
-    c0 = sorted_x.new_zeros(*state_size)
-    packed_outs, (final_hiddens, final_cells) = self.lstm(packed_x, (h0, c0))
-    x, _ = nn.utils.rnn.pad_packed_sequence(packed_outs, padding_value=0.0, batch_first=True)
+    packed_input = nn.utils.rnn.pack_padded_sequence(sorted_input, list(lengths.data), batch_first=True)
+    state_size = self.num_dir * self.num_layers, batch_size, self.hidden_dim // self.num_dir
+    h0 = sorted_input.new_zeros(*state_size)
+    c0 = sorted_input.new_zeros(*state_size)
+    output, (final_hiddens, final_cells) = self.lstm(packed_input, (h0, c0))
+    output = nn.utils.rnn.pad_packed_sequence(output, batch_first=True, total_length=es.sent_len())[0]
 
-    # undo sorting
-    unsorted_outputs = torch.index_select(x, dim=0, index=torch.autograd.Variable(unsorted_idx).to(xnmt.device))
-    unsorted_hidden = torch.index_select(final_hiddens, dim=1, index=torch.autograd.Variable(unsorted_idx).to(xnmt.device))
+    # restore the sorting
+    decoded = output[perm_index_rev]
 
-    unsorted_hidden = unsorted_hidden.view(self.num_layers, self.num_dir, batch_size, self.hidden_dim//self.num_dir)
     self._final_states = []
     for layer_i in range(self.num_layers):
-      final_hidden = unsorted_hidden[layer_i,:,:,:].transpose(0,1).contiguous().view(batch_size, self.hidden_dim)
+      final_hidden = final_hiddens.view(self.num_layers,
+                                        self.num_dir,
+                                        batch_size, -1)[layer_i].transpose(0, 1).contiguous().view(batch_size, -1)
+      final_hidden = final_hidden[perm_index_rev]
       self._final_states.append(transducers.FinalTransducerState(final_hidden))
 
-    ret = expression_seqs.ExpressionSequence(expr_tensor=unsorted_outputs, mask=es.mask)
-    assert len(ret) == len(es) # this may happen e.g. when using pad_src_to_multiple, in which case we would need to manually re-append padding tokens to the output
+    ret = expression_seqs.ExpressionSequence(expr_tensor=decoded, mask=es.mask)
     return ret
 

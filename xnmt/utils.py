@@ -137,6 +137,34 @@ class ReportOnException(object):
         else:
           logger.error(str(val))
 
+class SkipOutOfMemory(object):
+  """
+  Context manager that skips occasional out of memory exceptions.
+
+  Args:
+    active: whether out-of-memory errors should be skipped.
+    max_ratio: don't skip if out-of-memory exceptions happen more often than this ratio.
+    warn_msg: the message to log when out of memory errors are skipped.
+  """
+  def __init__(self, active: bool, max_ratio: float = 0.02, warn_msg: str = "Out of memory, skip minibatch.") -> None:
+    self.active = active
+    self.max_ratio = max_ratio
+    self.warn_msg = warn_msg
+    self.call_count = 0
+    self.exc_count = 0
+  def __enter__(self):
+    self.call_count += 1
+    return self
+  def __exit__(self, et, ev, traceback):
+    if self.active:
+      is_oom = et==RuntimeError and "out of memory" in str(ev)
+      if is_oom:
+        self.exc_count += 1
+        should_ignore = float(self.exc_count)/float(self.call_count+50) <= self.max_ratio
+        if should_ignore:
+          logger.warn(self.warn_msg)
+          return True
+
 class ArgClass(object):
   """
   A class that converts dictionary items to class attributes in order to support argparse-like configuration.

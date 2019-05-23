@@ -13,7 +13,7 @@ with warnings.catch_warnings():
 
 from xnmt import logger
 import xnmt
-from xnmt import events, vocabs
+from xnmt import events, param_collections, vocabs
 from xnmt.graph import HyperEdge, HyperGraph
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import sent
@@ -208,6 +208,9 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     self.vocab = vocab
     self.train = False
     self.output_procs = output.OutputProcessor.get_output_processor(output_proc)
+    my_resources = param_collections.ParamManager.my_resources(self)
+    model_file_resource = my_resources.add(model_file, "sentpiece.mod")
+    self.save_processed_arg("model_file", model_file_resource)
 
   @events.handle_xnmt_event
   def on_set_train(self, val):
@@ -683,7 +686,8 @@ def read_parallel_corpus(src_reader: InputReader,
     trg_len = trg_reader.count_sents(trg_file)
     if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
     if max_num_sents and max_num_sents < src_len: src_len = trg_len = max_num_sents
-    filter_ids = np.random.choice(src_len, sample_sents, replace=False)
+    if sample_sents < src_len: filter_ids = np.random.choice(src_len, sample_sents, replace=False)
+    else: filter_ids = None
   else:
     logger.info(f"Starting to read {src_file} and {trg_file}")
     filter_ids = None

@@ -137,6 +137,7 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
     self.loss_comb_method = loss_comb_method
     self.update_every = update_every
     self.num_updates_skipped = 0
+    self.skip_out_of_memory = utils.SkipOutOfMemory(active=xnmt.backend_torch)
 
   def run_training(self, save_fct: Callable) -> None:
     """
@@ -147,7 +148,8 @@ class SimpleTrainingRegimen(train_tasks.SimpleTrainingTask, TrainingRegimen, Ser
         if self.dev_zero:
           self.checkpoint_and_save(save_fct)
           self.dev_zero = False
-        with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
+        with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}), \
+             self.skip_out_of_memory:
           tt.reset_graph()
           with self.train_loss_tracker.time_tracker:
             event_trigger.set_train(True)
@@ -350,21 +352,6 @@ class MultiTaskTrainingRegimen(TrainingRegimen):
     self.update_every = update_every
     self.num_updates_skipped = 0
 
-  def trigger_train_event(self, value: bool) -> None:
-    """
-    Trigger set_train event, but only if that would lead to a change of the value
-    of set_train.
-    Args:
-      value: True or False
-    """
-    if self.train is None:
-      self.train = value
-      event_trigger.set_train(value)
-    else:
-      if value!=self.train:
-        self.train = value
-        event_trigger.set_train(value)
-
   def update(self, trainer: optimizers.XnmtOptimizer) -> None:
     self.num_updates_skipped += 1
     if self.num_updates_skipped == self.update_every:
@@ -431,7 +418,7 @@ class SameBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
         with contextlib.ExitStack() as stack: #use exit stack to control whether to use global or per-task time tracking
           if not self.per_task_backward:
             stack.enter_context(self.tasks[0].train_loss_tracker.time_tracker)
-          self.trigger_train_event(True)
+          event_trigger.set_train(True)
           for task, src, trg in task_src_trg:
             with contextlib.ExitStack() as stack2:
               if self.per_task_backward:
@@ -516,7 +503,7 @@ class AlternatingBatchMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Seriali
         with cur_task.train_loss_tracker.time_tracker:
           for _ in range(self.update_every_within):
             src, trg = next(task_gen)
-            self.trigger_train_event(True)
+            event_trigger.set_train(True)
             loss_builder = cur_task.training_step(src, trg)
             self.backward(loss=loss_builder.compute(comb_method=self.loss_comb_method))
           self.update(trainer=self.trainer)
@@ -573,7 +560,7 @@ class SerialMultiTaskTrainingRegimen(MultiTaskTrainingRegimen, Serializable):
           src, trg = next(task_gen)
           if dev_zero[cur_task_id]: self.checkpoint_and_save(cur_task, cur_task_id, save_fct, dev_zero)
           with cur_task.train_loss_tracker.time_tracker:
-            self.trigger_train_event(True)
+            event_trigger.set_train(True)
             loss_builder = cur_task.training_step(src, trg)
             task_loss = loss_builder.compute(comb_method=self.loss_comb_method)
             self.backward(task_loss)

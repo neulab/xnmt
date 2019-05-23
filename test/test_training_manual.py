@@ -17,7 +17,7 @@ from xnmt.modelparts.decoders import AutoRegressiveDecoder
 from xnmt.modelparts.embedders import NoopEmbedder, SimpleWordEmbedder
 import xnmt.events
 from xnmt.input_readers import PlainTextReader, IDReader, H5Reader
-from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
+from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer, CudnnLSTMSeqTransducer
 from xnmt.loss_calculators import MLELoss
 from xnmt.loss_trackers import TrainLossTracker
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
@@ -28,8 +28,6 @@ from xnmt.modelparts.transforms import NonLinear
 from xnmt.models.translators.default import DefaultTranslator
 from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
-
-TEST_ALL = False
 
 np.set_printoptions(floatmode='unique', linewidth=10000, edgeitems=100)
 
@@ -88,6 +86,16 @@ class ManualTestingBaseClass(object):
                     [lambda x: x.linear._parameters['weight'], lambda x: x.linear._parameters['bias']])
   TYPE_LSTM = ([lambda x: x.Wx[0], lambda x: x.Wh[0], lambda x: x.b[0]],
                [lambda x: x.layers[0]._parameters['weight_ih'], lambda x: x.layers[0]._parameters['weight_hh'], lambda x: x.layers[0]._parameters['bias_ih']])
+  TYPE_BILSTM = ([],
+                [lambda x: x.forward_layers[0].layers[0]._parameters['weight_ih'], lambda x: x.forward_layers[0].layers[0]._parameters['weight_hh'], lambda x: x.forward_layers[0].layers[0]._parameters['bias_ih'],
+                 lambda x: x.backward_layers[0].layers[0]._parameters['weight_ih'], lambda x: x.backward_layers[0].layers[0]._parameters['weight_hh'], lambda x: x.backward_layers[0].layers[0]._parameters['bias_ih']])
+  TYPE_BILSTM_CUDNN = ([],
+                [lambda x: x.lstm._parameters['weight_ih_l0'],
+                 lambda x: x.lstm._parameters['weight_hh_l0'],
+                 lambda x: x.lstm._parameters['bias_ih_l0'],
+                 lambda x: x.lstm._parameters['weight_ih_l0_reverse'],
+                 lambda x: x.lstm._parameters['weight_hh_l0_reverse'],
+                 lambda x: x.lstm._parameters['bias_ih_l0_reverse']])
   TYPE_MLP_ATT = ([lambda x: x.linear_context, lambda x: x.bias_context, lambda x: x.linear_query, lambda x: x.pU],
                   [lambda x: x.linear_context._parameters['weight'], lambda x: x.linear_context._parameters['bias'],
                    lambda x: x.linear_query._parameters['weight'], lambda x: x.pU._parameters['weight']])
@@ -155,12 +163,27 @@ class ManualTestingBaseClass(object):
   def convert_pytorch_lstm_weights(self, weights, adjust_forget=True):
     # change ifgo -> ifog; subtract 1-initialized forget gates
     h_dim = weights[0].shape[0] // 4
-    return np.concatenate([weights[0][:h_dim * 2,:], weights[0][h_dim * 3:,:],
-                           weights[0][h_dim * 2:h_dim * 3, :]], axis=0), \
-           np.concatenate([weights[1][:h_dim * 2,:], weights[1][h_dim * 3:,:],
-                           weights[1][h_dim * 2:h_dim * 3,:]], axis=0), \
-           np.concatenate([weights[2][:h_dim], weights[2][h_dim:h_dim * 2] - (1 if adjust_forget else 0),
-                           weights[2][h_dim * 3:], weights[2][h_dim * 2:h_dim * 3]], axis=0),
+    if len(weights)==3:
+      return np.concatenate([weights[0][:h_dim * 2,:], weights[0][h_dim * 3:,:],
+                             weights[0][h_dim * 2:h_dim * 3, :]], axis=0), \
+             np.concatenate([weights[1][:h_dim * 2,:], weights[1][h_dim * 3:,:],
+                             weights[1][h_dim * 2:h_dim * 3,:]], axis=0), \
+             np.concatenate([weights[2][:h_dim], weights[2][h_dim:h_dim * 2] - (1 if adjust_forget else 0),
+                             weights[2][h_dim * 3:], weights[2][h_dim * 2:h_dim * 3]], axis=0),
+    else:
+      assert len(weights)==6
+      return np.concatenate([weights[0][:h_dim * 2,:], weights[0][h_dim * 3:,:],
+                             weights[0][h_dim * 2:h_dim * 3, :]], axis=0), \
+             np.concatenate([weights[1][:h_dim * 2,:], weights[1][h_dim * 3:,:],
+                             weights[1][h_dim * 2:h_dim * 3,:]], axis=0), \
+             np.concatenate([weights[2][:h_dim], weights[2][h_dim:h_dim * 2] - (1 if adjust_forget else 0),
+                             weights[2][h_dim * 3:], weights[2][h_dim * 2:h_dim * 3]], axis=0), \
+             np.concatenate([weights[3][:h_dim * 2, :], weights[3][h_dim * 3:, :],
+                             weights[3][h_dim * 2:h_dim * 3, :]], axis=0), \
+             np.concatenate([weights[4][:h_dim * 2, :], weights[4][h_dim * 3:, :],
+                             weights[4][h_dim * 2:h_dim * 3, :]], axis=0), \
+             np.concatenate([weights[5][:h_dim], weights[2][h_dim:h_dim * 2] - (1 if adjust_forget else 0),
+                             weights[5][h_dim * 3:], weights[5][h_dim * 2:h_dim * 3]], axis=0),
 
 class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
 
@@ -239,15 +262,12 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_basic(self):
     self.assert_loss_value(9.657503128051758)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_three_epochs(self):
     self.assert_loss_value(8.524262428283691, epochs=3, lr=10, rtol=1e-6)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_mlp_att_grads(self):
     desired = (np.asarray([[-3.15510178e-08,-3.91636625e-08],[-6.31020356e-08,-7.83273251e-08]]),
                np.asarray([1.65015179e-09,3.30030359e-09]),
@@ -255,7 +275,6 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
                np.asarray([[-1.09920165e-07,1.09920165e-07]]))
     self.assert_trained_grads(desired, epochs=1, param_type=self.TYPE_MLP_ATT, subpath="model.attender", rtol=1e-2)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_mlp_att_grads_two_epochs_adam(self):
     desired = (np.asarray([[1.9886029e-05, 2.2218173e-05], [-5.5424091e-05, -6.2103529e-05]]),
                np.asarray([ 3.0994852e-07, -1.1994176e-05]),
@@ -264,7 +283,6 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
     self.assert_trained_grads(desired=desired, epochs=2, adam=True, lr=100, flatten=True,
                               param_type=self.TYPE_MLP_ATT, subpath="model.attender", rtol=1e-2)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_mlp_att_grads_trained(self):
     desired = (np.asarray([[ 6.15145327e-05,5.41474146e-05],[-1.41641664e-04,-1.24026701e-04]]),
                np.asarray([-0.00021929,0.0002702,]),
@@ -272,15 +290,12 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
                np.asarray([[ 0.00020377,-0.00013509]]))
     self.assert_trained_grads(desired=desired, epochs=3, adam=True, lr=100, param_type=self.TYPE_MLP_ATT, subpath="model.attender")
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_three_epochs_adam(self):
     self.assert_loss_value(8.912698745727539, epochs=3, lr=10, adam=True, rtol=1e-6)
 
-  #@unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_ten_epochs_adam(self):
     self.assert_loss_value(7.670589447021484, epochs=10, lr=10, adam=True, rtol=1e-7)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_all_params_one_epoch(self):
     # useful regex: (?<!\[)\s+      ->      ,
     expected = {
@@ -330,7 +345,6 @@ class TestManualFullLAS(unittest.TestCase, ManualTestingBaseClass):
     self.assert_trained_params(desired=expected['enc_l2_bwd'], is_lstm=True, param_type=self.TYPE_LSTM, subpath="model.encoder.builder_layers.2.1", rtol=1e-1)
     self.assert_trained_params(desired=expected['decoder'], is_lstm=True, param_type=self.TYPE_LSTM, subpath="model.decoder.rnn", rtol=1e-1)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_all_grads_one_epoch(self):
     # useful regex: (?<!\[)\s+      ->      ,
     expected = {
@@ -439,36 +453,29 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_basic(self):
     self.assert_loss_value(9.65715217590332)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_two_epochs(self):
     self.assert_loss_value(6.5872673988342285, epochs=2, lr=10, rtol=1e-7)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_two_layers(self):
     self.assert_loss_value(9.65665054321289, num_layers=2, rtol=1e-7)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_bidirectional(self):
     self.assert_loss_value(9.657083511352539, bi_encoder=True, rtol=1e-7)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_weights_one_epoch(self):
     desired = [np.asarray(
       [[-0.1, 0.1], [-0.20184304, 0.19631392], [-0.30349943, 0.29300117], [-0.40391687, 0.39216626], [-0.5, 0.5]])]
     self.assert_trained_params(desired=desired, lr=100, param_type=self.TYPE_EMB, subpath="model.src_embedder", rtol=1e-7)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_grads_one_epoch(self):
     desired = [np.asarray(
       [[0, 0], [1.84304245e-5, 3.68608489e-5], [3.49941438e-5, 6.99882876e-5], [3.91686735e-5, 7.83373471e-5], [0, 0]])]
     self.assert_trained_grads(desired=desired, lr=10, param_type=self.TYPE_EMB, subpath="model.src_embedder", rtol=1e-6)
 
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_all_params_one_epoch(self):
     expected = {
       'src_emb': [np.asarray([[-0.1, 0.1 ], [-0.2001843, 0.19963139], [-0.30034995, 0.29930013], [-0.4003917, 0.39921662], [-0.5, 0.5]])],
@@ -491,7 +498,6 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
     self.assert_trained_params(desired=expected['encoder'], lr=10, is_lstm=True, param_type=self.TYPE_LSTM, subpath="model.encoder", rtol=1e-3)
     self.assert_trained_params(desired=expected['decoder'], lr=10, is_lstm=True, param_type=self.TYPE_LSTM, subpath="model.decoder.rnn", rtol=1e-3)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_all_grads_one_epoch(self):
     expected = {
       'src_emb': [np.asarray([[0.0000000000000000e+00 ,0.0000000000000000e+00] ,[1.8430424461257644e-05 ,3.6860848922515288e-05] ,[3.4994143788935617e-05 ,6.9988287577871233e-05] ,[3.9168673538370058e-05 ,7.8337347076740116e-05] ,[0.0000000000000000e+00 ,0.0000000000000000e+00]])],
@@ -515,13 +521,11 @@ class TestManualBasicSeq2seq(unittest.TestCase, ManualTestingBaseClass):
     self.assert_trained_grads(desired=expected['decoder'], lr=10, is_lstm=True, param_type=self.TYPE_LSTM, subpath="model.decoder.rnn", rtol=1e-3)
 
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_weights_two_epochs(self):
     desired = [np.asarray(
       [[-0.1, 0.1], [-0.20195894, 0.19691031], [-0.30414006, 0.29530725], [-0.40498427, 0.3935459], [-0.5, 0.5]])]
     self.assert_trained_params(desired=desired, epochs=2, lr=100, param_type=self.TYPE_EMB, subpath="model.src_embedder", rtol=1e-4)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_grads_two_epochs(self):
     desired = [np.asarray(
       [[ 0, 0], [-1.43307407e-05, -2.18112727e-05], [-2.92414807e-05, -4.44276811e-05], [-3.09737370e-05, -4.77675057e-05], [ 0,  0]])]
@@ -579,51 +583,41 @@ class TestManualClassifier(unittest.TestCase, ManualTestingBaseClass):
     training_regimen.run_training(save_fct = lambda: None)
     return training_regimen
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_basic(self):
     self.assert_loss_value(1.3862998485565186, rtol=1e-12)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_twolayer(self):
     self.assert_loss_value(1.3862943649291992, num_layers=2, rtol=1e-12)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test__loss_bidirectional(self):
     self.assert_loss_value(1.3863017559051514, bi_encoder=True, rtol=1e-12)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_two_epochs(self):
     self.assert_loss_value(1.3866344690322876, epochs=2, lr=100, rtol=1e-12)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_loss_five_epochs(self):
     self.assert_loss_value(2.6611084938049316, epochs=5, lr=10, rtol=1e-12)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_weights_two_epochs(self):
     desired = [np.asarray(
       [[-0.1, 0.1], [-0.19894804, 0.20147263], [-0.28823119, 0.32002223], [-0.41040528, 0.3818686], [-0.5, 0.5]])]
     self.assert_trained_params(desired=desired, epochs=2, lr=100, param_type=self.TYPE_EMB, subpath="model.src_embedder")
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_weights_five_epochs(self):
     expected = [np.asarray(
       [[-0.1, 0.1], [-0.20250981, 0.19391325], [-0.29897961, 0.30119216], [-0.40397269, 0.39145479], [-0.5, 0.5]])]
     self.assert_trained_params(expected, epochs=5, lr=10, param_type=self.TYPE_EMB, subpath="model.src_embedder")
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_grads(self):
     desired = [np.asarray(
       [[0, 0], [1.2468663e-6, 2.49373261e-6], [-5.26151271e-5, -1.05230254e-4], [5.41623740e-5, 1.08324748e-4], [0, 0]])]
     self.assert_trained_grads(desired=desired, param_type=self.TYPE_EMB, subpath="model.src_embedder")
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_grads_two_epochs(self):
     desired = [np.asarray(
       [[ 0, 0], [ 1.23475911e-06, 2.46928539e-06], [-5.26270887e-05, -1.05221523e-04], [ 5.41591871e-05, 1.08285341e-04], [ 0, 0]])]
     self.assert_trained_grads(desired=desired, epochs=2, param_type=self.TYPE_EMB, subpath="model.src_embedder")
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_emb_grads_five_epochs(self):
     desired = [np.asarray(
       [[ 0, 0], [ 1.20434561e-06, 2.40851659e-06], [-5.26594959e-05, -1.05188665e-04], [ 5.41539921e-05, 1.08175940e-04], [ 0, 0]])]
@@ -714,7 +708,6 @@ class TestGradientClippingManual(unittest.TestCase, ManualTestingBaseClass):
         else:
           np.testing.assert_allclose(actual=actual[sub_param_i], desired=sub_param, rtol=rtol, atol=atol)
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_no_clipping(self):
     desired = [np.asarray(
       [[-0.10000000149011612, 0.10000000149011612],
@@ -724,7 +717,6 @@ class TestGradientClippingManual(unittest.TestCase, ManualTestingBaseClass):
        [-0.5, 0.5]])]
     self.assert_trained_grads(desired=desired, rescale_grads=None, param_type=self.TYPE_EMB, subpath="model.src_embedder")
 
-  @unittest.skipUnless(TEST_ALL, reason="quick subtest")
   def test_clipping(self):
     desired = [np.asarray(
       [[-0.10000000149011612,0.10000000149011612],

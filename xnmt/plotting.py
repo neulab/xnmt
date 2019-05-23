@@ -6,6 +6,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import xnmt
 from xnmt import utils
 
 def plot_attention(src_words: Union[np.ndarray, Sequence[str]],
@@ -83,6 +84,7 @@ def plot_speech_features(feature_matrix: np.ndarray,
   """
   if not ax:
     plt.subplots(figsize=(1.0, length))
+  if xnmt.backend_torch: feature_matrix = feature_matrix.T
   if vertical: feature_matrix = feature_matrix[:,::-1].T
   if ax:
     ax.pcolor(feature_matrix, cmap=plt.cm.jet, vmin=-1, vmax=1)

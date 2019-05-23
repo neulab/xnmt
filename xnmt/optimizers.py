@@ -30,6 +30,7 @@ class XnmtOptimizer(object):
   """
   def __init__(self):
     self.learning_rate = None
+    self.rolling_stats = None
 
   def update(self) -> None:
     """
@@ -44,6 +45,21 @@ class XnmtOptimizer(object):
     Clears all momentum values and assimilate (if applicable)
     """
     raise NotImplementedError()
+
+  def grad_log_norm(self):
+    raise NotImplementedError()
+
+  def check_gradients_noisy(self) -> bool:
+    if getattr(self, "rolling_stats", None) is None: self.rolling_stats = utils.RollingStatistic()
+    log_norm = self.grad_log_norm()
+    if settings.USE_TENSORBOARD: tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(log_norm)}, global_step=self.global_step)
+    self.rolling_stats.update(log_norm)
+    if self.rolling_stats.average is None: # too few statistics
+      return False
+    else:
+      req_min = self.rolling_stats.average - 4*self.rolling_stats.stddev
+      req_max = self.rolling_stats.average + 4*self.rolling_stats.stddev
+      return not (req_min < log_norm < req_max)
 
 @xnmt.require_dynet
 class XnmtOptimizerDynet(XnmtOptimizer):
@@ -64,8 +80,6 @@ class XnmtOptimizerDynet(XnmtOptimizer):
     self.optimizer.set_sparse_updates(False)
     self.optimizer.set_clip_threshold(rescale_grads or -1)
     self.skip_noisy = skip_noisy
-    if skip_noisy:
-      self.rolling_stats = utils.RollingStatistic()
     self.global_step = 0
 
   def update(self) -> None:
@@ -73,8 +87,14 @@ class XnmtOptimizerDynet(XnmtOptimizer):
     Update the parameters.
     """
     self.global_step += 1
+    if settings.USE_TENSORBOARD:
+      tee.tensorboard_writer.add_scalars(name="lr", tag_scalar_dict={"lr": self.optimizer.learning_rate},
+                                         global_step=self.global_step)
+      if not self.skip_noisy:
+        tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(self.grad_log_norm())},
+                                                                        global_step=self.global_step)
     try:
-      if not (self.skip_noisy and self._check_gradients_noisy()):
+      if not (self.skip_noisy and self.check_gradients_noisy()):
         self.optimizer.update()
       else:
         logger.info("skipping noisy update")
@@ -107,21 +127,15 @@ class XnmtOptimizerDynet(XnmtOptimizer):
   def learning_rate(self, value):
     self.optimizer.learning_rate = value
 
-  def _check_gradients_noisy(self) -> bool:
+  def grad_log_norm(self) -> float:
+    if getattr(self, "rolling_stats", None) is None: self.rolling_stats = utils.RollingStatistic()
     sq_norm = 0
     for subcol in ParamManager.param_col.subcols.values():
       for param in subcol.parameters_list():
         cur_grads = param.grad_as_array()
         sq_norm += np.sum(np.square(cur_grads))
-    log_norm = np.log(np.sqrt(sq_norm))
-    if settings.USE_TENSORBOARD: tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(log_norm)}, global_step=self.global_step)
-    self.rolling_stats.update(log_norm)
-    if self.rolling_stats.average is None: # too few statistics
-      return False
-    else:
-      req_min = self.rolling_stats.average - 4*self.rolling_stats.stddev
-      req_max = self.rolling_stats.average + 4*self.rolling_stats.stddev
-      return not (req_min < log_norm < req_max)
+    return np.log(np.sqrt(sq_norm))
+
 
 @xnmt.require_torch
 class XnmtOptimizerTorch(XnmtOptimizer):
@@ -147,8 +161,6 @@ class XnmtOptimizerTorch(XnmtOptimizer):
     self.scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=self.optimizer,
                                                        lr_lambda = lambda epoch: self.lr_factor, last_epoch=-1)
     self.skip_noisy = skip_noisy
-    if skip_noisy:
-      self.rolling_stats = utils.RollingStatistic()
     self.global_step = 0
 
   def update(self) -> None:
@@ -156,7 +168,13 @@ class XnmtOptimizerTorch(XnmtOptimizer):
     if self.rescale_grads:
       torch.nn.utils.clip_grad_norm_(ParamManager.global_collection().parameters(), self.rescale_grads)
     self.scheduler.step()
-    if not (self.skip_noisy and self._check_gradients_noisy()):
+    if settings.USE_TENSORBOARD:
+      tee.tensorboard_writer.add_scalars(name="lr", tag_scalar_dict={"lr": self.learning_rate * self.lr_factor},
+                                         global_step=self.global_step)
+      if not self.skip_noisy:
+        tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(self.grad_log_norm())},
+                                                                        global_step=self.global_step)
+    if not (self.skip_noisy and self.check_gradients_noisy()):
       self.optimizer.step()
     else:
       logger.info("skipping noisy update")
@@ -173,22 +191,15 @@ class XnmtOptimizerTorch(XnmtOptimizer):
   def learning_rate(self, value):
     self.lr_factor = value
 
-  def _check_gradients_noisy(self) -> bool:
+  def grad_log_norm(self) -> float:
+    if getattr(self, "rolling_stats", None) is None: self.rolling_stats = utils.RollingStatistic()
     sq_norm = 0
     for subcol in ParamManager.param_col.subcols.values():
       for _, param in subcol.named_parameters():
         if param.grad is not None:
           cur_grads = tt.npvalue(param.grad)
           sq_norm += np.sum(np.square(cur_grads))
-    log_norm = np.log(np.sqrt(sq_norm))
-    if settings.USE_TENSORBOARD: tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(log_norm)}, global_step=self.global_step)
-    self.rolling_stats.update(log_norm)
-    if self.rolling_stats.average is None: # too few statistics
-      return False
-    else:
-      req_min = self.rolling_stats.average - 4*self.rolling_stats.stddev
-      req_max = self.rolling_stats.average + 4*self.rolling_stats.stddev
-      return not (req_min < log_norm < req_max)
+    return  np.log(np.sqrt(sq_norm))
 
 @xnmt.require_dynet
 class SimpleSGDTrainerDynet(XnmtOptimizerDynet, Serializable):
