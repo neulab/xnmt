@@ -352,12 +352,12 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
 
     new_c, new_h = [], []
     for layer_i in range(self.num_layers):
+      h_tm1 = prev_state._h[layer_i]
       if self.dropout_rate > 0.0 and self.train:
-        x = torch.mul(x, self.dropout_mask_x[layer_i])
         # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
-      h_t, c_t = self.layers[layer_i](x, (prev_state._h[layer_i], prev_state._c[layer_i]))
-      if self.dropout_rate > 0.0 and self.train:
-        h_t = torch.mul(h_t, self.dropout_mask_h[layer_i])
+        x = torch.mul(x, self.dropout_mask_x[layer_i])
+        h_tm1 = torch.mul(h_tm1, self.dropout_mask_h[layer_i])
+      h_t, c_t = self.layers[layer_i](x, (h_tm1, prev_state._c[layer_i]))
       new_c.append(c_t)
       new_h.append(h_t)
       x = h_t
@@ -393,12 +393,12 @@ class UniLSTMSeqTransducerTorch(transducers.SeqTransducer, Serializable):
           x_t = tt.concatenate([cur_input[i][pos_i] for i in range(len(cur_input))])
         else:
           x_t = cur_input[0][pos_i]
+        h_tm1 = h[-1]
         if self.dropout_rate > 0.0 and self.train:
-          x_t = torch.mul(x_t, self.dropout_mask_x[layer_i])
           # apply dropout according to https://arxiv.org/abs/1512.05287 (tied weights)
-        h_t, c_t = self.layers[layer_i](x_t, (h[-1], c[-1]))
-        if self.dropout_rate > 0.0 and self.train:
-          h_t = torch.mul(h_t, self.dropout_mask_h[layer_i])
+          x_t = torch.mul(x_t, self.dropout_mask_x[layer_i])
+          h_tm1 = torch.mul(h_tm1, self.dropout_mask_h[layer_i])
+        h_t, c_t = self.layers[layer_i](x_t, (h_tm1, c[-1]))
         if mask is None or np.isclose(np.sum(mask.np_arr[:,pos_i:pos_i+1]), 0.0):
           c.append(c_t)
           h.append(h_t)
