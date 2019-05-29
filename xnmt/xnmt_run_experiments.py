@@ -89,7 +89,7 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
         if os.path.isfile(log_file): log_files_exist.append(log_file)
         if os.path.isdir(log_file + ".tb"): log_files_exist.append(log_file + ".tb/")
         if log_files_exist:
-          logger.warning(f"log file {','.join(log_files_exist)} already exists, skipping experiment; "
+          logger.warning(f"log file(s) {' '.join(log_files_exist)} already exists, skipping experiment; "
                          f"please delete log file by hand if you want to overwrite it "
                          f"(or activate OVERWRITE_LOG, by either specifying an environment variable OVERWRITE_LOG=1, "
                          f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")

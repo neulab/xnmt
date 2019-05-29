@@ -36,13 +36,16 @@ import random
 
 import yaml
 
-from xnmt import param_collections, tee, utils
+from xnmt import tee, utils
 import xnmt
 from xnmt.settings import settings
 
 def serializable_init(f):
+
+
   @wraps(f)
   def wrapper(obj, *args, **kwargs):
+    from xnmt import param_collections
     if "xnmt_subcol_name" in kwargs:
       xnmt_subcol_name = kwargs.pop("xnmt_subcol_name")
     elif hasattr(obj, "xnmt_subcol_name"): # happens when calling wrapped super() constructors
@@ -471,6 +474,15 @@ class Repeat(Serializable):
     self.content = content
     raise ValueError("Repeat cannot be instantiated")
 
+class ResourceFile(Serializable):
+  """
+  A special object that points to a resource file placed in a saved model's .data directory.
+  """
+  yaml_tag = "!ResourceFile"
+  @serializable_init
+  def __init__(self, filename: str) -> None:
+    self.filename = filename
+
 
 _subcol_rand = random.Random()
 
@@ -860,7 +872,7 @@ class YamlPreloader(object):
     """
     try:
       with open(filename) as stream:
-        experiments = yaml.load(stream)
+        experiments = yaml.load(stream, Loader=yaml.Loader)
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
     except yaml.constructor.ConstructorError:
@@ -900,7 +912,7 @@ class YamlPreloader(object):
     """
     try:
       with open(filename) as stream:
-        config = yaml.load(stream)
+        config = yaml.load(stream, Loader=yaml.Loader)
     except IOError as e:
       raise RuntimeError(f"Could not read configuration file {filename}: {e}")
 
@@ -976,12 +988,13 @@ class YamlPreloader(object):
 
   @staticmethod
   def _load_serialized(root: Any) -> Any:
+    from xnmt import param_collections
     for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
       if isinstance(node, LoadSerialized):
         LoadSerialized._check_wellformed(node)
         try:
           with open(node.filename) as stream:
-            loaded_root = yaml.load(stream)
+            loaded_root = yaml.load(stream, Loader=yaml.Loader)
         except IOError as e:
           raise RuntimeError(f"Could not read configuration file {node.filename}: {e}")
         if os.path.isdir(f"{node.filename}.data"):
@@ -1024,10 +1037,14 @@ class YamlPreloader(object):
         for d in getattr(node, "overwrite", []):
           overwrite_path = Path(d["path"])
           _set_descendant(loaded_trg, overwrite_path, d["val"])
+
+        loaded_trg = YamlPreloader._resolve_resources(loaded_trg, data_dir=f"{node.filename}.data")
+
         if len(path) == 0:
           root = loaded_trg
         else:
           _set_descendant(root, path, loaded_trg)
+
     return root
 
   @staticmethod
@@ -1076,6 +1093,17 @@ class YamlPreloader(object):
         expanded = []
         for _ in range(node.times):
           expanded.append(copy.deepcopy(node.content))
+        if len(path) == 0:
+          root = expanded
+        else:
+          _set_descendant(root, path, expanded)
+    return root
+
+  @staticmethod
+  def _resolve_resources(root, data_dir):
+    for path, node in _traverse_tree(root, traversal_order=_TraversalOrder.ROOT_LAST):
+      if isinstance(node, ResourceFile):
+        expanded = os.path.join(data_dir, node.filename)
         if len(path) == 0:
           root = expanded
         else:
@@ -1353,6 +1381,7 @@ class _YamlDeserializer(object):
     return initialized_obj
 
 def _resolve_serialize_refs(root):
+  from xnmt import param_collections
   all_serializable = set() # for DyNet param check
 
   # gather all non-basic types (Serializable, list, dict) in the global dictionary xnmt.resolved_serialize_params
@@ -1414,6 +1443,7 @@ def save_to_file(fname: str, mod: Any) -> None:
     fname: Filename to save to.
     mod: Component hierarchy.
   """
+  from xnmt import param_collections
   dirname = os.path.dirname(fname)
   if dirname and not os.path.exists(dirname):
     os.makedirs(dirname)

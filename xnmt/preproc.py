@@ -303,7 +303,7 @@ class UnicodeTokenizer(Tokenizer, Serializable):
         else:
           if not c_p.isspace():
             str_list.append(' ' + self.merge_symbol)
-            str_list.append(c)
+          str_list.append(c)
           if not c_n.isspace() and not UnicodeTokenizer._is_weird(c_n):
             str_list.append(self.merge_symbol + ' ')
     else: # self.reverse==True
@@ -635,7 +635,7 @@ class MelFiltExtractor(Extractor, Serializable):
     start_time = time.time()
     with open(in_file) as in_stream, \
          h5py.File(out_file, "w") as hf:
-      db = yaml.load(in_stream)
+      db = yaml.load(in_stream, Loader=yaml.Loader)
       db_by_speaker = defaultdict(list)
       for db_index, db_item in enumerate(db):
         speaker_id = db_item.get("speaker", db_item["wav"].split("/")[-1])

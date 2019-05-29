@@ -4,12 +4,18 @@ from typing import List, Optional, Tuple, Sequence, Union
 from typing.io import TextIO
 import numbers
 import shutil
+import contextlib
 
+import xnmt
 import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger
 from xnmt import events, logger, losses, loss_calculators, output, reports, search_strategies, sent, utils
 from xnmt.models import base as models
 from xnmt.persistence import serializable_init, Serializable, bare
+from xnmt.settings import settings
+
+if xnmt.backend_torch:
+  import torch
 
 NO_DECODING_ATTEMPTED = "@@NO_DECODING_ATTEMPTED@@"
 
@@ -123,7 +129,8 @@ class Inference(object):
     else:
       with utils.ReportOnException({"src": src_batch, "graph": utils.print_cg_conditional}):
         tt.reset_graph()
-        outputs = self.generate_one(generator, src_batch)
+        with torch.no_grad() if xnmt.backend_torch else contextlib.nullcontext():
+          outputs = self.generate_one(generator, src_batch)
         if self.reporter: self._create_sent_report()
         for i in range(len(outputs)):
           output_txt = outputs[i].sent_str(custom_output_procs=self.post_processor)
@@ -155,6 +162,7 @@ class Inference(object):
         if len(src_batch) == batcher.batch_size:
           self._generate_one_batch(generator, batcher, src_batch, max_src_len, fp)
           src_batch = []
+        if settings.PRETEND: break
       if len(src_batch) != 0:
         self._generate_one_batch(generator, batcher, src_batch, max_src_len, fp)
 

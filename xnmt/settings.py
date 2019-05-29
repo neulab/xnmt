@@ -41,6 +41,7 @@ class Standard(object):
   DEFAULT_REPORT_PATH = "{EXP_DIR}/reports/{EXP}"
   USE_TENSORBOARD = False
   COMPUTE_TRACE = False
+  PRETEND = False
 
 class Debug(Standard):
   """
@@ -53,6 +54,12 @@ class Debug(Standard):
   PRINT_CG_ON_ERROR = True
   LOG_LEVEL_CONSOLE = "DEBUG"
   LOG_LEVEL_FILE = "DEBUG"
+
+class Pretend(Debug):
+  """
+  Pretend mode performs a quick trial run-through
+  """
+  PRETEND = True
 
 class Unittest(Standard):
   """
@@ -96,4 +103,6 @@ _aliases = {
   "debug": Debug,
   "settings.unittest" : Unittest,
   "unittest": Unittest,
+  "settings.pretend": Pretend,
+  "pretend": Pretend,
 }

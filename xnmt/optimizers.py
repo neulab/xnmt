@@ -128,6 +128,7 @@ class XnmtOptimizerDynet(XnmtOptimizer):
     self.optimizer.learning_rate = value
 
   def grad_log_norm(self) -> float:
+    if getattr(self, "rolling_stats", None) is None: self.rolling_stats = utils.RollingStatistic()
     sq_norm = 0
     for subcol in ParamManager.param_col.subcols.values():
       for param in subcol.parameters_list():
@@ -191,6 +192,7 @@ class XnmtOptimizerTorch(XnmtOptimizer):
     self.lr_factor = value
 
   def grad_log_norm(self) -> float:
+    if getattr(self, "rolling_stats", None) is None: self.rolling_stats = utils.RollingStatistic()
     sq_norm = 0
     for subcol in ParamManager.param_col.subcols.values():
       for _, param in subcol.named_parameters():

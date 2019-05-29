@@ -582,8 +582,8 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
     input_dim: input dimension
     hidden_dim: hidden dimension
     vert_dropout: dropout probability (on outputs only)
-    param_init: How to initialize weight matrices.
-    bias_init: How to initialize bias vectors (currently, only zero initializer is supported, and forget gates are set to 1)
+    param_init: how to initialize weight matrices. In case of an InitializerSequence, the order is fwd_l0_ih, fwd_l0_hh, fwd_l1_ih, ... for unidirectional and fwd_l0_ih, fwd_l0_hh, bwd_l0_ih, bwd_l0_hh, fwd_l1_ih, .. for bidirectional
+    bias_init: how to initialize bias vectors. In case of an InitializerSequence, the order is fwd_l0, fwd_l1, ... for unidirectional and fwd_l0, bwd_l0, fwd_l1, bwd_l1, .. for bidirectional
   """
   yaml_tag = '!CudnnLSTMSeqTransducer'
 
@@ -639,40 +639,38 @@ class CudnnLSTMSeqTransducer(transducers.SeqTransducer, Serializable):
 
   def transduce(self, es: 'expression_seqs.ExpressionSequence') -> 'expression_seqs.ExpressionSequence':
 
-    # adapted from https://github.com/pytorch/pytorch/issues/3584#issuecomment-362788691
-
     batch_size = tt.batch_size(es.as_tensor())
     if es.mask:
       seq_lengths = es.mask.seq_lengths()
     else:
       seq_lengths = [es.sent_len()] * batch_size
 
-    if max(seq_lengths) < es.sent_len():
-      raise NotImplemented("'Extra' padding (sequence positions in which all sequences are padded) is currently not supported."
-                           "To implement this, re-add the extra paddings to the output of lstm(), as these are dropped implicitly.")
-
     # Sort the input and lengths as the descending order
     seq_lengths = torch.LongTensor(seq_lengths).to(xnmt.device)
     lengths, perm_index = seq_lengths.sort(0, descending=True)
     sorted_input = es.as_tensor()[perm_index]
+
+    perm_index_rev = [-1] * len(lengths)
+    for i in range(len(lengths)):
+      perm_index_rev[perm_index[i]] = i
+    perm_index_rev = torch.LongTensor(perm_index_rev).to(xnmt.device)
 
     packed_input = nn.utils.rnn.pack_padded_sequence(sorted_input, list(lengths.data), batch_first=True)
     state_size = self.num_dir * self.num_layers, batch_size, self.hidden_dim // self.num_dir
     h0 = sorted_input.new_zeros(*state_size)
     c0 = sorted_input.new_zeros(*state_size)
     output, (final_hiddens, final_cells) = self.lstm(packed_input, (h0, c0))
-    output = nn.utils.rnn.pad_packed_sequence(output, batch_first=True)[0]
+    output = nn.utils.rnn.pad_packed_sequence(output, batch_first=True, total_length=es.sent_len())[0]
 
     # restore the sorting
-    odx = perm_index.view(-1, 1).unsqueeze(1).expand(batch_size, es.sent_len(), self.hidden_dim)
-    decoded = output.gather(0, odx)
+    decoded = output[perm_index_rev]
 
     self._final_states = []
     for layer_i in range(self.num_layers):
       final_hidden = final_hiddens.view(self.num_layers,
                                         self.num_dir,
                                         batch_size, -1)[layer_i].transpose(0, 1).contiguous().view(batch_size, -1)
-      final_hidden = final_hidden.gather(0, perm_index.view(-1, 1).expand(batch_size, self.hidden_dim))
+      final_hidden = final_hidden[perm_index_rev]
       self._final_states.append(transducers.FinalTransducerState(final_hidden))
 
     ret = expression_seqs.ExpressionSequence(expr_tensor=decoded, mask=es.mask)

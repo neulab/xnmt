@@ -547,30 +547,34 @@ class OOVStatisticsReporter(Reporter, Serializable):
             hyp_oovs_matched[word] += 1
           else:
             hyp_oovs_unmatched[word] += 1
-    if hyp_words_total == 0: raise ValueError("Found empty hypothesis")
-    sorted_hyp_oovs_matched = sorted(hyp_oovs_matched.items(), key=lambda x: x[1], reverse=True)
-    sorted_hyp_oovs_unmatched = sorted(hyp_oovs_unmatched.items(), key=lambda x: x[1], reverse=True)
-    sorted_ref_oovs_unmatched = sorted(ref_oovs_unmatched.items(), key=lambda x: x[1], reverse=True)
-    num_oovs_ref = sum(ref_words_oov.values())
-    num_oovs_hyp = sum(hyp_words_oov.values())
-    num_oovs_hyp_matched = sum(hyp_oovs_matched.values())
-    hyp_oov_prec = f"{num_oovs_hyp_matched/num_oovs_hyp*100:.2f}%" if num_oovs_hyp>0 else "n/a"
-    hyp_oov_rec = f"{num_oovs_hyp_matched/num_oovs_ref*100:.2f}%" if num_oovs_ref>0 else "n/a"
-    with open(os.path.join(self.report_path, "oov-statistics.txt"), "w") as fout:
-      fout.write(f"OOV Statistics Report\n---------------------\n")
-      fout.write(f"Size of subword vocab:                      {len(self.output_vocab)}\n")
-      fout.write(f"Word types in training corpus:              {len(train_words)}\n")
-      fout.write(f"Word types in test reference:               {len(ref_words)}\n")
-      fout.write(f"Word types in test hypothesis:              {len(hyp_words)}\n")
-      fout.write(f"OOV words in test reference:                {num_oovs_ref} ({num_oovs_ref/ref_words_total*100:.2f}%)\n")
-      fout.write(f"OOV words in test hypothesis:               {num_oovs_hyp} ({num_oovs_hyp/hyp_words_total*100:.2f}%)\n")
-      fout.write(f"Hypothesis OOVs precision (sentence-match): {hyp_oov_prec}\n")
-      fout.write(f"Hypothesis OOVs recall (sentence-match):    {hyp_oov_rec}\n")
-      fout.write(f"\n\nListing:\n")
-      fout.write(f"OOVs recovered: \n")
-      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_hyp_oovs_matched]))
-      fout.write(f"\n\nOOVs not recovered: \n")
-      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_ref_oovs_unmatched]))
-      fout.write(f"\n\nfantasized words: \n")
-      fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_hyp_oovs_unmatched]))
+    if hyp_words_total == 0:
+      with open(os.path.join(self.report_path, "oov-statistics.txt"), "w") as fout:
+        fout.write(f"OOV Statistics Report\n---------------------\n")
+        fout.write(f"(skipped, found empty hypo\n")
+    else:
+      sorted_hyp_oovs_matched = sorted(hyp_oovs_matched.items(), key=lambda x: x[1], reverse=True)
+      sorted_hyp_oovs_unmatched = sorted(hyp_oovs_unmatched.items(), key=lambda x: x[1], reverse=True)
+      sorted_ref_oovs_unmatched = sorted(ref_oovs_unmatched.items(), key=lambda x: x[1], reverse=True)
+      num_oovs_ref = sum(ref_words_oov.values())
+      num_oovs_hyp = sum(hyp_words_oov.values())
+      num_oovs_hyp_matched = sum(hyp_oovs_matched.values())
+      hyp_oov_prec = f"{num_oovs_hyp_matched/num_oovs_hyp*100:.2f}%" if num_oovs_hyp>0 else "n/a"
+      hyp_oov_rec = f"{num_oovs_hyp_matched/num_oovs_ref*100:.2f}%" if num_oovs_ref>0 else "n/a"
+      with open(os.path.join(self.report_path, "oov-statistics.txt"), "w") as fout:
+        fout.write(f"OOV Statistics Report\n---------------------\n")
+        fout.write(f"Size of subword vocab:                      {len(self.output_vocab)}\n")
+        fout.write(f"Word types in training corpus:              {len(train_words)}\n")
+        fout.write(f"Word types in test reference:               {len(ref_words)}\n")
+        fout.write(f"Word types in test hypothesis:              {len(hyp_words)}\n")
+        fout.write(f"OOV words in test reference:                {num_oovs_ref} ({num_oovs_ref/ref_words_total*100:.2f}%)\n")
+        fout.write(f"OOV words in test hypothesis:               {num_oovs_hyp} ({num_oovs_hyp/hyp_words_total*100:.2f}%)\n")
+        fout.write(f"Hypothesis OOVs precision (sentence-match): {hyp_oov_prec}\n")
+        fout.write(f"Hypothesis OOVs recall (sentence-match):    {hyp_oov_rec}\n")
+        fout.write(f"\n\nListing:\n")
+        fout.write(f"OOVs recovered: \n")
+        fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_hyp_oovs_matched]))
+        fout.write(f"\n\nOOVs not recovered: \n")
+        fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_ref_oovs_unmatched]))
+        fout.write(f"\n\nfantasized words: \n")
+        fout.write("\n".join([f"{item[0]} ({item[1]})" for item in sorted_hyp_oovs_unmatched]))
 

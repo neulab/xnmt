@@ -281,7 +281,8 @@ class LevenshteinScore(SentenceLevelEvalScore):
     return scores[0].__class__(correct=sum(s.correct for s in scores),
                                substitutions=sum(s.substitutions for s in scores),
                                insertions=sum(s.insertions for s in scores),
-                               deletions=sum(s.deletions for s in scores))
+                               deletions=sum(s.deletions for s in scores),
+                               desc=desc)
 
 class WERScore(LevenshteinScore, Serializable):
   """

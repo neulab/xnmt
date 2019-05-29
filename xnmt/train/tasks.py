@@ -11,6 +11,7 @@ from xnmt import batchers, event_trigger, input_readers, logger, losses, loss_tr
 from xnmt.models import base as model_base
 from xnmt.eval import tasks as eval_tasks
 from xnmt.persistence import serializable_init, Serializable, bare
+from xnmt.settings import settings
 
 class TrainingTask(object):
   """
@@ -215,7 +216,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     """
     Signal stopping if self.early_stopping_reached is marked or we exhausted the number of requested epochs.
     """
-    return self.early_stopping_reached \
+    return settings.PRETEND or self.early_stopping_reached \
       or self.run_for_epochs is not None and (self.training_state.epoch_num > self.run_for_epochs
                                               or (self.training_state.epoch_num == self.run_for_epochs and
                                                   self.training_state.steps_into_epoch >= self.cur_num_minibatches()))
@@ -245,6 +246,7 @@ class SimpleTrainingTask(TrainingTask, Serializable):
     if self.training_state.epoch_num==0 or self.sample_train_sents or \
       self.model.src_reader.needs_reload() or self.model.trg_reader.needs_reload():
       event_trigger.set_train(True)
+      self.src_data, self.trg_data, self.src_batches, self.trg_batches = None, None, None, None
       self.src_data, self.trg_data, self.src_batches, self.trg_batches = \
         input_readers.read_parallel_corpus(src_reader=self.model.src_reader, trg_reader=self.model.trg_reader,
                                            src_file=self.src_file, trg_file=self.trg_file,

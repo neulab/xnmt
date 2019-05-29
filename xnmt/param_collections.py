@@ -2,11 +2,13 @@ import os
 import re
 import numbers
 import pickle
+import shutil
 
 import numpy as np
 
 import xnmt
 from xnmt import logger
+from xnmt.persistence import ResourceFile
 
 if xnmt.backend_dynet:
   import dynet as dy
@@ -104,6 +106,31 @@ class ParamManager(object):
     return subcol
 
   @staticmethod
+  def my_resources(subcol_owner):
+    """Creates a dedicated resource subcollection for a serializable object.
+
+    Resource subcollections are files that belong to a model and are stored in the .mod.data directory, with a prefix
+    denoting what serializable object the resource file belongs to.
+    This should only be called from the __init__ method of a Serializable.
+
+    Args:
+      subcol_owner (Serializable): The object which is requesting to be assigned a subcollection.
+
+    Returns:
+      The assigned subcollection.
+    """
+    assert ParamManager.initialized, "must call ParamManager.init_param_col() first"
+    assert not getattr(subcol_owner, "init_completed", False), \
+      f"my_params(obj) cannot be called after obj.__init__() has completed. Conflicting obj: {subcol_owner}"
+    if not hasattr(subcol_owner, "xnmt_subcol_name"):
+      raise ValueError(f"{subcol_owner} does not have an attribute 'xnmt_subcol_name'.\n"
+                       f"Did you forget to wrap the __init__() in @serializable_init ?")
+    subcol_name = subcol_owner.xnmt_subcol_name
+    rescol = ParamManager.param_col.add_resource_collection(subcol_name)
+    subcol_owner.save_processed_arg("xnmt_subcol_name", subcol_name)
+    return rescol
+
+  @staticmethod
   def global_collection():
     """ Access the top-level parameter collection, including all parameters.
 
@@ -154,7 +181,7 @@ class BaseParamCollection(object):
       for old_file in dir_contents:
         spl = old_file.split("-")
         # make sure we're only deleting files with the expected filenames
-        if len(spl) == 2:
+        if len(spl) >= 2:
           if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", spl[0]):
             if re.match(r"^[0-9a-f]{8}$", spl[1]):
               os.remove(os.path.join(data_dir, old_file))
@@ -168,6 +195,12 @@ class BaseParamCollection(object):
       if os.path.exists(self._data_files[i]):
         os.rename(self._data_files[i], self._data_files[i + 1])
 
+  def add_resource_collection(self, subcol_name: str) -> 'ResourceCollection':
+    new_rescol = ResourceCollection(subcol_name)
+    self.rescols[subcol_name] = new_rescol
+    return new_rescol
+
+
 @xnmt.require_dynet
 class ParamCollectionDynet(BaseParamCollection):
 
@@ -180,6 +213,7 @@ class ParamCollectionDynet(BaseParamCollection):
     self._param_col = dy.Model()
     self._is_saved = False
     self.subcols = {}
+    self.rescols = {}
     self.all_subcol_owners = set()
 
   def add_subcollection(self, subcol_owner: 'Serializable', subcol_name: str) -> 'dy.ParameterCollection':
@@ -248,6 +282,7 @@ class ParamCollectionTorch(BaseParamCollection):
     self._save_num_checkpoints = 1
     self._model_file = None
     self.subcols =  nn.ModuleDict()
+    self.rescols = {}
     self._is_saved = False
     self.all_subcol_owners = set()
 
@@ -300,6 +335,8 @@ class ParamCollectionTorch(BaseParamCollection):
       os.makedirs(self._data_files[0])
     for subcol_name, subcol in self.subcols.items():
       torch.save(subcol, os.path.join(self._data_files[0], subcol_name))
+    for rescol_name, rescol in self.rescols.items():
+      rescol.save(self._data_files[0])
     self._is_saved = True
 
   def revert_to_best_model(self) -> None:
@@ -318,4 +355,15 @@ class ParamCollectionTorch(BaseParamCollection):
     return sum(p.numel() for p in self.subcols.parameters())
 
 ParamCollection = xnmt.resolve_backend(ParamCollectionDynet, ParamCollectionTorch)
+
+class ResourceCollection(object):
+  def __init__(self, subcol_name):
+    self.resources = []
+    self.subcol_name = subcol_name
+  def add(self, orig_file, save_postfix):
+    self.resources.append((orig_file, save_postfix))
+    return ResourceFile(filename=f"{self.subcol_name}-{save_postfix}")
+  def save(self, data_dir):
+    for orig_file, save_postfix in self.resources:
+      shutil.copyfile(orig_file, os.path.join(data_dir,f"{self.subcol_name}-{save_postfix}"))
 
