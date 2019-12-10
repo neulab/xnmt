@@ -3,7 +3,6 @@ import numpy as np
 import numbers
 from typing import Any, List, Sequence, Union
 
-import xnmt
 import xnmt.batchers as batchers
 import xnmt.event_trigger as event_trigger
 import xnmt.events as events

@@ -4,7 +4,6 @@ from typing import List, Optional, Tuple, Sequence, Union
 from typing.io import TextIO
 import numbers
 import shutil
-import contextlib
 
 import xnmt
 import xnmt.tensor_tools as tt
@@ -129,7 +128,7 @@ class Inference(object):
     else:
       with utils.ReportOnException({"src": src_batch, "graph": utils.print_cg_conditional}):
         tt.reset_graph()
-        with torch.no_grad() if xnmt.backend_torch else contextlib.nullcontext():
+        with torch.no_grad() if xnmt.backend_torch else utils.dummy_context_mgr():
           outputs = self.generate_one(generator, src_batch)
         if self.reporter: self._create_sent_report()
         for i in range(len(outputs)):

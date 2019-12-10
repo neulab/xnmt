@@ -165,6 +165,12 @@ class SkipOutOfMemory(object):
           logger.warn(self.warn_msg)
           return True
 
+class dummy_context_mgr(object):
+  def __enter__(self):
+    return None
+  def __exit__(self, exc_type, exc_value, traceback):
+    return False
+
 class ArgClass(object):
   """
   A class that converts dictionary items to class attributes in order to support argparse-like configuration.

@@ -17,9 +17,6 @@ import xnmt.models.translators.default as translators_default
 
 from xnmt.persistence import Serializable, bare, serializable_init
 
-if xnmt.backend_dynet:
-  import dynet as dy
-
 class EnsembleTranslator(translators_auto_regressive.AutoRegressiveTranslator, Serializable):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
