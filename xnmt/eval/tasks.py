@@ -81,7 +81,7 @@ class LossEvalTask(EvalTask, Serializable):
     for src, trg in zip(self.src_batches, self.ref_batches):
       with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
         tt.reset_graph()
-        with torch.no_grad() if xnmt.backend_torch else contextlib.nullcontext():
+        with torch.no_grad() if xnmt.backend_torch else utils.dummy_context_mgr():
           loss = self.loss_calculator.calc_loss(self.model, src, trg)
 
           ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])

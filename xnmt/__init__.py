@@ -91,7 +91,10 @@ import xnmt.models.classifiers
 import xnmt.models.language_models
 import xnmt.models.retrievers
 import xnmt.models.sequence_labelers
-import xnmt.models.translators
+import xnmt.models.translators.auto_regressive
+import xnmt.models.translators.default
+import xnmt.models.translators.ensemble
+import xnmt.models.translators.transformer
 import xnmt.optimizers
 import xnmt.param_initializers
 import xnmt.persistence
