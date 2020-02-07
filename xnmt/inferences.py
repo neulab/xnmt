@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Sequence, Union
 from typing.io import TextIO
 import numbers
 import shutil
+import contextlib
 
 import xnmt
 import xnmt.tensor_tools as tt
