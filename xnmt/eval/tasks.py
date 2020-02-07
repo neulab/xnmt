@@ -1,4 +1,5 @@
 from typing import Sequence, Union, Optional, Any
+import contextlib
 
 import xnmt.tensor_tools as tt
 import xnmt
