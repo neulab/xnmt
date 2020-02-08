@@ -1,2 +1,3 @@
 Sphinx
 sphinxcontrib-napoleon
+sphinx_autodoc_typehints

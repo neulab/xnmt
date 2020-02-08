@@ -1,9 +1,9 @@
-import dynet as dy
 import pylru
 
 from collections import Counter
 from functools import lru_cache
 
+import xnmt
 from xnmt.expression_seqs import ExpressionSequence
 from xnmt.modelparts.transforms import Linear
 from xnmt.param_collections import ParamManager
@@ -12,7 +12,10 @@ from xnmt.param_initializers import GlorotInitializer, ZeroInitializer
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 
+if xnmt.backend_dynet:
+  import dynet as dy
 
+@xnmt.require_dynet
 class SingleComposer(object):
   @register_xnmt_handler
   def __init__(self):
@@ -41,6 +44,7 @@ class SingleComposer(object):
   def transduce(self, embeds):
     raise NotImplementedError()
 
+@xnmt.require_dynet
 class SumComposer(SingleComposer, Serializable):
   yaml_tag = "!SumComposer"
   
@@ -51,7 +55,7 @@ class SumComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     return dy.sum_dim(embeds, [1])
 
-
+@xnmt.require_dynet
 class AverageComposer(SingleComposer, Serializable):
   yaml_tag = "!AverageComposer"
   
@@ -62,7 +66,7 @@ class AverageComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     return dy.mean_dim(embeds, [1], False)
 
-
+@xnmt.require_dynet
 class MaxComposer(SingleComposer, Serializable):
   yaml_tag = "!MaxComposer"
   
@@ -73,7 +77,7 @@ class MaxComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     return dy.max_dim(embeds, d=1)
 
-
+@xnmt.require_dynet
 class SeqTransducerComposer(SingleComposer, Serializable):
   yaml_tag = "!SeqTransducerComposer"
   
@@ -86,7 +90,7 @@ class SeqTransducerComposer(SingleComposer, Serializable):
     self.seq_transducer.transduce(ExpressionSequence(expr_tensor=embed))
     return self.seq_transducer.get_final_states()[-1].main_expr()
 
-
+@xnmt.require_dynet
 class ConvolutionComposer(SingleComposer, Serializable):
   yaml_tag = "!ConvolutionComposer"
   
@@ -98,10 +102,10 @@ class ConvolutionComposer(SingleComposer, Serializable):
                bias_init=Ref("exp_global.param_init", default=bare(ZeroInitializer)),
                embed_dim=Ref("exp_global.default_layer_dim"),
                hidden_dim=Ref("exp_global.default_layer_dim")):
-    model = ParamManager.my_params(self)
+    my_params = ParamManager.my_params(self)
     dim = (1, ngram_size, embed_dim, hidden_dim)
-    self.filter = model.add_parameters(dim=dim, init=param_init.initializer(dim))
-    self.bias = model.add_parameters(dim=(embed_dim,), init=bias_init.initializer(dim))
+    self.filter = my_params.add_parameters(dim=dim, init=param_init.initializer(dim))
+    self.bias = my_params.add_parameters(dim=(embed_dim,), init=bias_init.initializer(dim))
     self.ngram_size = ngram_size
     self.embed_dim = embed_dim
 
@@ -120,7 +124,7 @@ class ConvolutionComposer(SingleComposer, Serializable):
                                           is_valid=True))
     return dy.max_dim(dy.max_dim(encodings, d=1), d=0)
 
-
+@xnmt.require_dynet
 class VocabBasedComposer(SingleComposer):
   
   @register_xnmt_handler
@@ -183,7 +187,7 @@ class VocabBasedComposer(SingleComposer):
   def on_id_delete(self, wordid):
     raise NotImplementedError()
 
-
+@xnmt.require_dynet
 class LookupComposer(VocabBasedComposer, Serializable):
   yaml_tag = '!LookupComposer'
   @serializable_init
@@ -225,7 +229,7 @@ class LookupComposer(VocabBasedComposer, Serializable):
     #new_vct = np.random.uniform(low=-1, high=1, size=self.hidden_dim)
     #self.embedding.init_row(wordid, new_vct)
 
-
+@xnmt.require_dynet
 class CharNGramComposer(VocabBasedComposer, Serializable):
   """
   CHARAGRAM composition function
@@ -306,7 +310,7 @@ class CharNGramComposer(VocabBasedComposer, Serializable):
     #b_np[wordid] = 0
     #b.set_value(b_np)
 
-
+@xnmt.require_dynet
 class SumMultipleComposer(SingleComposer, Serializable):
   yaml_tag = "!SumMultipleComposer"
 
@@ -322,7 +326,7 @@ class SumMultipleComposer(SingleComposer, Serializable):
   def transduce(self, embeds):
     return sum([composer.transduce(embeds) for composer in self.composers])
 
-
+@xnmt.require_dynet
 class ConcatMultipleComposer(SingleComposer, Serializable):
   yaml_tag = "!ConcatMultipleComposer"
 

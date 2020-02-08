@@ -12,8 +12,8 @@ with warnings.catch_warnings():
   import h5py
 
 from xnmt import logger
-
-from xnmt import events, vocabs
+import xnmt
+from xnmt import events, param_collections, vocabs
 from xnmt.graph import HyperEdge, HyperGraph
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import sent
@@ -189,7 +189,7 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
                l: numbers.Integral=-1,
                alpha: numbers.Real=0.1,
                vocab: Optional[vocabs.Vocab]=None,
-               output_proc=[output.JoinPieceTextOutputProcessor]) -> None:
+               output_proc: Sequence[output.OutputProcessor] = [output.JoinPieceTextOutputProcessor()]) -> None:
     """
     Args:
       model_file: The sentence piece model file
@@ -208,6 +208,9 @@ class SentencePieceTextReader(BaseTextReader, Serializable):
     self.vocab = vocab
     self.train = False
     self.output_procs = output.OutputProcessor.get_output_processor(output_proc)
+    my_resources = param_collections.ParamManager.my_resources(self)
+    model_file_resource = my_resources.add(model_file, "sentpiece.mod")
+    self.save_processed_arg("model_file", model_file_resource)
 
   @events.handle_xnmt_event
   def on_set_train(self, val):
@@ -318,7 +321,72 @@ class CharFromWordTextReader(PlainTextReader, Serializable):
                                         output_procs=self.output_procs)
     return sent_input
 
-class H5Reader(InputReader, Serializable):
+class ContvecReader(InputReader):
+  """
+  Base class for H5Reader and NpzReader.
+
+  Args:
+    transpose: whether inputs are transposed or not.
+    feat_from: use feature dimensions in a range, starting at this index (inclusive)
+    feat_to: use feature dimensions in a range, ending at this index (exclusive)
+    feat_skip: stride over features
+    stack: apply frame stacking if > 1 (with 0-padding)
+    delta: '1' adds deltas, '2' adds deltas and delta-deltas
+    timestep_skip: stride over timesteps
+    timestep_truncate: cut off timesteps if sequence is longer than specified value
+  """
+  def __init__(self,
+               transpose: bool = False,
+               feat_from: Optional[numbers.Integral] = None,
+               feat_to: Optional[numbers.Integral] = None,
+               feat_skip: Optional[numbers.Integral] = None,
+               stack: numbers.Integral = 1,
+               delta: numbers.Integral = 0,
+               timestep_skip: Optional[numbers.Integral] = None,
+               timestep_truncate: Optional[numbers.Integral] = None) -> None:
+    self.transpose = transpose
+    self.feat_from = feat_from
+    self.feat_to = feat_to
+    self.feat_skip = feat_skip
+    self.stack = stack
+    self.delta = delta
+    self.timestep_skip = timestep_skip
+    self.timestep_truncate = timestep_truncate
+
+  def proc_one_sent(self, inp):
+    if self.transpose:
+      inp = inp.transpose()
+
+    inp = inp[:, :self.timestep_truncate:self.timestep_skip]
+    if self.stack > 1:
+      if self.stack % 2 != 1: raise ValueError(f"Only support stacking of uneven frame numbers, received: {self.stack}")
+      prepad_len = inp.shape[1]
+      inp = np.pad(inp, ((0, 0), (self.stack // 2, self.stack // 2)), 'constant')
+      inp = np.concatenate([inp[:, i:i + prepad_len] for i in range(self.stack)])
+
+    if self.delta:
+      diff_arrays = []
+      for order in range(1, self.delta + 1):
+        diff_arrays.append(np.diff(a=np.append(inp,
+                                               values=np.zeros(shape=(inp.shape[0], order),
+                                                               dtype=inp.dtype),
+                                               axis=1),
+                                   n=order))
+      inp = np.concatenate([inp] + diff_arrays)
+    sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, :]
+    if sub_inp.size < inp.size:
+      inp = np.empty_like(sub_inp)
+      np.copyto(inp, sub_inp)
+    else:
+      inp = sub_inp
+
+    if xnmt.backend_torch:
+      inp = inp.T
+
+    return inp
+
+
+class H5Reader(ContvecReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
 
@@ -326,16 +394,22 @@ class H5Reader(InputReader, Serializable):
 
   The data items are assumed to be labeled with integers 0, 1, .. (converted to strings).
 
-  Each data item will be a 2D matrix representing a sequence of vectors. They can
+  Each input data item will be a 2D matrix representing a sequence of vectors. They can
   be in either order, depending on the value of the "transpose" variable:
   * sents[sent_id][feat_ind,timestep] if transpose=False
   * sents[sent_id][timestep,feat_ind] if transpose=True
+
+  The output format will depend on the backend:
+  * sents[sent_id][feat_ind,timestep] for DyNet backend
+  * sents[sent_id][timestep,feat_ind] for Pytorch backend
 
   Args:
     transpose: whether inputs are transposed or not.
     feat_from: use feature dimensions in a range, starting at this index (inclusive)
     feat_to: use feature dimensions in a range, ending at this index (exclusive)
     feat_skip: stride over features
+    stack: apply frame stacking if > 1 (with 0-padding)
+    delta: '1' adds deltas, '2' adds deltas and delta-deltas
     timestep_skip: stride over timesteps
     timestep_truncate: cut off timesteps if sequence is longer than specified value
   """
@@ -346,36 +420,25 @@ class H5Reader(InputReader, Serializable):
                feat_from: Optional[numbers.Integral] = None,
                feat_to: Optional[numbers.Integral] = None,
                feat_skip: Optional[numbers.Integral] = None,
+               stack: numbers.Integral = 1,
+               delta: numbers.Integral = 0,
                timestep_skip: Optional[numbers.Integral] = None,
-               timestep_truncate: Optional[numbers.Integral] = None):
-    self.transpose = transpose
-    self.feat_from = feat_from
-    self.feat_to = feat_to
-    self.feat_skip = feat_skip
-    self.timestep_skip = timestep_skip
-    self.timestep_truncate = timestep_truncate
+               timestep_truncate: Optional[numbers.Integral] = None) -> None:
+    super().__init__(transpose=transpose, feat_from=feat_from, feat_to=feat_to, feat_skip=feat_skip, stack=stack,
+                     delta=delta, timestep_skip=timestep_skip, timestep_truncate=timestep_truncate)
 
   def read_sents(self, filename: str, filter_ids: Optional[Sequence[numbers.Integral]]=None) -> Iterator[sent.ArraySentence]:
     with h5py.File(filename, "r") as hf:
       h5_keys = sorted(hf.keys(), key=lambda x: int(x))
+
       if filter_ids is not None:
         filter_ids = sorted(filter_ids)
         h5_keys = [h5_keys[i] for i in filter_ids]
         h5_keys.sort(key=lambda x: int(x))
+
       for sent_no, key in enumerate(h5_keys):
         inp = hf[key][:]
-        if self.transpose:
-          inp = inp.transpose()
-
-        sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, :self.timestep_truncate:self.timestep_skip]
-        if sub_inp.size < inp.size:
-          inp = np.empty_like(sub_inp)
-          np.copyto(inp, sub_inp)
-        else:
-          inp = sub_inp
-
-        if sent_no % 1000 == 999:
-          logger.info(f"Read {sent_no+1} lines ({float(sent_no+1)/len(h5_keys)*100:.2f}%) of {filename} at {key}")
+        inp = self.proc_one_sent(inp)
         yield sent.ArraySentence(idx=filter_ids[sent_no] if filter_ids else sent_no, nparr=inp)
 
   def count_sents(self, filename: str) -> numbers.Integral:
@@ -384,7 +447,7 @@ class H5Reader(InputReader, Serializable):
     return l
 
 
-class NpzReader(InputReader, Serializable):
+class NpzReader(ContvecReader, Serializable):
   """
   Handles the case where sents are sequences of continuous-space vectors.
 
@@ -408,6 +471,8 @@ class NpzReader(InputReader, Serializable):
     feat_from: use feature dimensions in a range, starting at this index (inclusive)
     feat_to: use feature dimensions in a range, ending at this index (exclusive)
     feat_skip: stride over features
+    stack: apply frame stacking if > 1 (with 0-padding)
+    delta: '1' adds deltas, '2' adds deltas and delta-deltas
     timestep_skip: stride over timesteps
     timestep_truncate: cut off timesteps if sequence is longer than specified value
   """
@@ -418,37 +483,27 @@ class NpzReader(InputReader, Serializable):
                feat_from: Optional[numbers.Integral] = None,
                feat_to: Optional[numbers.Integral] = None,
                feat_skip: Optional[numbers.Integral] = None,
+               stack: numbers.Integral = 1,
+               delta: numbers.Integral = 0,
                timestep_skip: Optional[numbers.Integral] = None,
-               timestep_truncate: Optional[numbers.Integral] = None):
-    self.transpose = transpose
-    self.feat_from = feat_from
-    self.feat_to = feat_to
-    self.feat_skip = feat_skip
-    self.timestep_skip = timestep_skip
-    self.timestep_truncate = timestep_truncate
+               timestep_truncate: Optional[numbers.Integral] = None) -> None:
+    super().__init__(transpose=transpose, feat_from=feat_from, feat_to=feat_to, feat_skip=feat_skip, stack=stack,
+                     delta=delta, timestep_skip=timestep_skip, timestep_truncate=timestep_truncate)
 
   def read_sents(self, filename: str, filter_ids: Optional[Sequence[numbers.Integral]] = None) -> None:
     npzFile = np.load(filename, mmap_mode=None if filter_ids is None else "r")
     npzKeys = sorted(npzFile.files, key=lambda x: int(x.split('_')[-1]))
+
     if filter_ids is not None:
       filter_ids = sorted(filter_ids)
       npzKeys = [npzKeys[i] for i in filter_ids]
       npzKeys.sort(key=lambda x: int(x.split('_')[-1]))
+
     for sent_no, key in enumerate(npzKeys):
       inp = npzFile[key]
-      if self.transpose:
-        inp = inp.transpose()
-
-      sub_inp = inp[self.feat_from: self.feat_to: self.feat_skip, :self.timestep_truncate:self.timestep_skip]
-      if sub_inp.size < inp.size:
-        inp = np.empty_like(sub_inp)
-        np.copyto(inp, sub_inp)
-      else:
-        inp = sub_inp
-
-      if sent_no % 1000 == 999:
-        logger.info(f"Read {sent_no+1} lines ({float(sent_no+1)/len(npzKeys)*100:.2f}%) of {filename} at {key}")
+      inp = self.proc_one_sent(inp)
       yield sent.ArraySentence(idx=filter_ids[sent_no] if filter_ids else sent_no, nparr=inp)
+
     npzFile.close()
 
   def count_sents(self, filename: str) -> numbers.Integral:
@@ -456,6 +511,7 @@ class NpzReader(InputReader, Serializable):
     l = len(npz_file.files)
     npz_file.close()
     return l
+
 
 class IDReader(BaseTextReader, Serializable):
   """
@@ -630,7 +686,8 @@ def read_parallel_corpus(src_reader: InputReader,
     trg_len = trg_reader.count_sents(trg_file)
     if src_len != trg_len: raise RuntimeError(f"training src sentences don't match trg sentences: {src_len} != {trg_len}!")
     if max_num_sents and max_num_sents < src_len: src_len = trg_len = max_num_sents
-    filter_ids = np.random.choice(src_len, sample_sents, replace=False)
+    if sample_sents < src_len: filter_ids = np.random.choice(src_len, sample_sents, replace=False)
+    else: filter_ids = None
   else:
     logger.info(f"Starting to read {src_file} and {trg_file}")
     filter_ids = None

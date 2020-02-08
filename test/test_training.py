@@ -1,8 +1,8 @@
 import unittest
 
-import dynet as dy
 import numpy as np
 
+import xnmt, xnmt.tensor_tools as tt
 from xnmt.modelparts.attenders import MlpAttender, DotAttender
 from xnmt.batchers import mark_as_batch, Mask, SrcBatcher
 from xnmt.modelparts.bridges import CopyBridge
@@ -13,7 +13,8 @@ import xnmt.events
 from xnmt.input_readers import PlainTextReader
 from xnmt.transducers.recurrent import UniLSTMSeqTransducer, BiLSTMSeqTransducer
 from xnmt.loss_calculators import MLELoss
-from xnmt.optimizers import AdamTrainer, DummyTrainer
+from xnmt.loss_trackers import TrainLossTracker
+from xnmt import optimizers
 from xnmt.param_collections import ParamManager
 from xnmt.transducers.pyramidal import PyramidalLSTMSeqTransducer
 from xnmt.train import regimens
@@ -23,16 +24,17 @@ from xnmt.modelparts.scorers import Softmax
 from xnmt.vocabs import Vocab
 from xnmt import event_trigger, sent
 
+
 class TestTruncatedBatchTraining(unittest.TestCase):
 
   def setUp(self):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
-    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
-    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab"))
+    self.src_data = list(self.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("test/data/head.en"))
 
   def assert_single_loss_equals_batch_loss(self, model, pad_src_to_multiple=1):
     """
@@ -57,14 +59,14 @@ class TestTruncatedBatchTraining(unittest.TestCase):
 
     single_loss = 0.0
     for sent_id in range(batch_size):
-      dy.renew_cg()
+      tt.reset_graph()
       train_loss = MLELoss().calc_loss(
                                    model=model,
                                    src=src_sents_trunc[sent_id],
                                    trg=trg_sents_trunc[sent_id]).value()
-      single_loss += train_loss
+      single_loss += train_loss[0]
 
-    dy.renew_cg()
+    tt.reset_graph()
 
     batched_loss = MLELoss().calc_loss(
                                    model=model,
@@ -162,10 +164,10 @@ class TestBatchTraining(unittest.TestCase):
     xnmt.events.clear()
     ParamManager.init_param_col()
 
-    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab"))
-    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab"))
-    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
+    self.src_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab"))
+    self.trg_reader = PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab"))
+    self.src_data = list(self.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("test/data/head.en"))
 
   def assert_single_loss_equals_batch_loss(self, model, pad_src_to_multiple=1):
     """
@@ -194,14 +196,14 @@ class TestBatchTraining(unittest.TestCase):
 
     single_loss = 0.0
     for sent_id in range(batch_size):
-      dy.renew_cg()
+      tt.reset_graph()
       train_loss = MLELoss().calc_loss(
                                    model=model,
                                    src=src_sents_trunc[sent_id],
                                    trg=trg_sents[sent_id]).value()
-      single_loss += train_loss
+      single_loss += train_loss[0]
 
-    dy.renew_cg()
+    tt.reset_graph()
 
     batched_loss = MLELoss().calc_loss(
                                    model=model,
@@ -272,7 +274,6 @@ class TestBatchTraining(unittest.TestCase):
     event_trigger.set_train(False)
     self.assert_single_loss_equals_batch_loss(model)
 
-
 class TestTrainDevLoss(unittest.TestCase):
 
   def setUp(self):
@@ -283,11 +284,11 @@ class TestTrainDevLoss(unittest.TestCase):
     layer_dim = 512
     batcher = SrcBatcher(batch_size=5, break_ties_randomly=False)
     train_args = {}
-    train_args['src_file'] = "examples/data/head.ja"
-    train_args['trg_file'] = "examples/data/head.en"
+    train_args['src_file'] = "test/data/head.ja"
+    train_args['trg_file'] = "test/data/head.en"
     train_args['loss_calculator'] = MLELoss()
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
-                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab")),
+                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(emb_dim=layer_dim, vocab_size=100),
                                             encoder=BiLSTMSeqTransducer(input_dim=layer_dim, hidden_dim=layer_dim),
                                             attender=MlpAttender(input_dim=layer_dim, state_dim=layer_dim,
@@ -303,12 +304,13 @@ class TestTrainDevLoss(unittest.TestCase):
                                                                       bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
-                                            src_file="examples/data/head.ja",
-                                            ref_file="examples/data/head.en",
+                                            src_file="test/data/head.ja",
+                                            ref_file="test/data/head.en",
                                             batcher=batcher)]
-    train_args['trainer'] = DummyTrainer()
+    train_args['trainer'] = optimizers.DummyTrainer()
     train_args['batcher'] = batcher
     train_args['run_for_epochs'] = 1
+    train_args['train_loss_tracker'] = TrainLossTracker(accumulative=True)
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
     training_regimen.run_training(save_fct = lambda: None)
     self.assertAlmostEqual(training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,
@@ -324,11 +326,11 @@ class TestOverfitting(unittest.TestCase):
     layer_dim = 16
     batcher = SrcBatcher(batch_size=10, break_ties_randomly=False)
     train_args = {}
-    train_args['src_file'] = "examples/data/head.ja"
-    train_args['trg_file'] = "examples/data/head.en"
+    train_args['src_file'] = "test/data/head.ja"
+    train_args['trg_file'] = "test/data/head.en"
     train_args['loss_calculator'] = MLELoss()
-    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.ja.vocab")),
-                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="examples/data/head.en.vocab")),
+    train_args['model'] = DefaultTranslator(src_reader=PlainTextReader(vocab=Vocab(vocab_file="test/data/head.ja.vocab")),
+                                            trg_reader=PlainTextReader(vocab=Vocab(vocab_file="test/data/head.en.vocab")),
                                             src_embedder=SimpleWordEmbedder(vocab_size=100, emb_dim=layer_dim),
                                             encoder=BiLSTMSeqTransducer(input_dim=layer_dim,
                                                                         hidden_dim=layer_dim),
@@ -346,14 +348,15 @@ class TestOverfitting(unittest.TestCase):
                                                                       bridge=CopyBridge(dec_dim=layer_dim, dec_layers=1)),
                                             )
     train_args['dev_tasks'] = [LossEvalTask(model=train_args['model'],
-                                            src_file="examples/data/head.ja",
-                                            ref_file="examples/data/head.en",
+                                            src_file="test/data/head.ja",
+                                            ref_file="test/data/head.en",
                                             batcher=batcher)]
     train_args['run_for_epochs'] = 1
-    train_args['trainer'] = AdamTrainer(alpha=0.1)
+    train_args['trainer'] = optimizers.AdamTrainer(alpha=0.1, rescale_grads=5.0, skip_noisy=True)
+
     train_args['batcher'] = batcher
     training_regimen = regimens.SimpleTrainingRegimen(**train_args)
-    for _ in range(50):
+    for _ in range(100):
       training_regimen.run_training(save_fct=lambda:None)
     self.assertAlmostEqual(0.0,
                            training_regimen.train_loss_tracker.epoch_loss.sum_factors() / training_regimen.train_loss_tracker.epoch_words,

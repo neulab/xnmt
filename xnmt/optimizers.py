@@ -1,20 +1,68 @@
 from typing import Optional
 import numbers
+import collections
 
-import dynet as dy
 import numpy as np
 
-from xnmt import logger
+import xnmt
+import xnmt.tensor_tools as tt
+from xnmt.settings import settings
+from xnmt import logger, tee
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import serializable_init, Serializable
 from xnmt import utils
+
+if xnmt.backend_torch:
+  import torch.optim
+if xnmt.backend_dynet:
+  import dynet as dy
 
 """
 The purpose of this module is mostly to expose the DyNet trainers to YAML serialization,
 but may also be extended to customize optimizers / training schedules
 """
 
+
 class XnmtOptimizer(object):
+  """
+  A base classe for trainers. Trainers are mostly simple wrappers of the backend trainers but can add extra
+  functionality.
+  """
+  def __init__(self):
+    self.learning_rate = None
+    self.rolling_stats = None
+
+  def update(self) -> None:
+    """
+    Update the parameters.
+    """
+    raise NotImplementedError()
+
+  def restart(self) -> None:
+    """
+    Restarts the optimizer
+
+    Clears all momentum values and assimilate (if applicable)
+    """
+    raise NotImplementedError()
+
+  def grad_log_norm(self):
+    raise NotImplementedError()
+
+  def check_gradients_noisy(self) -> bool:
+    if getattr(self, "rolling_stats", None) is None: self.rolling_stats = utils.RollingStatistic()
+    log_norm = self.grad_log_norm()
+    if settings.USE_TENSORBOARD: tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(log_norm)}, global_step=self.global_step)
+    self.rolling_stats.update(log_norm)
+    if self.rolling_stats.average is None: # too few statistics
+      return False
+    else:
+      req_min = self.rolling_stats.average - 4*self.rolling_stats.stddev
+      req_max = self.rolling_stats.average + 4*self.rolling_stats.stddev
+      return not (req_min < log_norm < req_max)
+
+@xnmt.require_dynet
+class XnmtOptimizerDynet(XnmtOptimizer):
   """
   A base classe for trainers. Trainers are mostly simple wrappers of DyNet trainers but can add extra functionality.
 
@@ -23,20 +71,30 @@ class XnmtOptimizer(object):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
 
-  def __init__(self, optimizer: dy.Trainer, skip_noisy: bool = False) -> None:
+  def __init__(self, optimizer: 'dy.Trainer', skip_noisy: bool = False, rescale_grads: Optional[numbers.Real] = 5.0) \
+          -> None:
     self.optimizer = optimizer
+    self.optimizer.set_sparse_updates(False)
+    self.optimizer.set_clip_threshold(rescale_grads or -1)
     self.skip_noisy = skip_noisy
-    if skip_noisy:
-      self.rolling_stats = utils.RollingStatistic()
+    self.global_step = 0
 
   def update(self) -> None:
     """
     Update the parameters.
     """
+    self.global_step += 1
+    if settings.USE_TENSORBOARD:
+      tee.tensorboard_writer.add_scalars(name="lr", tag_scalar_dict={"lr": self.optimizer.learning_rate},
+                                         global_step=self.global_step)
+      if not self.skip_noisy:
+        tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(self.grad_log_norm())},
+                                                                        global_step=self.global_step)
     try:
-      if not (self.skip_noisy and self._check_gradients_noisy()):
+      if not (self.skip_noisy and self.check_gradients_noisy()):
         self.optimizer.update()
       else:
         logger.info("skipping noisy update")
@@ -54,26 +112,6 @@ class XnmtOptimizer(object):
     """
     return self.optimizer.status()
 
-  def set_clip_threshold(self, thr: numbers.Real) -> None:
-    """
-    Set clipping thershold
-
-    To deactivate clipping, set the threshold to be <=0
-
-    Args:
-      thr: Clipping threshold
-    """
-    return self.optimizer.set_clip_threshold(thr)
-
-  def get_clip_threshold(self) -> numbers.Real:
-    """
-    Get clipping threshold
-
-    Returns:
-      Gradient clipping threshold
-    """
-    return self.optimizer.get_clip_threshold()
-
   def restart(self) -> None:
     """
     Restarts the optimizer
@@ -89,22 +127,82 @@ class XnmtOptimizer(object):
   def learning_rate(self, value):
     self.optimizer.learning_rate = value
 
-  def _check_gradients_noisy(self) -> bool:
+  def grad_log_norm(self) -> float:
+    if getattr(self, "rolling_stats", None) is None: self.rolling_stats = utils.RollingStatistic()
     sq_norm = 0
     for subcol in ParamManager.param_col.subcols.values():
       for param in subcol.parameters_list():
         cur_grads = param.grad_as_array()
         sq_norm += np.sum(np.square(cur_grads))
-    log_norm = np.log(np.sqrt(sq_norm))
-    self.rolling_stats.update(log_norm)
-    if self.rolling_stats.average is None: # too few statistics
-      return False
-    else:
-      req_min = self.rolling_stats.average - 4*self.rolling_stats.stddev
-      req_max = self.rolling_stats.average + 4*self.rolling_stats.stddev
-      return not (req_min < log_norm < req_max)
+    return np.log(np.sqrt(sq_norm))
 
-class SimpleSGDTrainer(XnmtOptimizer, Serializable):
+
+@xnmt.require_torch
+class XnmtOptimizerTorch(XnmtOptimizer):
+  """
+  A base classe for trainers. Trainers are mostly simple wrappers of PyTorch trainers but can add extra functionality.
+
+  Args:
+    optimizer: the underlying PyTorch optimizer
+    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
+                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
+                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
+  """
+
+  def __init__(self,
+               optimizer: 'torch.optim.Optimizer',
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
+    self.optimizer = optimizer
+    self.rescale_grads = rescale_grads
+    self.rescale_grads = rescale_grads
+    self.lr_factor = 1.0
+    self.scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=self.optimizer,
+                                                       lr_lambda = lambda epoch: self.lr_factor, last_epoch=-1)
+    self.skip_noisy = skip_noisy
+    self.global_step = 0
+
+  def update(self) -> None:
+    self.global_step += 1
+    if self.rescale_grads:
+      torch.nn.utils.clip_grad_norm_(ParamManager.global_collection().parameters(), self.rescale_grads)
+    self.scheduler.step()
+    if settings.USE_TENSORBOARD:
+      tee.tensorboard_writer.add_scalars(name="lr", tag_scalar_dict={"lr": self.learning_rate * self.lr_factor},
+                                         global_step=self.global_step)
+      if not self.skip_noisy:
+        tee.tensorboard_writer.add_scalars(name="grad", tag_scalar_dict={"norm": np.exp(self.grad_log_norm())},
+                                                                        global_step=self.global_step)
+    if not (self.skip_noisy and self.check_gradients_noisy()):
+      self.optimizer.step()
+    else:
+      logger.info("skipping noisy update")
+
+
+  def restart(self) -> None:
+    # https://discuss.pytorch.org/t/reset-adaptive-optimizer-state/14654/3
+    self.optimizer.state = collections.defaultdict(dict)
+
+  @property
+  def learning_rate(self):
+    return self.lr_factor
+  @learning_rate.setter
+  def learning_rate(self, value):
+    self.lr_factor = value
+
+  def grad_log_norm(self) -> float:
+    if getattr(self, "rolling_stats", None) is None: self.rolling_stats = utils.RollingStatistic()
+    sq_norm = 0
+    for subcol in ParamManager.param_col.subcols.values():
+      for _, param in subcol.named_parameters():
+        if param.grad is not None:
+          cur_grads = tt.npvalue(param.grad)
+          sq_norm += np.sum(np.square(cur_grads))
+    return  np.log(np.sqrt(sq_norm))
+
+@xnmt.require_dynet
+class SimpleSGDTrainerDynet(XnmtOptimizerDynet, Serializable):
   """
   Stochastic gradient descent trainer
 
@@ -115,15 +213,58 @@ class SimpleSGDTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!SimpleSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0: numbers.Real = 0.1, skip_noisy: bool = False) -> None:
+  def __init__(self, e0: numbers.Real = 0.1, skip_noisy: bool = False, rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.SimpleSGDTrainer(ParamManager.global_collection(), e0),
-                     skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy,
+                     rescale_grads=rescale_grads)
 
-class MomentumSGDTrainer(XnmtOptimizer, Serializable):
+@xnmt.require_torch
+class SimpleSGDTrainerTorch(XnmtOptimizerTorch, Serializable):
+  """
+  Stochastic gradient descent trainer
+
+  This trainer performs stochastic gradient descent, the goto optimization procedure for neural networks.
+
+  Args:
+    e0: Initial learning rate
+    momentum: momentum factor
+    weight_decay: weight decay (L2 penalty)
+    dampening: dampening for momentum
+    nesterov: enables Nesterov momentum
+    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
+                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
+                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
+  """
+  yaml_tag = '!SimpleSGDTrainer'
+
+  @serializable_init
+  def __init__(self,
+               e0: numbers.Real = 0.1,
+               momentum: numbers.Real = 0.0,
+               weight_decay: numbers.Real = 0.0,
+               dampening: numbers.Real = 0.0,
+               nesterov: bool = False,
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
+    super().__init__(optimizer=torch.optim.SGD(params=ParamManager.global_collection().parameters(),
+                                               lr=e0,
+                                               momentum=momentum,
+                                               weight_decay=weight_decay,
+                                               dampening=dampening,
+                                               nesterov=nesterov),
+                     skip_noisy=skip_noisy,
+                     rescale_grads=rescale_grads)
+
+SimpleSGDTrainer = xnmt.resolve_backend(SimpleSGDTrainerDynet, SimpleSGDTrainerTorch)
+
+@xnmt.require_dynet
+class MomentumSGDTrainer(XnmtOptimizerDynet, Serializable):
   """
   Stochastic gradient descent with momentum
 
@@ -135,15 +276,22 @@ class MomentumSGDTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!MomentumSGDTrainer'
 
   @serializable_init
-  def __init__(self, e0: numbers.Real = 0.01, mom: numbers.Real = 0.9, skip_noisy: bool = False) -> None:
+  def __init__(self,
+               e0: numbers.Real = 0.01,
+               mom: numbers.Real = 0.9,
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.MomentumSGDTrainer(ParamManager.global_collection(), e0, mom),
-                     skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy,
+                     rescale_grads=rescale_grads)
 
-class AdagradTrainer(XnmtOptimizer, Serializable):
+@xnmt.require_dynet
+class AdagradTrainer(XnmtOptimizerDynet, Serializable):
   """
   Adagrad optimizer
 
@@ -155,15 +303,22 @@ class AdagradTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!AdagradTrainer'
 
   @serializable_init
-  def __init__(self, e0: numbers.Real = 0.1, eps: numbers.Real = 1e-20, skip_noisy: bool = False) -> None:
+  def __init__(self,
+               e0: numbers.Real = 0.1,
+               eps: numbers.Real = 1e-20,
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.AdagradTrainer(ParamManager.global_collection(), e0, eps=eps),
-                     skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy,
+                     rescale_grads=rescale_grads)
 
-class AdadeltaTrainer(XnmtOptimizer, Serializable):
+@xnmt.require_dynet
+class AdadeltaTrainer(XnmtOptimizerDynet, Serializable):
   """
   AdaDelta optimizer
 
@@ -175,15 +330,22 @@ class AdadeltaTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!AdadeltaTrainer'
 
   @serializable_init
-  def __init__(self, eps: numbers.Real = 1e-6, rho: numbers.Real = 0.95, skip_noisy: bool = False) -> None:
+  def __init__(self,
+               eps: numbers.Real = 1e-6,
+               rho: numbers.Real = 0.95,
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.AdadeltaTrainer(ParamManager.global_collection(), eps, rho),
-                     skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy,
+                     rescale_grads=rescale_grads)
 
-class AdamTrainer(XnmtOptimizer, Serializable):
+@xnmt.require_dynet
+class AdamTrainerDynet(XnmtOptimizerDynet, Serializable):
   """
   Adam optimizer
 
@@ -197,6 +359,7 @@ class AdamTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!AdamTrainer'
 
@@ -206,11 +369,57 @@ class AdamTrainer(XnmtOptimizer, Serializable):
                beta_1: numbers.Real = 0.9,
                beta_2: numbers.Real = 0.999,
                eps: numbers.Real = 1e-8,
-               skip_noisy: bool = False) -> None:
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(), alpha, beta_1, beta_2, eps),
-                     skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy, rescale_grads=rescale_grads)
 
-class NoamTrainer(XnmtOptimizer, Serializable):
+@xnmt.require_torch
+class AdamTrainerTorch(XnmtOptimizerTorch, Serializable):
+  """
+  Adam optimizer
+
+  The Adam optimizer is similar to RMSProp but uses unbiased estimates of the first and second moments of the gradient
+
+  Args:
+    alpha: Initial learning rate
+    beta_1: Moving average parameter for the mean
+    beta_2: Moving average parameter for the variance
+    eps: Epsilon parameter to prevent numerical instability
+    weight_decay: weight decay (L2 penalty)
+    amsgrad: whether to use the AMSGrad variant of this algorithm from the paper `On the Convergence of Adam and Beyond`
+    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
+                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
+                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
+  """
+  yaml_tag = '!AdamTrainer'
+
+  @serializable_init
+  def __init__(self,
+               alpha: numbers.Real = 0.001,
+               beta_1: numbers.Real = 0.9,
+               beta_2: numbers.Real = 0.999,
+               eps: numbers.Real = 1e-8,
+               weight_decay: numbers.Real = 0.0,
+               amsgrad: bool = False,
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
+    super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
+                                                lr=alpha,
+                                                betas=(beta_1, beta_2),
+                                                eps=eps,
+                                                weight_decay=weight_decay,
+                                                amsgrad=amsgrad),
+                     skip_noisy=skip_noisy,
+                     rescale_grads=rescale_grads,
+                     )
+
+AdamTrainer = xnmt.resolve_backend(AdamTrainerDynet, AdamTrainerTorch)
+
+
+@xnmt.require_dynet
+class NoamTrainerDynet(XnmtOptimizerDynet, Serializable):
   """
   Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
   In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
@@ -225,6 +434,7 @@ class NoamTrainer(XnmtOptimizer, Serializable):
     skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
                           values, and abort a step if the norm of the gradient exceeds four standard deviations of the
                           moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
   """
   yaml_tag = '!NoamTrainer'
 
@@ -236,13 +446,15 @@ class NoamTrainer(XnmtOptimizer, Serializable):
                beta_1: numbers.Real = 0.9,
                beta_2: numbers.Real = 0.98,
                eps: numbers.Real = 1e-9,
-               skip_noisy: bool = False) -> None:
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
     super().__init__(optimizer=dy.AdamTrainer(ParamManager.global_collection(),
                                     alpha=alpha,
                                     beta_1=beta_1,
                                     beta_2=beta_2,
                                     eps=eps),
-                     skip_noisy=skip_noisy)
+                     skip_noisy=skip_noisy,
+                     rescale_grads=rescale_grads)
     self.dim = dim
     self.warmup_steps = warmup_steps
     self.steps = 0
@@ -258,8 +470,60 @@ class NoamTrainer(XnmtOptimizer, Serializable):
 
     if self.steps % 200 == 0:
       logger.info('> Optimizer Logging')
-      logger.info('  Steps=%d, learning_rate=%.2e' % (self.steps, self.optimizer.learning_rate))
+      logger.info(f'  Steps={self.steps}, learning_rate={self.optimizer.learning_rate:.2e}')
 
+@xnmt.require_torch
+class NoamTrainerTorch(XnmtOptimizerTorch, Serializable):
+  """
+  Proposed in the paper "Attention is all you need" (https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf) [Page 7, Eq. 3]
+  In this the learning rate of Adam Optimizer is increased for the first warmup steps followed by a gradual decay
+
+  Args:
+    alpha:
+    dim:
+    warmup_steps:
+    beta_1:
+    beta_2:
+    eps:
+    skip_noisy: keep track of a moving average and a moving standard deviation of the log of the gradient norm
+                          values, and abort a step if the norm of the gradient exceeds four standard deviations of the
+                          moving average. Reference: https://arxiv.org/pdf/1804.09849.pdf
+    rescale_grads: rescale gradients if the observed norm should be larger than this given norm
+  """
+  yaml_tag = '!NoamTrainer'
+
+  @serializable_init
+  def __init__(self,
+               alpha: numbers.Real = 1.0,
+               dim: numbers.Integral = 512,
+               warmup_steps: Optional[numbers.Integral] = 4000,
+               beta_1: numbers.Real = 0.9,
+               beta_2: numbers.Real = 0.98,
+               eps: numbers.Real = 1e-9,
+               skip_noisy: bool = False,
+               rescale_grads: numbers.Real = 5.0) -> None:
+    super().__init__(optimizer=torch.optim.Adam(params=ParamManager.global_collection().parameters(),
+                                                lr=alpha, betas=(beta_1, beta_2), eps=eps),
+                     skip_noisy=skip_noisy,
+                     rescale_grads=rescale_grads)
+    self.dim = dim
+    self.warmup_steps = warmup_steps
+    self.steps = 0
+
+  def update(self) -> None:
+    self.steps += 1
+    if self.warmup_steps:
+      decay = (self.dim ** (-0.5)) * np.min([self.steps ** (-0.5), self.steps * (self.warmup_steps ** (-1.5))])
+    else:
+      decay = (self.dim ** (-0.5)) * self.steps ** (-0.5)
+    self.lr_factor = 1. * decay
+    super().update()
+
+    if self.steps % 200 == 0:
+      logger.info('> Optimizer Logging')
+      logger.info(f'  Steps={self.steps}, learning_rate={self.lr_factor:.2e}')
+
+NoamTrainer = xnmt.resolve_backend(NoamTrainerDynet, NoamTrainerTorch)
 
 
 class DummyTrainer(XnmtOptimizer, Serializable):
@@ -273,15 +537,6 @@ class DummyTrainer(XnmtOptimizer, Serializable):
     pass
 
   def update(self) -> None:
-    pass
-
-  def status(self) -> None:
-    pass
-
-  def set_clip_threshold(self, thr) -> None:
-    pass
-
-  def get_clip_threshold(self) -> None:
     pass
 
   def restart(self) -> None:

@@ -303,7 +303,7 @@ class UnicodeTokenizer(Tokenizer, Serializable):
         else:
           if not c_p.isspace():
             str_list.append(' ' + self.merge_symbol)
-            str_list.append(c)
+          str_list.append(c)
           if not c_n.isspace() and not UnicodeTokenizer._is_weird(c_n):
             str_list.append(self.merge_symbol + ' ')
     else: # self.reverse==True
@@ -635,7 +635,7 @@ class MelFiltExtractor(Extractor, Serializable):
     start_time = time.time()
     with open(in_file) as in_stream, \
          h5py.File(out_file, "w") as hf:
-      db = yaml.load(in_stream)
+      db = yaml.load(in_stream, Loader=yaml.Loader)
       db_by_speaker = defaultdict(list)
       for db_index, db_item in enumerate(db):
         speaker_id = db_item.get("speaker", db_item["wav"].split("/")[-1])
@@ -647,7 +647,11 @@ class MelFiltExtractor(Extractor, Serializable):
           y, sr = librosa.load(db_item["wav"], sr=16000,
                                offset=db_item.get("offset", 0.0),
                                duration=db_item.get("duration", None))
-          if len(y)==0: raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
+          if len(y)*40<sr:
+            logger.warn(f"Encountered a short audio with only {len(y)} values. Filling up with zeros to extract filterbank features..")
+            missing_len = sr - len(y)*40
+            y = np.pad(y, (0,missing_len), mode='constant')
+            # raise ValueError(f"encountered an empty or out of bounds segment: {db_item}")
           logmel = speech_features.logfbank(y, samplerate=sr, nfilt=self.nfilt)
           if self.delta:
             delta = speech_features.calculate_delta(logmel)

@@ -4,9 +4,9 @@ standard: !Experiment
     default_layer_dim: 64
   model: !TransformerTranslator
     src_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.vocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     src_embedder: !SimpleWordEmbedder
       emb_dim: 64
       param_init: !LeCunUniformInitializer {}
@@ -25,15 +25,15 @@ standard: !Experiment
     run_for_epochs: 2
     restart_trainer: False
     lr_decay: 1.0
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en
+    src_file: test/data/head.ja
+    trg_file: test/data/head.en
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/head.ja
-        ref_file: examples/data/head.en
+        src_file: test/data/head.ja
+        ref_file: test/data/head.en
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
-      src_file: examples/data/head.ja
-      ref_file: examples/data/head.en
+      src_file: test/data/head.ja
+      ref_file: test/data/head.en
       hyp_file: test/tmp/{EXP}.test_hyp

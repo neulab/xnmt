@@ -4,7 +4,7 @@ import numbers
 import dynet as dy
 import numpy as np
 
-from xnmt import expression_seqs, param_collections, param_initializers
+from xnmt import expression_seqs, param_collections, param_initializers, tensor_tools as tt
 from xnmt.transducers import base as transducers
 from xnmt.persistence import Serializable, serializable_init, Ref, bare
 
@@ -52,7 +52,7 @@ class FixedSizeAttSeqTransducer(transducers.SeqTransducer, Serializable):
     if x.mask is not None:
       scores = x.mask.add_to_tensor_expr(scores, multiplicator=-100.0, time_first=True)
     if self.pos_enc_max:
-      seq_len = x_T.dim()[0][0]
+      seq_len = tt.sent_len_transp(x_T)
       pos_enc = self.pos_enc[:seq_len,:]
       scores = dy.cmult(scores, dy.inputTensor(pos_enc))
     attention = dy.softmax(scores)

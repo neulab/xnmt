@@ -63,7 +63,6 @@ las-pyramidal: !Experiment
     lr_decay_times: 3
     patience: 8
     initial_patience: 15
-    dev_every: 0
     restart_trainer: True
     dev_tasks:
       - !AccuracyEvalTask

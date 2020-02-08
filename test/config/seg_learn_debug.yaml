@@ -4,9 +4,9 @@ seg_learn_debug: !Experiment
     compute_report: True
   model: !DefaultTranslator
     src_reader: !CharFromWordTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.ja.charvocab}
+      vocab: !Vocab {vocab_file: test/data/head.ja.charvocab}
     trg_reader: !PlainTextReader
-      vocab: !Vocab {vocab_file: examples/data/head.en.vocab}
+      vocab: !Vocab {vocab_file: test/data/head.en.vocab}
     encoder: !SegmentingSeqTransducer
       segment_composer: !CharNGramComposer
         vocab_size: 1000
@@ -23,26 +23,26 @@ seg_learn_debug: !Experiment
       final_transducer: !BiLSTMSeqTransducer {}
   train: !SimpleTrainingRegimen
     run_for_epochs: 3
-    src_file: examples/data/head.ja
-    trg_file: examples/data/head.en 
+    src_file: test/data/head.ja
+    trg_file: test/data/head.en
     loss_calculator: !CompositeLoss
       losses: [!FeedbackLoss {child_loss: !MLELoss {}}]
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/head.ja
-        ref_file: examples/data/head.en
+        src_file: test/data/head.ja
+        ref_file: test/data/head.en
       - !AccuracyEvalTask
         eval_metrics: bleu
-        src_file: examples/data/head.ja
-        ref_file: examples/data/head.en  
+        src_file: test/data/head.ja
+        ref_file: test/data/head.en
         hyp_file: examples/output/dev_hyp
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: bleu,wer
-      src_file: examples/data/debug.ja
-      ref_file: examples/data/debug.en
+      src_file: test/data/debug.ja
+      ref_file: test/data/debug.en
       hyp_file: test/tmp/{EXP}.test_hyp
     - !LossEvalTask
-      src_file: examples/data/debug.ja
-      ref_file: examples/data/debug.en
+      src_file: test/data/debug.ja
+      ref_file: test/data/debug.en
 

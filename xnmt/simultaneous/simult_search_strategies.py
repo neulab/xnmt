@@ -1,18 +1,19 @@
 import numpy as np
-import dynet as dy
 import numbers
 
 from typing import List
 
 import xnmt.search_strategies as search_strategies
 
-from xnmt.simultaneous.simult_translators import SimultaneousTranslator
+import xnmt
+
 from xnmt.vocabs import Vocab
 from xnmt.persistence import serializable_init, Serializable
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
+from xnmt.simultaneous.simult_translators import SimultaneousTranslator
+from xnmt.simultaneous.simult_state import SimultaneousState
 
-from.simult_state import SimultaneousState
-
+@xnmt.require_dynet
 class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
   """
   Performs greedy search (aka beam search with beam size 1)
@@ -32,7 +33,7 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
   @handle_xnmt_event
   def on_start_sent(self, src_sent):
     self.src_sent = src_sent[0]
-  
+
   def generate_output(self,
                       translator: SimultaneousTranslator,
                       initial_state: SimultaneousState,
@@ -65,7 +66,7 @@ class SimultaneousGreedySearch(search_strategies.SearchStrategy, Serializable):
         current_word = best_words[0]
         if current_word == Vocab.ES:
           break
-    
+
     score = np.sum(scores, axis=0)
     return [search_strategies.SearchOutput([word_ids], attentions, [score], [], [])]
 

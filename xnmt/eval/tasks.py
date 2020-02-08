@@ -1,14 +1,16 @@
 from typing import Sequence, Union, Optional, Any
+import contextlib
 
-import dynet as dy
-
-from xnmt.settings import settings
-
+import xnmt.tensor_tools as tt
+import xnmt
 from xnmt import batchers, event_trigger, events, inferences, input_readers, loss_calculators, losses, reports, utils, \
   xnmt_evaluate
 from xnmt.eval import metrics
 from xnmt.models import base as model_base
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.settings import settings
+if xnmt.backend_torch:
+  import torch
 
 class EvalTask(object):
   """
@@ -30,7 +32,6 @@ class LossEvalTask(EvalTask, Serializable):
     max_src_len: omit sentences with source length greater than specified number
     max_trg_len: omit sentences with target length greater than specified number
     max_num_sents: compute loss only for the first n sentences in the given corpus
-    loss_comb_method: method for combining loss across batch elements ('sum' or 'avg').
     desc: description to pass on to computed score objects
   """
   yaml_tag = '!LossEvalTask'
@@ -45,7 +46,6 @@ class LossEvalTask(EvalTask, Serializable):
                max_src_len: Optional[int] = None,
                max_trg_len: Optional[int] = None,
                max_num_sents: Optional[int] = None,
-               loss_comb_method: str = Ref("exp_global.loss_comb_method", default="sum"),
                desc: Any = None) -> None:
     self.model = model
     self.loss_calculator = loss_calculator
@@ -56,7 +56,6 @@ class LossEvalTask(EvalTask, Serializable):
     self.max_src_len = max_src_len
     self.max_trg_len = max_trg_len
     self.max_num_sents = max_num_sents
-    self.loss_comb_method = loss_comb_method
     self.desc=desc
 
   def eval(self) -> 'metrics.EvalScore':
@@ -81,15 +80,18 @@ class LossEvalTask(EvalTask, Serializable):
     ref_words_cnt = 0
     for src, trg in zip(self.src_batches, self.ref_batches):
       with utils.ReportOnException({"src": src, "trg": trg, "graph": utils.print_cg_conditional}):
-        dy.renew_cg(immediate_compute=settings.IMMEDIATE_COMPUTE, check_validity=settings.CHECK_VALIDITY)
+        tt.reset_graph()
+        with torch.no_grad() if xnmt.backend_torch else utils.dummy_context_mgr():
+          loss = self.loss_calculator.calc_loss(self.model, src, trg)
 
-        loss = self.loss_calculator.calc_loss(self.model, src, trg)
-
-        ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
-        loss_val += loss.get_factored_loss_val(comb_method=self.loss_comb_method)
+          ref_words_cnt += sum([trg_i.len_unpadded() for trg_i in trg])
+          loss_val += loss.get_factored_loss_val()
+      if settings.PRETEND: break
 
     loss_stats = {k: v/ref_words_cnt for k, v in loss_val.items()}
-#
+
+    self.src_data, self.trg_data, self.src_batches, self.trg_batches = None, None, None, None
+
     return metrics.LossScore(sum(loss_stats.values()),
                              loss_stats=loss_stats,
                              num_ref_words=ref_words_cnt,

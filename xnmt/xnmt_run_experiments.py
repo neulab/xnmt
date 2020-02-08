@@ -14,15 +14,20 @@ import faulthandler
 faulthandler.enable()
 import traceback
 from typing import Optional, Sequence, Tuple
+import shutil
 
 import numpy as np
 
+import xnmt
 from xnmt.settings import settings
 from xnmt import logger, file_logger, tee, utils
 from xnmt.tee import log_preamble
 from xnmt.param_collections import ParamManager
 from xnmt.persistence import YamlPreloader, save_to_file, initialize_if_needed
 from xnmt.eval import metrics
+
+if xnmt.backend_torch:
+  import torch
 
 if settings.RESOURCE_WARNINGS:
   import warnings
@@ -32,25 +37,27 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
 
   with tee.Tee(), tee.Tee(error=True):
     argparser = argparse.ArgumentParser()
-    utils.add_dynet_argparse(argparser)
+    utils.add_backend_argparse(argparser)
     argparser.add_argument("--settings", type=str, default="standard", help="settings (standard, debug, or unittest)"
                                                                             "must be given in '=' syntax, e.g."
                                                                             " --settings=standard")
     argparser.add_argument("--resume", action='store_true', help="whether a saved experiment is being resumed, and"
                                                                  "locations of output files should be re-used.")
+    argparser.add_argument("--backend", type=str, default="dynet", help="backend (dynet or torch)")
     argparser.add_argument("experiments_file")
     argparser.add_argument("experiment_name", nargs='*', help="Run only the specified experiments")
     argparser.set_defaults(generate_doc=False)
     args = argparser.parse_args(overwrite_args)
 
-    if args.dynet_seed:
-      random.seed(args.dynet_seed)
-      np.random.seed(args.dynet_seed)
+    if xnmt.backend_dynet and args.dynet_seed: args.seed = args.dynet_seed
+    if getattr(args, "seed", None):
+      random.seed(args.seed)
+      np.random.seed(args.seed)
+      if xnmt.backend_torch: torch.manual_seed(0)
 
-    if args.dynet_gpu:
-      if settings.CHECK_VALIDITY:
-        settings.CHECK_VALIDITY = False
-        log_preamble("disabling CHECK_VALIDITY because it is not supported on GPU currently", logging.WARNING)
+    if xnmt.backend_dynet and args.dynet_gpu and settings.CHECK_VALIDITY:
+      settings.CHECK_VALIDITY = False
+      log_preamble("disabling CHECK_VALIDITY because it is not supported in the DyNet/GPU setting", logging.WARNING)
 
     config_experiment_names = YamlPreloader.experiment_names_from_file(args.experiments_file)
 
@@ -64,7 +71,7 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
       if len(nonexistent) != 0:
         raise Exception("Experiments {} do not exist".format(",".join(list(nonexistent))))
 
-    log_preamble(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log_preamble(f"running XNMT revision {tee.get_git_revision()} on {socket.gethostname()} with {'DyNet' if xnmt.backend_dynet else 'PyTorch'} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     for experiment_name in experiment_names:
 
       ParamManager.init_param_col()
@@ -77,11 +84,18 @@ def main(overwrite_args: Optional[Sequence[str]] = None) -> None:
       glob_args = uninitialized_exp_args.data.exp_global
       log_file = glob_args.log_file
 
-      if os.path.isfile(log_file) and not settings.OVERWRITE_LOG:
-        logger.warning(f"log file {log_file} already exists, skipping experiment; please delete log file by hand if you want to overwrite it "
-                       f"(or activate OVERWRITE_LOG, by either specifying an environment variable as OVERWRITE_LOG=1, "
-                       f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")
-        continue
+      if not settings.OVERWRITE_LOG:
+        log_files_exist = []
+        if os.path.isfile(log_file): log_files_exist.append(log_file)
+        if os.path.isdir(log_file + ".tb"): log_files_exist.append(log_file + ".tb/")
+        if log_files_exist:
+          logger.warning(f"log file(s) {' '.join(log_files_exist)} already exists, skipping experiment; "
+                         f"please delete log file by hand if you want to overwrite it "
+                         f"(or activate OVERWRITE_LOG, by either specifying an environment variable OVERWRITE_LOG=1, "
+                         f"or specifying --settings=debug, or changing xnmt.settings.Standard.OVERWRITE_LOG manually)")
+          continue
+      elif settings.OVERWRITE_LOG and os.path.isdir(log_file + ".tb"):
+        shutil.rmtree(log_file + ".tb/")  # remove tensorboard logs from previous run that is being overwritten
 
       tee.set_out_file(log_file, exp_name=experiment_name)
 

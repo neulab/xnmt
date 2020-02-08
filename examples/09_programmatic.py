@@ -11,6 +11,10 @@
 #
 # To launch this, use ``python -m examples.09_programmatic``, making sure that XNMT
 # setup.py has been run properly.
+#
+# Note that again, the Pytorch backend can be used without additional implementation
+# effort, provided that the employed components support this backend:
+# ``python -m examples.09_programmatic --backend torch``
 
 
 import os

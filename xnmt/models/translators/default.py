@@ -1,4 +1,3 @@
-import dynet as dy
 import numpy as np
 
 import numbers
@@ -14,15 +13,16 @@ import xnmt.sent as sent
 import xnmt.vocabs as vocabs
 
 from xnmt.settings import settings
+import xnmt.tensor_tools as tt
 from xnmt.modelparts import attenders, decoders, embedders
 from xnmt.transducers import recurrent, base as transducers_base
 from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.reports import Reportable
 
-from .auto_regressive import AutoRegressiveTranslator
+from xnmt.models.translators import auto_regressive
 
 
-class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
+class DefaultTranslator(auto_regressive.AutoRegressiveTranslator, Serializable, Reportable):
   """
   A default translator based on attentional sequence-to-sequence models.
   Args:
@@ -46,15 +46,13 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
                encoder: transducers_base.SeqTransducer = bare(recurrent.BiLSTMSeqTransducer),
                attender: attenders.Attender = bare(attenders.MlpAttender),
                decoder: decoders.Decoder = bare(decoders.AutoRegressiveDecoder),
-               inference: inferences.AutoRegressiveInference = bare(inferences.AutoRegressiveInference),
-               truncate_dec_batches: bool = False) -> None:
+               inference: inferences.AutoRegressiveInference = bare(inferences.AutoRegressiveInference)) -> None:
     super().__init__(src_reader=src_reader, trg_reader=trg_reader)
     self.src_embedder = src_embedder
     self.encoder = encoder
     self.attender = attender
     self.decoder = decoder
     self.inference = inference
-    self.truncate_dec_batches = truncate_dec_batches
 
   def shared_params(self):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},
@@ -71,7 +69,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     initial_state = self.decoder.initial_state(final_state, ss)
     return initial_state
 
-  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> tt.Tensor:
     event_trigger.start_sent(src)
     if isinstance(src, batchers.CompoundBatch): src = src.batches[0]
     # Encode the sentence
@@ -93,7 +91,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
 
     input_word = None
     for i in range(seq_len):
-      ref_word = DefaultTranslator._select_ref_words(trg, i, truncate_masked=self.truncate_dec_batches)
+      ref_word = DefaultTranslator._select_ref_words(trg, i)
 
       if input_word is not None:
         dec_state = self.decoder.add_input(dec_state, input_word)
@@ -101,36 +99,18 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
       dec_state.context = self.attender.calc_context(rnn_output)
       word_loss = self.decoder.calc_loss(dec_state, ref_word)
 
-      if not self.truncate_dec_batches and batchers.is_batched(src) and trg_mask is not None:
+      if batchers.is_batched(src) and trg_mask is not None:
         word_loss = trg_mask.cmult_by_timestep_expr(word_loss, i, inverse=True)
       cur_losses.append(word_loss)
       input_word = ref_word
 
-    if self.truncate_dec_batches:
-      loss_expr = dy.esum([dy.sum_batches(wl) for wl in cur_losses])
-    else:
-      loss_expr = dy.esum(cur_losses)
+    loss_expr = tt.esum(cur_losses)
     return loss_expr
 
   @staticmethod
-  def _select_ref_words(sentence, index, truncate_masked = False):
-    if truncate_masked:
-      mask = sentence.mask if batchers.is_batched(sentence) else None
-      if not batchers.is_batched(sentence):
-        return sentence[index]
-      else:
-        ret = []
-        found_masked = False
-        for (j, single_trg) in enumerate(sentence):
-          if mask is None or mask.np_arr[j, index] == 0 or np.sum(mask.np_arr[:, index]) == mask.np_arr.shape[0]:
-            assert not found_masked, "sentences must be sorted by decreasing target length"
-            ret.append(single_trg[index])
-          else:
-            found_masked = True
-        return batchers.mark_as_batch(ret)
-    else:
-      return sentence[index] if not batchers.is_batched(sentence) else \
-             batchers.mark_as_batch([single_trg[index] for single_trg in sentence])
+  def _select_ref_words(sentence, index):
+    return sentence[index] if not batchers.is_batched(sentence) else \
+           batchers.mark_as_batch([single_trg[index] for single_trg in sentence])
 
   def generate_search_output(self,
                              src: batchers.Batch,
@@ -153,7 +133,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
                                                      self._initial_state(src),
                                                      src_length=src.sent_len())
     return search_outputs
-  
+
   def generate(self,
                src: batchers.Batch,
                search_strategy: search_strategies.SearchStrategy) -> Sequence[sent.Sentence]:
@@ -184,16 +164,16 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
         outputs.append(out_sent)
       else:
         outputs.append(sent.NbestSentence(base_sent=out_sent, nbest_id=src[0].idx))
-    
+
     if self.is_reporting():
-      attentions = np.concatenate([x.npvalue() for x in attentions], axis=1)
+      attentions = np.concatenate([tt.npvalue(x) for x in attentions], axis=1)
       self.report_sent_info({"attentions": attentions,
                              "src": src[0],
                              "output": outputs[0]})
 
     return outputs
 
-  def add_input(self, word: Any, state: decoders.AutoRegressiveDecoderState) -> AutoRegressiveTranslator.Output:
+  def add_input(self, word: Any, state: decoders.AutoRegressiveDecoderState) -> auto_regressive.AutoRegressiveTranslator.Output:
     if word is not None:
       if type(word) == int:
         word = [word]
@@ -203,7 +183,7 @@ class DefaultTranslator(AutoRegressiveTranslator, Serializable, Reportable):
     next_state = self.decoder.add_input(state, word) if word is not None else state
     attention = self.attender.calc_attention(next_state.as_vector())
     next_state.context = self.attender.calc_context(next_state.as_vector(), attention=attention)
-    return AutoRegressiveTranslator.Output(next_state, attention)
+    return auto_regressive.AutoRegressiveTranslator.Output(next_state, attention)
 
   def best_k(self, state: decoders.AutoRegressiveDecoderState, k: numbers.Integral, normalize_scores: bool = False):
     best_words, best_scores = self.decoder.best_k(state, k, normalize_scores)

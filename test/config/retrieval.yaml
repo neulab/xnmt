@@ -11,25 +11,25 @@ retriever: !Experiment
     trg_encoder: !BiLSTMSeqTransducer {}
     database: !StandardRetrievalDatabase
       reader: !PlainTextReader {}
-    database: examples/data/debug.en
+    database: test/data/debug.en
   train: !SimpleTrainingRegimen
     run_for_epochs: 1
     batcher: !InOrderBatcher
       batch_size: 1
     trainer: !AdamTrainer
       alpha: 0.1
-    src_file: examples/data/debug.ja
-    trg_file: examples/data/debug.smallids
+    src_file: test/data/debug.ja
+    trg_file: test/data/debug.smallids
     dev_tasks:
       - !LossEvalTask
-        src_file: examples/data/debug.ja
-        ref_file: examples/data/debug.smallids
+        src_file: test/data/debug.ja
+        ref_file: test/data/debug.smallids
       - !AccuracyEvalTask
         eval_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
-        src_file: examples/data/debug.ja
-        ref_file: examples/data/debug.smallids
+        src_file: test/data/debug.ja
+        ref_file: test/data/debug.smallids
   evaluate:
     - !AccuracyEvalTask
       eval_metrics: recall|nbest=1,recall|nbest=3,recall|nbest=5
-      src_file: examples/data/debug.ja
-      ref_file: examples/data/debug.smallids
+      src_file: test/data/debug.ja
+      ref_file: test/data/debug.smallids

@@ -79,8 +79,8 @@ class TestSanityHyperParameter(unittest.TestCase):
 #    self.model.set_train(True)
 #
 #    self.layer_dim = layer_dim
-#    self.src_data = list(self.model.src_reader.read_sents("examples/data/head.ja"))
-#    self.trg_data = list(self.model.trg_reader.read_sents("examples/data/head.en"))
+#    self.src_data = list(self.model.src_reader.read_sents("test/data/head.ja"))
+#    self.trg_data = list(self.model.trg_reader.read_sents("test/data/head.en"))
 #    my_batcher = xnmt.batcher.TrgBatcher(batch_size=3)
 #    self.src, self.trg = my_batcher.pack(self.src_data, self.trg_data)
 #    dy.renew_cg(immediate_compute=True, check_validity=True)

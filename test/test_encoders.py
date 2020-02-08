@@ -2,8 +2,8 @@ import unittest
 import math
 
 import numpy as np
-import dynet as dy
 
+import xnmt, xnmt.tensor_tools as tt
 from xnmt.modelparts.attenders import MlpAttender
 from xnmt.modelparts.bridges import CopyBridge
 from xnmt.modelparts.decoders import AutoRegressiveDecoder
@@ -25,15 +25,15 @@ class TestEncoder(unittest.TestCase):
     events.clear()
     ParamManager.init_param_col()
 
-    src_vocab = Vocab(vocab_file="examples/data/head.ja.vocab")
-    trg_vocab = Vocab(vocab_file="examples/data/head.en.vocab")
+    src_vocab = Vocab(vocab_file="test/data/head.ja.vocab")
+    trg_vocab = Vocab(vocab_file="test/data/head.en.vocab")
     self.src_reader = PlainTextReader(vocab=src_vocab)
     self.trg_reader = PlainTextReader(vocab=trg_vocab)
-    self.src_data = list(self.src_reader.read_sents("examples/data/head.ja"))
-    self.trg_data = list(self.trg_reader.read_sents("examples/data/head.en"))
+    self.src_data = list(self.src_reader.read_sents("test/data/head.ja"))
+    self.trg_data = list(self.trg_reader.read_sents("test/data/head.en"))
 
   def assert_in_out_len_equal(self, model):
-    dy.renew_cg()
+    tt.reset_graph()
     event_trigger.set_train(True)
     src = self.src_data[0]
     event_trigger.start_sent(src)
@@ -110,7 +110,7 @@ class TestEncoder(unittest.TestCase):
     )
     event_trigger.set_train(True)
     for sent_i in range(10):
-      dy.renew_cg()
+      tt.reset_graph()
       src = self.src_data[sent_i].create_padded_sent(4 - (self.src_data[sent_i].sent_len() % 4))
       event_trigger.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)
@@ -139,7 +139,7 @@ class TestEncoder(unittest.TestCase):
 
     event_trigger.set_train(True)
     for sent_i in range(3):
-      dy.renew_cg()
+      tt.reset_graph()
       src = train_src[sent_i]
       event_trigger.start_sent(src)
       embeddings = model.src_embedder.embed_sent(src)

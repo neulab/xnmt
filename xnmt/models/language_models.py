@@ -1,8 +1,9 @@
 from typing import Sequence, Set, Union
 
-import dynet as dy
 import numpy as np
 
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger, events, input_readers, sent
 from xnmt.modelparts import embedders, scorers, transforms
 from xnmt.models import base as models
@@ -42,7 +43,7 @@ class LanguageModel(models.ConditionedModel, Serializable):
     return [{".src_embedder.emb_dim", ".encoder.input_dim"},]
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
-          -> dy.Expression:
+          -> tt.Tensor:
     if not batchers.is_batched(src):
       src = batchers.ListBatch([src])
 
@@ -53,15 +54,19 @@ class LanguageModel(models.ConditionedModel, Serializable):
     embeddings = self.src_embedder.embed_sent(src_inputs)
     encodings = self.rnn.transduce(embeddings)
     encodings_tensor = encodings.as_tensor()
-    ((hidden_dim, seq_len), batch_size) = encodings.dim()
-    encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size * seq_len)
+
+    encoding_reshaped = tt.merge_time_batch_dims(encodings_tensor)
+    seq_len = tt.sent_len(encodings_tensor)
+    batch_size = tt.batch_size(encodings_tensor)
+
     outputs = self.transform.transform(encoding_reshaped)
 
     ref_action = np.asarray([sent.words for sent in src_targets]).reshape((seq_len * batch_size,))
     loss_expr_perstep = self.scorer.calc_loss(outputs, batchers.mark_as_batch(ref_action))
-    loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
-    if src_targets.mask:
-      loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-src_targets.mask.np_arr.T, batched=True))
-    loss = dy.sum_elems(loss_expr_perstep)
+
+    loss_expr_perstep = tt.unmerge_time_batch_dims(loss_expr_perstep, batch_size)
+
+    loss = tt.aggregate_masked_loss(loss_expr_perstep, src_targets.mask)
 
     return loss
+

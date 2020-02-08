@@ -38,7 +38,7 @@ def modify_audio(npz_original, npz_new, char_original, char_new, num_epoch, brea
     new_feats.append(feat)
 
   numpy.savez_compressed(npz_new, *new_feats)
-  subprocess.call("head -n %d %s > %s" %(new_size, char_original, char_new),shell=True)
+  subprocess.call(f"head -n {new_size} '{char_original}' > '{char_new}'",shell=True)
 
 
 def select_and_clear_current_version_dir(basedir):

@@ -1,29 +1,32 @@
 import numpy as np
-import dynet as dy
 
+import xnmt
 from xnmt.modelparts.transforms import Linear
 from xnmt.persistence import serializable_init, Serializable, Ref
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
-from xnmt.param_initializers import LeCunUniformInitializer
 from xnmt.param_collections import ParamManager
 
 MIN_VALUE = -10000
 
+if xnmt.backend_dynet:
+  import dynet as dy
+  from xnmt.param_initializers import LeCunUniformInitializer
 
+@xnmt.require_dynet
 class TimeDistributed(object):
   def __call__(self, input):
     (model_dim, seq_len), batch_size = input.dim()
     total_words = seq_len * batch_size
     return dy.reshape(input, (model_dim,), batch_size=total_words)
 
-
+@xnmt.require_dynet
 class ReverseTimeDistributed(object):
   def __call__(self, input, seq_len, batch_size):
     (model_dim,), total_words = input.dim()
     assert (seq_len * batch_size == total_words)
     return dy.reshape(input, (model_dim, seq_len), batch_size=batch_size)
 
-
+@xnmt.require_dynet
 class LinearSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
     self.L = Linear(input_dim, output_dim, dy_model, param_init=LeCunUniformInitializer(), bias_init=LeCunUniformInitializer())
@@ -37,10 +40,9 @@ class LinearSent(object):
     output = self.L(input)
     if not reconstruct_shape:
         return output
-    (_, seq_len), batch_size = input_expr.dim()
-    return ReverseTimeDistributed()(output, seq_len, batch_size)
+    return ReverseTimeDistributed()(output, input_expr.sent_len(), input_expr.batch_size())
 
-
+@xnmt.require_dynet
 class LinearNoBiasSent(object):
   def __init__(self, dy_model, input_dim, output_dim):
     self.L = Linear(input_dim, output_dim, dy_model, bias=False, param_init=LeCunUniformInitializer(), bias_init=LeCunUniformInitializer())
@@ -54,7 +56,7 @@ class LinearNoBiasSent(object):
         output = ReverseTimeDistributed()(output, seq_len, batch_size)
     return output
 
-
+@xnmt.require_dynet
 class LayerNorm(object):
   def __init__(self, dy_model, d_hid):
     self.p_g = dy_model.add_parameters(dim=d_hid)
@@ -69,7 +71,7 @@ class LayerNorm(object):
     output = dy.layer_norm(input, g, b)
     return ReverseTimeDistributed()(output, seq_len, batch_size)
 
-
+@xnmt.require_dynet
 class MultiHeadAttention(object):
   """ Multi Head Attention Layer for Sentence Blocks
   """
@@ -153,7 +155,7 @@ class MultiHeadAttention(object):
     C = self.finishing_linear_layer(C)
     return C
 
-
+@xnmt.require_dynet
 class FeedForwardLayerSent(object):
   def __init__(self, dy_model, n_units):
     n_inner_units = n_units * 4
@@ -167,7 +169,7 @@ class FeedForwardLayerSent(object):
     e = self.W_2(e, reconstruct_shape=False, timedistributed=True)
     return e
 
-
+@xnmt.require_dynet
 class EncoderLayer(object):
   def __init__(self, dy_model, n_units, h=1, attn_dropout=False, layer_norm=False):
     self.self_attention = MultiHeadAttention(dy_model, n_units, h, attn_dropout=attn_dropout)
@@ -197,7 +199,7 @@ class EncoderLayer(object):
       e = self.ln_2.transform(e)
     return e
 
-
+@xnmt.require_dynet
 class DecoderLayer(object):
   def __init__(self, dy_model, n_units, h=1, attn_dropout=False, layer_norm=False):
     self.self_attention = MultiHeadAttention(dy_model, n_units, h, attn_dropout=attn_dropout)
@@ -237,7 +239,7 @@ class DecoderLayer(object):
       e = self.ln_3.transform(e)
     return e
 
-
+@xnmt.require_dynet
 class TransformerEncoder(Serializable):
   yaml_tag = '!TransformerEncoder'
 
@@ -270,7 +272,7 @@ class TransformerEncoder(Serializable):
       e = layer(e, xx_mask)
     return e
 
-
+@xnmt.require_dynet
 class TransformerDecoder(Serializable):
   yaml_tag = '!TransformerDecoder'
 

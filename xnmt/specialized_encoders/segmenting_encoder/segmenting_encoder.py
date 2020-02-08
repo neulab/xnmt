@@ -1,14 +1,14 @@
 import numpy as np
-import dynet as dy
 
 from typing import List
 from enum import Enum
 
+import xnmt
 from xnmt import logger
 from xnmt.batchers import Mask
 from xnmt.events import register_xnmt_handler, handle_xnmt_event
 from xnmt.expression_seqs import ExpressionSequence
-from xnmt.persistence import serializable_init, Serializable, Ref, bare
+from xnmt.persistence import serializable_init, Serializable, bare
 from xnmt.transducers.base import SeqTransducer, FinalTransducerState, IdentitySeqTransducer
 from xnmt.losses import FactoredLossExpr
 from xnmt.specialized_encoders.segmenting_encoder.priors import GoldInputPrior
@@ -16,6 +16,10 @@ from xnmt.reports import Reportable
 from xnmt.transducers.recurrent import BiLSTMSeqTransducer
 from xnmt.specialized_encoders.segmenting_encoder.segmenting_composer import SeqTransducerComposer, VocabBasedComposer
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class SegmentingSeqTransducer(SeqTransducer, Serializable, Reportable):
   """
   A transducer that perform composition on smaller units (characters) into bigger units (words).

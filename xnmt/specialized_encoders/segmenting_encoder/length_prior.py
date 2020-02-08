@@ -1,11 +1,14 @@
-
-import dynet as dy
 import math
 from scipy.stats import poisson
 
-from xnmt.persistence import Serializable, serializable_init, bare
+import xnmt
+from xnmt.persistence import Serializable, serializable_init
 from xnmt.events import handle_xnmt_event, register_xnmt_handler
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class PoissonLengthPrior(Serializable):
   yaml_tag = '!PoissonLengthPrior'
 

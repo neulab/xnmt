@@ -69,10 +69,23 @@ class TensorboardCustomWriter(object):
     self.writer = tensorboardX.SummaryWriter(log_dir=f"{out_file_name}")
   def unset_out_file(self) -> None:
     self.out_file_name = None
-  def add_scalars(self, name: str, *args, **kwargs):
-    return self.writer.add_scalars(f"{self.exp_name}/{name}", *args, **kwargs)
+  def add_scalars(self, name: str, tag_scalar_dict, global_step=None, walltime=None):
+    return self.writer.add_scalars(main_tag=f"{self.exp_name}/{name}", tag_scalar_dict=tag_scalar_dict, global_step=global_step, walltime=walltime)
+  def add_histogram(self, name: str, values, global_step=None, bins='tensorflow', walltime=None):
+    return self.writer.add_histogram(tag=f"{self.exp_name}/{name}", values=values, global_step=global_step, bins=bins, walltime=walltime)
+  def add_graph(self, model, input_to_model=None, verbose=False):
+    return self.writer.add_graph(model=model, input_to_model=input_to_model, verbose=verbose)
+  def add_embedding(self, name: str, mat: 'np.ndarray', metadata=None, label_img=None, global_step=None, metadata_header=None):
+    return self.writer.add_embedding(mat,
+                                     metadata=metadata,
+                                     label_img=label_img,
+                                     global_step=global_step,
+                                     tag=f"{self.exp_name}/{name}",
+                                     metadata_header=metadata_header)
 
-tensorboard_writer = TensorboardCustomWriter()
+
+if settings.USE_TENSORBOARD:
+  tensorboard_writer = TensorboardCustomWriter()
 
 _preamble_content = []
 def log_preamble(log_line: str, level: numbers.Integral = logging.INFO) -> None:
@@ -108,7 +121,8 @@ def set_out_file(out_file: str, exp_name: str) -> None:
   yaml_fh.setFormatter(YamlFormatter())
   yaml_fh.setLevel(logging.DEBUG)
   yaml_logger.addHandler(yaml_fh)
-  tensorboard_writer.set_out_file(f"{out_file}.tb", exp_name=exp_name)
+  if settings.USE_TENSORBOARD:
+    tensorboard_writer.set_out_file(f"{out_file}.tb", exp_name=exp_name)
 
 def unset_out_file() -> None:
   """
@@ -125,7 +139,8 @@ def unset_out_file() -> None:
   for hdlr in list(logger_file.handlers):
     hdlr.close()
     logger_file.removeHandler(hdlr)
-  tensorboard_writer.unset_out_file()
+  if settings.USE_TENSORBOARD:
+    tensorboard_writer.unset_out_file()
 
 class Tee(object):
   def __init__(self, indent: numbers.Integral = 0, error: bool = False) -> None:
@@ -171,5 +186,5 @@ def get_git_revision() -> Optional[str]:
     command = 'git rev-parse --short HEAD'
     rev = check_output(command.split(u' '), cwd=os.path.dirname(__file__)).decode('ascii').strip()
   except (CalledProcessError, OSError):
-    rev = None
+    rev = '-1'
   return rev

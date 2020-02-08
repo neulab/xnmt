@@ -1,5 +1,3 @@
-import dynet as dy
-
 from enum import Enum
 
 import xnmt.input_readers as input_readers
@@ -13,19 +11,24 @@ import xnmt.event_trigger as event_trigger
 import xnmt.vocabs as vocabs
 import xnmt.simultaneous.simult_rewards as rewards
 
-from xnmt.models.translators.default import DefaultTranslator
+import xnmt
+import xnmt.tensor_tools as tt
 from xnmt.persistence import bare, Serializable, serializable_init
 from xnmt.reports import Reportable
+from xnmt.simultaneous.simult_state import SimultaneousState
+from xnmt.models.translators.default import DefaultTranslator
 
-from .simult_state import SimultaneousState
+if xnmt.backend_dynet:
+  import dynet as dy
 
+@xnmt.require_dynet
 class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
   yaml_tag = '!SimultaneousTranslator'
-  
+
   class Action(Enum):
     READ = 0
     WRITE = 1
-  
+
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
@@ -36,7 +39,6 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                attender: attenders.Attender = bare(attenders.MlpAttender),
                decoder: decoders.Decoder = bare(decoders.AutoRegressiveDecoder),
                inference: inferences.AutoRegressiveInference = bare(inferences.AutoRegressiveInference),
-               truncate_dec_batches: bool = False,
                policy_learning=None,
                freeze_decoder_param=False,
                max_generation=100) -> None:
@@ -46,15 +48,14 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
                      attender=attender,
                      src_embedder=src_embedder,
                      decoder=decoder,
-                     inference=inference,
-                     truncate_dec_batches=truncate_dec_batches)
+                     inference=inference)
     self.policy_learning = policy_learning
     self.actions = []
     self.outputs = []
     self.freeze_decoder_param = freeze_decoder_param
     self.max_generation = max_generation
-  
-  def calc_nll(self, src_batch, trg_batch) -> dy.Expression:
+
+  def calc_nll(self, src_batch, trg_batch) -> tt.Tensor:
     self.actions.clear()
     self.outputs.clear()
     event_trigger.start_sent(src_batch)
@@ -121,7 +122,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
   @events.handle_xnmt_event
   def on_set_train(self, train):
     self.train = train
-    
+
   @events.handle_xnmt_event
   def on_start_sent(self, src_batch):
     self.src = src_batch
@@ -132,7 +133,7 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
       return None
     reward = rewards.SimultaneousReward(self.src, trg, self.actions, self.outputs, self.trg_reader.vocab).calculate()
     return self.policy_learning.calc_loss(reward, only_final_reward=False)
-  
+
   def _initial_state(self, src):
     return SimultaneousState(self, self.encoder.initial_state(), None, None)
 
@@ -142,14 +143,14 @@ class SimultaneousTranslator(DefaultTranslator, Serializable, Reportable):
     else:
       best_words, _ = self.best_k(state, 1)
       return best_words[0]
-    
+
   def _stoping_criterions_met(self, state, trg):
     if self.policy_learning is None:
       return state.has_been_written >= trg.sent_len()
     else:
       return state.has_been_written >= self.max_generation or \
              state.prev_written_word == vocabs.Vocab.ES
-    
+
   def _select_ground_truth(self, state, trg):
     if trg.sent_len() <= state.has_been_written:
       return vocabs.Vocab.ES

@@ -8,6 +8,7 @@ eXtensible Neural Machine Translation
 
 This is a repository for the extensible neural machine translation toolkit *xnmt*.
 It is coded in Python based on `DyNet <http://github.com/clab/dynet>`_.
+Alternatively, the (currently experimental) `Pytorch <https://pytorch.org>`_ backend can be selected.
 
 .. toctree::
    :maxdepth: 2
@@ -19,6 +20,7 @@ It is coded in Python based on `DyNet <http://github.com/clab/dynet>`_.
    api_doc
    programming_style
    writing_xnmt_classes
+   backends
    save_file_format
    visualization
 

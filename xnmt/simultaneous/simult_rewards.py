@@ -1,9 +1,12 @@
-
 import numpy as np
-import dynet as dy
 
+import xnmt
 import xnmt.thirdparty.dl4mt_simul_trans.reward as simult_reward
 
+if xnmt.backend_dynet:
+  import dynet as dy
+
+@xnmt.require_dynet
 class SimultaneousReward(object):
   def __init__(self, src_batch, trg_batch, actions, outputs, trg_vocab):
     self.src_batch = src_batch

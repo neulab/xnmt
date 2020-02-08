@@ -7,12 +7,16 @@ from functools import lru_cache
 import numbers
 
 import numpy as np
-import dynet as dy
 
+import xnmt
 from xnmt.persistence import serializable_init, Serializable
-from xnmt import expression_seqs
-from xnmt.transducers import recurrent
 from xnmt import sent
+from xnmt import tensor_tools as tt
+
+if xnmt.backend_dynet:
+  import dynet as dy
+if xnmt.backend_torch:
+  import torch
 
 class Batch(ABC):
   """
@@ -43,8 +47,6 @@ class ListBatch(list, Batch):
   def batch_size(self) -> int: return super().__len__()
   def sent_len(self) -> int: return self[0].sent_len()
   def __len__(self):
-    warnings.warn("use of ListBatch.__len__() is discouraged, use ListBatch.batch_size() "
-                  "[or ListBatch.sent_len()] instead.", DeprecationWarning)
     return self.batch_size()
   def __getitem__(self, key):
     ret = super().__getitem__(key)
@@ -84,7 +86,7 @@ class CompoundBatch(Batch):
       return CompoundBatch(sel_batches)
 
 
-class Mask(object):
+class BaseMask(object):
   """
   An immutable mask specifies padded parts in a sequence or batch of sequences.
 
@@ -105,9 +107,34 @@ class Mask(object):
     return self.np_arr.shape[0]
 
   def reversed(self) -> 'Mask':
-    return Mask(self.np_arr[:,::-1])
+    return Mask(np.copy(self.np_arr[:,::-1]))
 
-  def add_to_tensor_expr(self, tensor_expr: dy.Expression, multiplicator: Optional[numbers.Real]=None) -> dy.Expression:
+  def lin_subsampled(self, reduce_factor: Optional[numbers.Integral] = None, trg_len: Optional[numbers.Integral]=None) -> 'Mask':
+    if reduce_factor:
+      return Mask(np.array([[self.np_arr[b,int(i*reduce_factor)] for i in range(int(math.ceil(len(self)/float(reduce_factor))))] for b in range(self.batch_size())]))
+    else:
+      return Mask(np.array([[self.np_arr[b,int(i*len(self)/float(trg_len))] for i in range(trg_len)] for b in range(self.batch_size())]))
+
+  @lru_cache(maxsize=1)
+  def get_valid_position(self, transpose: bool = True) -> List[numbers.Integral]:
+    np_arr = self.np_arr
+    if transpose: np_arr = np_arr.transpose()
+    x = [np.nonzero(1-arr)[0] for arr in np_arr]
+    return x
+
+  def seq_lengths(self) -> np.ndarray:
+    """
+    Get sequence length for each batch element
+
+    Returns:
+      an array of sequence lengths
+    """
+    return len(self) - np.count_nonzero(self.np_arr, axis=1)
+
+@xnmt.require_dynet
+class MaskDynet(BaseMask):
+  def add_to_tensor_expr(self, tensor_expr: tt.Tensor,
+                         multiplicator: Optional[numbers.Real] = None) -> tt.Tensor:
     # TODO: might cache these expressions to save memory
     if np.count_nonzero(self.np_arr) == 0:
       return tensor_expr
@@ -118,13 +145,8 @@ class Mask(object):
         mask_expr = dy.inputTensor(np.expand_dims(self.np_arr.transpose(), axis=1), batched=True)
       return tensor_expr + mask_expr
 
-  def lin_subsampled(self, reduce_factor: Optional[numbers.Integral] = None, trg_len: Optional[numbers.Integral]=None) -> 'Mask':
-    if reduce_factor:
-      return Mask(np.array([[self.np_arr[b,int(i*reduce_factor)] for i in range(int(math.ceil(len(self)/float(reduce_factor))))] for b in range(self.batch_size())]))
-    else:
-      return Mask(np.array([[self.np_arr[b,int(i*len(self)/float(trg_len))] for i in range(trg_len)] for b in range(self.batch_size())]))
-
-  def cmult_by_timestep_expr(self, expr: dy.Expression, timestep: numbers.Integral, inverse: bool = False) -> dy.Expression:
+  def cmult_by_timestep_expr(self, expr: tt.Tensor, timestep: numbers.Integral,
+                             inverse: bool = False) -> tt.Tensor:
     # TODO: might cache these expressions to save memory
     """
     Args:
@@ -133,22 +155,52 @@ class Mask(object):
       inverse: True will keep the unmasked parts, False will zero out the unmasked parts
     """
     if inverse:
-      if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == 0:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == 0:
         return expr
-      mask_exp = dy.inputTensor((1.0 - self.np_arr)[:,timestep:timestep+1].transpose(), batched=True)
+      mask_exp = dy.inputTensor((1.0 - self.np_arr)[:, timestep:timestep + 1].transpose(), batched=True)
     else:
-      if np.count_nonzero(self.np_arr[:,timestep:timestep+1]) == self.np_arr[:,timestep:timestep+1].size:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == self.np_arr[:, timestep:timestep + 1].size:
         return expr
-      mask_exp = dy.inputTensor(self.np_arr[:,timestep:timestep+1].transpose(), batched=True)
+      mask_exp = dy.inputTensor(self.np_arr[:, timestep:timestep + 1].transpose(), batched=True)
     return dy.cmult(expr, mask_exp)
 
-  @lru_cache(maxsize=1)
-  def get_valid_position(self, transpose: bool = True) -> List[numbers.Integral]:
-    np_arr = self.np_arr
-    if transpose: np_arr = np_arr.transpose()
-    x = [np.nonzero(1-arr)[0] for arr in np_arr]
-    return x
+@xnmt.require_torch
+class MaskTorch(BaseMask):
+  def cmult_by_timestep_expr(self, expr: tt.Tensor, timestep: numbers.Integral,
+                             inverse: bool = False) -> tt.Tensor:
+    """
+    Args:
+      expr: a Tensor corresponding to one timestep
+      timestep: index of current timestep
+      inverse: True will keep the unmasked parts, False will zero out the unmasked parts
+    """
+    if inverse:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == 0:
+        return expr
+      mask_exp = torch.as_tensor((1.0 - self.np_arr)[:, timestep:timestep + 1], dtype=expr.dtype, device=xnmt.device)
+    else:
+      if np.count_nonzero(self.np_arr[:, timestep:timestep + 1]) == self.np_arr[:, timestep:timestep + 1].size:
+        return expr
+      mask_exp = torch.as_tensor(self.np_arr[:, timestep:timestep + 1], dtype=expr.dtype, device=xnmt.device)
+    if expr.dim()==1: mask_exp = mask_exp.view(expr.size())
+    ret = torch.mul(expr, mask_exp)
+    assert ret.size() == expr.size()
+    return ret
 
+  def add_to_tensor_expr(self, tensor_expr: tt.Tensor,
+                         multiplicator: Optional[numbers.Real] = None) -> tt.Tensor:
+    if np.count_nonzero(self.np_arr) == 0:
+      return tensor_expr
+    else:
+      if multiplicator is not None:
+        mask_expr = torch.as_tensor(np.expand_dims(self.np_arr, axis=1) * multiplicator, dtype=tensor_expr.dtype,device=xnmt.device)
+      else:
+        mask_expr = torch.as_tensor(np.expand_dims(self.np_arr, axis=1), dtype=tensor_expr.dtype,device=xnmt.device)
+      ret = tensor_expr + mask_expr
+      assert ret.size() == tensor_expr.size()
+      return ret
+
+Mask = xnmt.resolve_backend(MaskDynet, MaskTorch)
 
 class Batcher(object):
   """
@@ -699,49 +751,3 @@ class WordTrgSrcBatcher(WordSortBatcher, Serializable):
     if self.avg_batch_size:
       self.batch_size = (sum([s.sent_len() for s in src]) + sum([s.sent_len() for s in trg])) / len(src) * self.avg_batch_size
     return super()._pack_by_order(src, trg, order)
-
-def truncate_batches(*xl: Union[dy.Expression, Batch, Mask, recurrent.UniLSTMState]) \
-        -> Sequence[Union[dy.Expression, Batch, Mask, recurrent.UniLSTMState]]:
-  """
-  Truncate a list of batched items so that all items have the batch size of the input with the smallest batch size.
-
-  Inputs can be of various types and would usually correspond to a single time step.
-  Assume that the batch elements with index 0 correspond across the inputs, so that batch elements will be truncated
-  from the top, i.e. starting with the highest-indexed batch elements.
-  Masks are not considered even if attached to a input of :class:`Batch` type.
-
-  Args:
-    *xl: batched timesteps of various types
-
-  Returns:
-    Copies of the inputs, truncated to consistent batch size.
-  """
-  batch_sizes = []
-  for x in xl:
-    if isinstance(x, dy.Expression) or isinstance(x, expression_seqs.ExpressionSequence):
-      batch_sizes.append(x.dim()[1])
-    elif isinstance(x, Batch):
-      batch_sizes.append(len(x))
-    elif isinstance(x, Mask):
-      batch_sizes.append(x.batch_size())
-    elif isinstance(x, recurrent.UniLSTMState):
-      batch_sizes.append(x.output().dim()[1])
-    else:
-      raise ValueError(f"unsupported type {type(x)}")
-    assert batch_sizes[-1] > 0
-  ret = []
-  for i, x in enumerate(xl):
-    if batch_sizes[i] > min(batch_sizes):
-      if isinstance(x, dy.Expression) or isinstance(x, expression_seqs.ExpressionSequence):
-        ret.append(x[tuple([slice(None)]*len(x.dim()[0]) + [slice(min(batch_sizes))])])
-      elif isinstance(x, Batch):
-        ret.append(mark_as_batch(x[:min(batch_sizes)]))
-      elif isinstance(x, Mask):
-        ret.append(Mask(x.np_arr[:min(batch_sizes)]))
-      elif isinstance(x, recurrent.UniLSTMState):
-        ret.append(x[:,:min(batch_sizes)])
-      else:
-        raise ValueError(f"unsupported type {type(x)}")
-    else:
-      ret.append(x)
-  return ret

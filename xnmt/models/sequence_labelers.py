@@ -1,9 +1,9 @@
 from typing import Optional, Set, Sequence, Union
 import numbers
 
-import dynet as dy
 import numpy as np
 
+import xnmt.tensor_tools as tt
 from xnmt import batchers, event_trigger, events, inferences, input_readers, reports, sent, vocabs
 from xnmt.modelparts import attenders, embedders, scorers, transforms
 from xnmt.models import base as models
@@ -56,13 +56,12 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
     embeddings = self.src_embedder.embed_sent(src)
     encodings = self.encoder.transduce(embeddings)
     encodings_tensor = encodings.as_tensor()
-    ((hidden_dim, seq_len), batch_size) = encodings.dim()
-    encoding_reshaped = dy.reshape(encodings_tensor, (hidden_dim,), batch_size=batch_size * seq_len)
+    encoding_reshaped = tt.merge_time_batch_dims(encodings_tensor)
     outputs = self.transform.transform(encoding_reshaped)
-    return batch_size, encodings, outputs, seq_len
+    return tt.batch_size(encodings_tensor), encodings, outputs, tt.sent_len(encodings_tensor)
 
   def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) \
-          -> dy.Expression:
+          -> tt.Tensor:
     assert batchers.is_batched(src) and batchers.is_batched(trg)
     batch_size, encodings, outputs, seq_len = self._encode_src(src)
 
@@ -70,27 +69,24 @@ class SeqLabeler(models.ConditionedModel, models.GeneratorModel, Serializable, r
       if self.auto_cut_pad:
         trg = self._cut_or_pad_targets(seq_len, trg)
       else:
-        raise ValueError(f"src/trg length do not match: {seq_len} != {len(trg[0])}")
+        raise ValueError(f"src/trg length do not match: {seq_len} != {trg.sent_len()}")
 
     ref_action = np.asarray([trg_sent.words for trg_sent in trg]).reshape((seq_len * batch_size,))
     loss_expr_perstep = self.scorer.calc_loss(outputs, batchers.mark_as_batch(ref_action))
-    # loss_expr_perstep = dy.pickneglogsoftmax_batch(outputs, ref_action)
-    loss_expr_perstep = dy.reshape(loss_expr_perstep, (seq_len,), batch_size=batch_size)
-    if trg.mask:
-      loss_expr_perstep = dy.cmult(loss_expr_perstep, dy.inputTensor(1.0-trg.mask.np_arr.T, batched=True))
-    loss_expr = dy.sum_elems(loss_expr_perstep)
+    loss_expr_perstep = tt.unmerge_time_batch_dims(loss_expr_perstep, batch_size)
+    loss_expr = tt.aggregate_masked_loss(loss_expr_perstep, trg.mask)
 
     return loss_expr
 
   def _cut_or_pad_targets(self, seq_len: numbers.Integral, trg: batchers.Batch) -> batchers.Batch:
     old_mask = trg.mask
-    if len(trg[0]) > seq_len:
-      trunc_len = len(trg[0]) - seq_len
-      trg = batchers.mark_as_batch([trg_sent.get_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
+    if trg.sent_len() > seq_len:
+      trunc_len = trg.sent_len() - seq_len
+      trg = batchers.mark_as_batch([trg_sent.create_truncated_sent(trunc_len=trunc_len) for trg_sent in trg])
       if old_mask:
         trg.mask = batchers.Mask(np_arr=old_mask.np_arr[:, :-trunc_len])
     else:
-      pad_len = seq_len - len(trg[0])
+      pad_len = seq_len - trg.sent_len()
       trg = batchers.mark_as_batch([trg_sent.create_padded_sent(pad_len=pad_len) for trg_sent in trg])
       if old_mask:
         trg.mask = np.pad(old_mask.np_arr, pad_width=((0, 0), (0, pad_len)), mode="constant", constant_values=1)

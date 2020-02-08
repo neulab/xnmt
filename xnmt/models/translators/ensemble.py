@@ -1,8 +1,9 @@
-import dynet as dy
 import numbers
 
 from typing import Sequence, Optional, Union
 
+import xnmt
+import xnmt.tensor_tools as tt
 import xnmt.inferences as inferences
 import xnmt.input_readers as input_readers
 import xnmt.events as events
@@ -11,14 +12,12 @@ import xnmt.batchers as batchers
 import xnmt.sent as sent
 import xnmt.search_strategies as search_strategies
 import xnmt.modelparts.scorers as scorers
+import xnmt.models.translators.auto_regressive as translators_auto_regressive
+import xnmt.models.translators.default as translators_default
 
 from xnmt.persistence import Serializable, bare, serializable_init
 
-from .auto_regressive import AutoRegressiveTranslator
-from .default import DefaultTranslator
-
-
-class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
+class EnsembleTranslator(translators_auto_regressive.AutoRegressiveTranslator, Serializable):
   """
   A translator that decodes from an ensemble of DefaultTranslator models.
   Args:
@@ -35,7 +34,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
   @events.register_xnmt_handler
   @serializable_init
   def __init__(self,
-               models: Sequence[DefaultTranslator],
+               models: Sequence[translators_default.DefaultTranslator],
                src_reader: input_readers.InputReader,
                trg_reader: input_readers.InputReader,
                inference: inferences.AutoRegressiveInference=bare(inferences.AutoRegressiveInference)) -> None:
@@ -52,7 +51,7 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
         f"trg_reader.vocab is not compatible with model {i}"
 
     # proxy object used for generation, to avoid code duplication
-    self._proxy = DefaultTranslator(
+    self._proxy = translators_default.DefaultTranslator(
       self.src_reader,
       self.trg_reader,
       EnsembleListDelegate([model.src_embedder for model in self.models]),
@@ -68,14 +67,13 @@ class EnsembleTranslator(AutoRegressiveTranslator, Serializable):
   def set_trg_vocab(self, trg_vocab: Optional[vocabs.Vocab] = None) -> None:
     self._proxy.set_trg_vocab(trg_vocab=trg_vocab)
 
-  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
-    return dy.average([model.calc_nll(src, trg) for model in self.models])
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> tt.Tensor:
+    return tt.average([model.calc_nll(src, trg) for model in self.models])
 
   def generate(self,
                src: batchers.Batch,
                search_strategy: search_strategies.SearchStrategy) -> Sequence[sent.Sentence]:
     return self._proxy.generate(src, search_strategy)
-
 
 class EnsembleListDelegate(object):
   """
@@ -146,7 +144,6 @@ class EnsembleListDelegate(object):
   def __repr__(self):
     return "EnsembleListDelegate([" + ', '.join(repr(elem) for elem in self._objects) + "])"
 
-
 class EnsembleDecoder(EnsembleListDelegate):
   """
   Auxiliary object to wrap a list of decoders for ensembling.
@@ -156,8 +153,8 @@ class EnsembleDecoder(EnsembleListDelegate):
   """
   def calc_log_probs(self, mlp_dec_states):
     scores = [obj.scorer.calc_log_probs(dec_state.as_vector()) for obj, dec_state in zip(self._objects, mlp_dec_states)]
-    return dy.average(scores)
+    return tt.average(scores)
 
   def best_k(self, mlp_dec_states, k: numbers.Integral, normalize_scores: bool = False):
     logprobs = self.calc_log_probs(mlp_dec_states)
-    return scorers.find_best_k(logprobs.npvalue(), k)
+    return scorers.find_best_k(tt.npvalue(logprobs), k)

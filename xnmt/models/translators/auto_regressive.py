@@ -1,8 +1,8 @@
-import dynet as dy
 import collections
 
 from typing import Optional, Sequence, Union
 
+import xnmt.tensor_tools as tt
 import xnmt.batchers as batchers
 import xnmt.sent as sent
 import xnmt.vocabs as vocabs
@@ -18,7 +18,7 @@ class AutoRegressiveTranslator(base.ConditionedModel, base.GeneratorModel):
   add_input and either best_k or sample.
   """
 
-  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> dy.Expression:
+  def calc_nll(self, src: Union[batchers.Batch, sent.Sentence], trg: Union[batchers.Batch, sent.Sentence]) -> tt.Tensor:
     """
     Calculate the negative log likelihood, or similar value, of trg given src
     Args:

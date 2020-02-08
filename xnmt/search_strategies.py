@@ -1,12 +1,10 @@
 from collections import namedtuple
 import math
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, List, Optional
 import numbers
 
-import dynet as dy
 import numpy as np
 
-from xnmt import batchers, logger
 from xnmt.modelparts import decoders
 from xnmt.length_norm import NoNormalization, LengthNormalization
 from xnmt.persistence import Serializable, serializable_init, bare

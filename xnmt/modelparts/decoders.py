@@ -1,9 +1,7 @@
 from typing import Any
 import numbers
 
-import dynet as dy
-
-from xnmt import batchers, param_collections
+import xnmt, xnmt.tensor_tools as tt
 from xnmt.modelparts import bridges, transforms, scorers, embedders
 from xnmt.transducers import recurrent
 from xnmt.persistence import serializable_init, Serializable, bare, Ref
@@ -72,7 +70,6 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn: recurrent decoder
     transform: a layer of transformation between rnn and output scorer
     scorer: the method of scoring the output (usually softmax)
-    truncate_dec_batches: whether the decoder drops batch elements as soon as these are masked at some time step.
   """
 
   yaml_tag = '!AutoRegressiveDecoder'
@@ -85,12 +82,9 @@ class AutoRegressiveDecoder(Decoder, Serializable):
                bridge: bridges.Bridge = bare(bridges.CopyBridge),
                rnn: recurrent.UniLSTMSeqTransducer = bare(recurrent.UniLSTMSeqTransducer),
                transform: transforms.Transform = bare(transforms.AuxNonLinear),
-               scorer: scorers.Scorer = bare(scorers.Softmax),
-               truncate_dec_batches: bool = Ref("exp_global.truncate_dec_batches", default=False)) -> None:
-    self.param_col = param_collections.ParamManager.my_params(self)
+               scorer: scorers.Scorer = bare(scorers.Softmax)) -> None:
     self.input_dim = input_dim
     self.embedder = embedder
-    self.truncate_dec_batches = truncate_dec_batches
     self.bridge = bridge
     self.rnn = rnn
     self.transform = transform
@@ -124,9 +118,9 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     rnn_state = self.rnn.initial_state()
     rnn_s = self.bridge.decoder_init(enc_final_states)
     rnn_state = rnn_state.set_s(rnn_s)
-    zeros = dy.zeros(self.input_dim) if self.input_feeding else None
     ss_expr = self.embedder.embed(ss)
-    rnn_state = rnn_state.add_input(dy.concatenate([ss_expr, zeros]) if self.input_feeding else ss_expr)
+    zeros = tt.zeroes(hidden_dim=self.input_dim,batch_size=tt.batch_size(ss_expr)) if self.input_feeding else None
+    rnn_state = rnn_state.add_input(tt.concatenate([ss_expr, zeros]) if self.input_feeding else ss_expr)
     return AutoRegressiveDecoderState(rnn_state=rnn_state, context=zeros)
 
   def add_input(self, dec_state: AutoRegressiveDecoderState, trg_word: Any) -> AutoRegressiveDecoderState:
@@ -142,14 +136,13 @@ class AutoRegressiveDecoder(Decoder, Serializable):
     trg_embedding = self.embedder.embed(trg_word)
     inp = trg_embedding
     if self.input_feeding:
-      inp = dy.concatenate([inp, dec_state.context])
+      inp = tt.concatenate([inp, dec_state.context.squeeze(1) if xnmt.backend_torch else dec_state.context])
     rnn_state = dec_state.rnn_state
-    if self.truncate_dec_batches: rnn_state, inp = batchers.truncate_batches(rnn_state, inp)
     return AutoRegressiveDecoderState(rnn_state=rnn_state.add_input(inp),
                                       context=dec_state.context)
 
-  def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> dy.Expression:
-    h = dy.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context])
+  def _calc_transform(self, mlp_dec_state: AutoRegressiveDecoderState) -> tt.Tensor:
+    h = tt.concatenate([mlp_dec_state.rnn_state.output(), mlp_dec_state.context.squeeze(1) if xnmt.backend_torch else mlp_dec_state.context])
     return self.transform.transform(h)
 
   def best_k(self, mlp_dec_state: AutoRegressiveDecoderState, k: numbers.Integral, normalize_scores: bool = False):
@@ -163,4 +156,3 @@ class AutoRegressiveDecoder(Decoder, Serializable):
 
   def calc_loss(self, mlp_dec_state, ref_action):
     return self.scorer.calc_loss(self._calc_transform(mlp_dec_state), ref_action)
-

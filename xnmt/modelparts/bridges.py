@@ -1,18 +1,23 @@
 from typing import List, Optional, Sequence
 import numbers
 
-import dynet as dy
-
+import xnmt
+from xnmt import tensor_tools as tt
 from xnmt import param_initializers
 from xnmt.modelparts import transforms
 from xnmt.persistence import serializable_init, Serializable, Ref, bare
 from xnmt.transducers import base as transducers
 
+if xnmt.backend_dynet:
+  import dynet as dy
+if xnmt.backend_torch:
+  import torch
+
 class Bridge(object):
   """
   Responsible for initializing the decoder LSTM, based on the final encoder state
   """
-  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[dy.Expression]:
+  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[tt.Tensor]:
     """
     Args:
       enc_final_states: list of final states for each encoder layer
@@ -37,9 +42,9 @@ class NoBridge(Bridge, Serializable):
                dec_dim: numbers.Integral = Ref("exp_global.default_layer_dim")) -> None:
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
-  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[dy.Expression]:
-    batch_size = enc_final_states[0].main_expr().dim()[1]
-    z = dy.zeros(self.dec_dim, batch_size)
+  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[tt.Tensor]:
+    batch_size = tt.batch_size(enc_final_states[0].main_expr())
+    z = tt.zeroes(hidden_dim=self.dec_dim, batch_size=batch_size)
     return [z] * (self.dec_layers * 2)
 
 class CopyBridge(Bridge, Serializable):
@@ -61,11 +66,11 @@ class CopyBridge(Bridge, Serializable):
                dec_dim: numbers.Integral = Ref("exp_global.default_layer_dim")) -> None:
     self.dec_layers = dec_layers
     self.dec_dim = dec_dim
-  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[dy.Expression]:
+  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[tt.Tensor]:
     if self.dec_layers > len(enc_final_states):
-      raise RuntimeError("CopyBridge requires dec_layers <= len(enc_final_states), but got %s and %s" % (self.dec_layers, len(enc_final_states)))
-    if enc_final_states[0].main_expr().dim()[0][0] != self.dec_dim:
-      raise RuntimeError("CopyBridge requires enc_dim == dec_dim, but got %s and %s" % (enc_final_states[0].main_expr().dim()[0][0], self.dec_dim))
+      raise RuntimeError(f"CopyBridge requires dec_layers <= len(enc_final_states), but got {self.dec_layers} and {len(enc_final_states)}")
+    if tt.hidden_size(enc_final_states[0].main_expr()) != self.dec_dim:
+      raise RuntimeError(f"CopyBridge requires enc_dim == dec_dim, but got {tt.hidden_size(enc_final_states[0].main_expr())} and {self.dec_dim}")
     return [enc_state.cell_expr() for enc_state in enc_final_states[-self.dec_layers:]] \
          + [enc_state.main_expr() for enc_state in enc_final_states[-self.dec_layers:]]
 
@@ -84,15 +89,6 @@ class LinearBridge(Bridge, Serializable):
   """
   yaml_tag = '!LinearBridge'
 
-  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[dy.Expression]:
-    if self.dec_layers > len(enc_final_states):
-      raise RuntimeError(
-        f"LinearBridge requires dec_layers <= len(enc_final_states), but got {self.dec_layers} and {len(enc_final_states)}")
-    if enc_final_states[0].main_expr().dim()[0][0] != self.enc_dim:
-      raise RuntimeError(
-        f"LinearBridge requires enc_dim == {self.enc_dim}, but got {enc_final_states[0].main_expr().dim()[0][0]}")
-    decoder_init = [self.projector.transform(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
-    return decoder_init + [dy.tanh(dec) for dec in decoder_init]
   @serializable_init
   def __init__(self,
                dec_layers: numbers.Integral = 1,
@@ -110,3 +106,16 @@ class LinearBridge(Bridge, Serializable):
                                                                                output_dim=self.dec_dim,
                                                                                param_init=param_init,
                                                                                bias_init=bias_init))
+
+  def decoder_init(self, enc_final_states: Sequence[transducers.FinalTransducerState]) -> List[tt.Tensor]:
+    if self.dec_layers > len(enc_final_states):
+      raise RuntimeError(
+        f"LinearBridge requires dec_layers <= len(enc_final_states), but got {self.dec_layers} and {len(enc_final_states)}")
+    if tt.hidden_size(enc_final_states[0].main_expr()) != self.enc_dim:
+      raise RuntimeError(
+        f"LinearBridge requires enc_dim == {self.enc_dim}, but got {tt.hidden_size(enc_final_states[0].main_expr())}")
+    decoder_init = [self.projector.transform(enc_state.main_expr()) for enc_state in enc_final_states[-self.dec_layers:]]
+    if xnmt.backend_dynet:
+      return decoder_init + [dy.tanh(dec) for dec in decoder_init]
+    else:
+      return decoder_init + [torch.tanh(dec) for dec in decoder_init]
